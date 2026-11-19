@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build outputs and caches
+dist/
+coverage/
+test-results/
+*.tsbuildinfo
+.pnpm-store/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors and operating systems
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+
+# AI Tools
+.cursor
+.claude
+.kiro
+.codex
+.openai

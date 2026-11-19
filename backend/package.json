@@ -1,0 +1,63 @@
+{
+  "name": "@escritorio/server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": "24.19.0",
+    "pnpm": "12.19.0"
+  },
+  "packageManager": "pnpm@12.19.0",
+  "scripts": {
+    "prepare": "husky",
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "dev:infra": "node scripts/dev-infra.mjs",
+    "dev:infra:stop": "docker compose -f docker-compose.dev.yml down",
+    "dev:local": "cross-env ADMIN_EMAILS=admin@empresa.com ACCOUNT_DOMAINS=empresa.com,parceiro.com:externo SESSION_SECRET=dev-segredo-local-com-mais-de-32-caracteres DATABASE_URL=postgres://virtual_office:devpass123@127.0.0.1:5004/virtual_office REDIS_URL=redis://:devvalkey123@127.0.0.1:5005 SMTP_HOST=127.0.0.1 SMTP_PORT=5006 LIVEKIT_URL=ws://localhost:5002 LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=devsecret-devsecret-devsecret-12345 tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --enable-source-maps dist/main.js",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "smoke": "tsx scripts/smoke.ts",
+    "quality": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
+  },
+  "dependencies": {
+    "ioredis": "^5.11.1",
+    "livekit-server-sdk": "^2.20.0",
+    "nodemailer": "^7.0.10",
+    "pg": "^8.23.1",
+    "ws": "^8.18.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@eslint/js": "^10.0.1",
+    "@types/ioredis-mock": "^8.2.8",
+    "@types/node": "^24.13.3",
+    "@types/nodemailer": "^7.0.3",
+    "@types/pg": "^8.23.1",
+    "@types/ws": "^8.5.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "cross-env": "^10.1.0",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.7.0",
+    "husky": "^9.1.7",
+    "ioredis-mock": "^8.13.1",
+    "jose": "^6.2.17",
+    "lint-staged": "^17.3.0",
+    "pg-mem": "^3.0.14",
+    "prettier": "^3.9.6",
+    "tsx": "^4.19.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10"
+  }
+}

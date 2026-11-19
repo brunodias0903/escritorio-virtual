@@ -1,0 +1,36 @@
+{
+  "name": "virtual-office-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": "24.19.0",
+    "pnpm": "12.19.0"
+  },
+  "packageManager": "pnpm@12.19.0",
+  "scripts": {
+    "prepare": "husky",
+    "env:init": "node scripts/setup-env.mjs",
+    "up": "docker compose up -d --build",
+    "down": "docker compose down",
+    "ps": "docker compose ps",
+    "logs": "docker compose logs -f",
+    "install:all": "pnpm install && pnpm --dir backend install --frozen-lockfile && pnpm --dir frontend install --frozen-lockfile",
+    "dev:infra": "pnpm --dir backend dev:infra",
+    "dev:infra:stop": "pnpm --dir backend dev:infra:stop",
+    "build": "pnpm --dir backend build && pnpm --dir frontend build",
+    "lint": "pnpm --dir backend lint && pnpm --dir frontend lint",
+    "format": "prettier --write . && pnpm --dir backend format && pnpm --dir frontend format",
+    "format:check": "prettier --check . && pnpm --dir backend format:check && pnpm --dir frontend format:check",
+    "typecheck": "pnpm --dir backend typecheck && pnpm --dir frontend typecheck",
+    "test": "pnpm --dir backend test && pnpm --dir frontend test",
+    "quality": "prettier --check . && pnpm --dir backend quality && pnpm --dir frontend quality"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.9.6"
+  }
+}

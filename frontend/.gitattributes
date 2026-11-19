@@ -1,0 +1,13 @@
+# Normaliza fins de linha no repositorio, independente do core.autocrlf de cada maquina.
+# Sem isso, o checkout no Windows vira CRLF e o `pnpm format:check` falha em arvore limpa.
+* text=auto eol=lf
+
+# Binarios: nunca converter.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

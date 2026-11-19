@@ -1,0 +1,16 @@
+.git
+.github
+.husky
+.vscode
+.idea
+.env
+.env.*
+node_modules
+.pnpm-store
+dist
+coverage
+test-results
+*.tsbuildinfo
+*.log
+README.md
+openspec

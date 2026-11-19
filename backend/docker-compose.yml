@@ -1,0 +1,125 @@
+name: escritorio-virtual-backend
+
+# Logs com tamanho limitado, para não encher o disco do servidor.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: virtual_office
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: virtual_office
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Sem "ports": só o servidor da aplicação fala com o banco.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U virtual_office -d virtual_office']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Valkey: fork livre (licença BSD) do Redis, com o mesmo protocolo.
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    logging: *logging
+    command:
+      - valkey-server
+      - --requirepass
+      - ${VALKEY_PASSWORD:?defina VALKEY_PASSWORD}
+      # Só guarda dados passageiros (limites e quem está online): sem disco.
+      - --save
+      - ''
+      - --appendonly
+      - 'no'
+    environment:
+      REDISCLI_AUTH: ${VALKEY_PASSWORD}
+    healthcheck:
+      test: ['CMD-SHELL', 'valkey-cli ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Voz e vídeo (LiveKit, licença Apache 2.0). A sinalização sobe na porta 5002
+  # (proxy /livekit no nginx do frontend) e a mídia vai direto em 5003/tcp e 5100-5200/udp.
+  livekit:
+    image: livekit/livekit-server:v1.13.11
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      LIVEKIT_KEYS: '${LIVEKIT_API_KEY:?defina LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET:?defina LIVEKIT_API_SECRET}'
+      LIVEKIT_CONFIG: |
+        port: 5002
+        rtc:
+          tcp_port: 5003
+          port_range_start: 5100
+          port_range_end: 5200
+          node_ip: ${LIVEKIT_NODE_IP:?defina LIVEKIT_NODE_IP com o IP do servidor}
+    ports:
+      - '${SERVER_BIND:-127.0.0.1}:5002:5002'
+      - '5003:5003'
+      - '5100-5200:5100-5200/udp'
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server
+      args:
+        VERSION: ${VERSION:-local}
+    image: escritorio-virtual-server:${IMAGE_TAG:-local}
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      SESSION_SECRET: ${SESSION_SECRET:?defina SESSION_SECRET com 32 caracteres ou mais}
+      DATABASE_URL: postgres://virtual_office:${POSTGRES_PASSWORD}@postgres:5432/virtual_office
+      REDIS_URL: redis://:${VALKEY_PASSWORD}@valkey:6379
+      LIVEKIT_URL: ${LIVEKIT_PUBLIC_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      ACCOUNT_DOMAINS: ${ACCOUNT_DOMAINS:-}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      EMAIL_CODES: ${EMAIL_CODES:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Escritório Virtual <nao-responda@exemplo.com>}
+    ports:
+      - '${SERVER_BIND:-127.0.0.1}:${PORT:-5001}:5001'
+
+  # Cópia diária do banco (7 dias) no volume "backups". Veja deploy/backup.sh.
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    logging: *logging
+    entrypoint: ['sh', '/backup.sh']
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_KEEP: ${BACKUP_KEEP:-7}
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  backups:

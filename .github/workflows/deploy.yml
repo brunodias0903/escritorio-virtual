@@ -1,0 +1,65 @@
+name: Deploy VPS
+
+# Disparo manual por padrão para evitar falhas antes de configurar a VPS.
+# Quando quiser deploy automático a cada merge na main, descomente o bloco `push`
+# (ou use `workflow_run` vinculado ao workflow `CI`).
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy via SSH
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          missing=0
+          for var in VPS_HOST VPS_USER VPS_SSH_KEY VPS_APP_DIR; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Secret obrigatória ausente: $var"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Deploy on VPS via SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/id_deploy -p "$PORT" "$VPS_USER@$VPS_HOST" bash -s -- "$VPS_APP_DIR" <<'EOF'
+            set -euo pipefail
+            APP_DIR="$1"
+            cd "$APP_DIR"
+
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
+
+            VERSION="$(git rev-parse --short HEAD)" docker compose up -d --build --remove-orphans
+            docker compose ps
+          EOF

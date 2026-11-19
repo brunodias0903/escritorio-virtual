@@ -1,0 +1,88 @@
+:root {
+  /* Fundos e superfícies */
+  --bg-app: #1b1b2f;
+  --bg-surface: #1f1f36;
+  --bg-surface-elevated: #161a3d;
+  --bg-bar: #12163a;
+  --bg-bar-glass: rgba(18, 22, 58, 0.95);
+  --bg-control: #1d2250;
+  --bg-input: #2a2a45;
+  --bg-input-hover: #313152;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-pill: rgba(8, 10, 28, 0.62);
+  --bg-pill-dark: rgba(8, 10, 28, 0.7);
+  --bg-tooltip: #0b0e24;
+  --bg-zoom: rgba(14, 17, 42, 0.9);
+  --bg-focus: rgba(11, 14, 36, 0.94);
+  --bg-tile: #20244d;
+  --bg-avatar-face: #2a3070;
+  --bg-desk-preview: #8a6a45;
+
+  /* Bordas */
+  --border-subtle: #33334f;
+  --border-bar: #2b3166;
+  --border-accent: #3a4180;
+  --border-tile: rgba(8, 10, 28, 0.55);
+
+  /* Textos */
+  --text-primary: #ffffff;
+  --text-body: #e4e4f0;
+  --text-secondary: #c8c8e0;
+  --text-muted: #aab2e6;
+  --text-subtle: #a0a0c0;
+  --text-placeholder: #8888aa;
+  --text-icon: #c9cff5;
+  --text-icon-idle: #7b83bd;
+  --text-disabled: #5c6396;
+
+  /* Marca e ações */
+  --accent: #5b6cff;
+  --accent-hover: #6c7bff;
+  --accent-active: #3b46a8;
+  --accent-strong: #3b4bd8;
+  --accent-chip: #3a3d7a;
+  --accent-disabled: #3a3f73;
+  --accent-link: #9aa4ff;
+  --accent-mention-bg: rgba(91, 108, 255, 0.2);
+
+  /* Semânticas e status */
+  --status-available: #31e0c1;
+  --status-busy: #ff6b81;
+  --status-away: #f1c40f;
+  --status-offline: #6b72a8;
+
+  --call-on-bg: #14584f;
+  --call-on-icon: #9af5e6;
+  --call-off-bg: #55212f;
+  --call-off-icon: #ffb3bf;
+  --zone-pill-bg: rgba(20, 88, 79, 0.85);
+
+  --danger: #d9364b;
+  --danger-banner: rgba(120, 32, 48, 0.92);
+  --danger-muted: rgba(214, 48, 73, 0.85);
+  --danger-text: #ff9aa8;
+  --warning-badge: #f39c12;
+  --mention-badge: #e67e22;
+  --mention-row-bg: rgba(241, 196, 15, 0.12);
+  --info-text: #9af5e6;
+
+  /* Tipografia e raios */
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+  --radius-pill: 999px;
+
+  /* Camadas (z-index) */
+  --z-hud: 10;
+  --z-tiles: 15;
+  --z-bar: 20;
+  --z-popup: 30;
+  --z-tooltip: 40;
+  --z-panel-overlay: 50;
+  --z-modal: 60;
+}

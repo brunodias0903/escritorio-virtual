@@ -1,0 +1,34 @@
+.container {
+  position: absolute;
+  right: 12px;
+  bottom: 76px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background-color: var(--bg-zoom);
+  border: 1px solid var(--border-bar);
+  z-index: var(--z-hud);
+}
+
+.button {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.button:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.button:disabled {
+  opacity: 0.35;
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--border-bar);
+}

@@ -1,0 +1,200 @@
+.page {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(440px, 0.88fr);
+  background-color: #120826;
+  overflow: hidden;
+}
+
+/* --- Painel visual (esquerda no desktop/notebook, topo no tablet/mobile) --- */
+
+.hero {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #120826;
+}
+
+.artwork {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.heroFade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(18, 8, 38, 0) 68%, #120826 100%),
+    linear-gradient(
+      180deg,
+      rgba(18, 8, 38, 0.12) 0%,
+      rgba(18, 8, 38, 0.45) 100%
+    );
+  pointer-events: none;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(24px, 4vw, 44px);
+}
+
+.brandBar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brandName {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.heroHeadline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 440px;
+}
+
+.heroLine,
+.heroAccent {
+  margin: 0;
+  font-size: clamp(28px, 3.2vw, 44px);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.heroLine {
+  color: #ffffff;
+}
+
+.heroAccent {
+  background: linear-gradient(90deg, #9d6bff 0%, #6366f1 55%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* --- Painel do formulário --- */
+
+.panel {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(24px, 4vh, 48px) clamp(24px, 4vw, 56px);
+  background: radial-gradient(
+    circle at 85% 15%,
+    rgba(99, 40, 217, 0.14) 0%,
+    rgba(18, 8, 38, 0) 55%
+  );
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  margin: auto 0;
+}
+
+.cardWide {
+  max-width: 480px;
+}
+
+/* --- Notebook (telas médias / altura menor) --- */
+
+@media (max-width: 1199px) {
+  .page {
+    grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr);
+  }
+}
+
+/* --- Tablet (empilhado com banner cósmico compacto no topo) --- */
+
+@media (max-width: 899px) {
+  .page {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .hero {
+    height: auto;
+    min-height: 185px;
+    flex-shrink: 0;
+  }
+
+  .heroFade {
+    background: linear-gradient(
+      180deg,
+      rgba(18, 8, 38, 0.08) 0%,
+      rgba(18, 8, 38, 0.45) 58%,
+      #120826 100%
+    );
+  }
+
+  .heroContent {
+    min-height: 185px;
+    padding: 24px 28px 16px;
+    justify-content: space-between;
+  }
+
+  .heroHeadline {
+    display: none;
+  }
+
+  .panel {
+    height: auto;
+    flex: 1 0 auto;
+    overflow-y: visible;
+    padding: 8px 28px 40px;
+  }
+
+  .card,
+  .cardWide {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+}
+
+/* --- Mobile (estilo do mockup à direita da referência) --- */
+
+@media (max-width: 599px) {
+  .hero {
+    min-height: 150px;
+  }
+
+  .heroContent {
+    min-height: 150px;
+    padding: 20px 20px 12px;
+  }
+
+  .brandName {
+    font-size: 16px;
+  }
+
+  .panel {
+    padding: 4px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .card,
+  .cardWide {
+    max-width: 100%;
+  }
+}

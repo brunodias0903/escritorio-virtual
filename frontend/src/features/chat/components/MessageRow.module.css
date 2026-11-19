@@ -1,0 +1,80 @@
+.row {
+  display: flex;
+  padding: 2px 12px;
+}
+
+.rowWithHeader {
+  margin-top: 10px;
+}
+
+.rowMentioned {
+  background-color: var(--mention-row-bg);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatarText {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.avatarSpace {
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  margin-left: 10px;
+}
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-placeholder);
+  font-size: 12px;
+}
+
+.author {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.text {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mention {
+  color: var(--accent-link);
+  background-color: var(--accent-mention-bg);
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.replies {
+  color: var(--accent-link);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.replies:hover {
+  text-decoration: underline;
+}
