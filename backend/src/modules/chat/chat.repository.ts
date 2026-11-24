@@ -44,6 +44,15 @@ export interface ChatRepository {
   /** Grava a mensagem. Gravar o mesmo id duas vezes não duplica. */
   save(message: ChatMessage): Promise<void>;
   byId(id: string): Promise<ChatMessage | undefined>;
+  updateMessage?(
+    id: string,
+    patch: {
+      text?: string;
+      mentions?: string[];
+      editedAt?: number;
+      deletedAt?: number;
+    },
+  ): Promise<ChatMessage | undefined>;
   /**
    * As últimas `limit` mensagens que abrem conversa em cada canal, da mais
    * antiga para a mais nova, já com o número de respostas.

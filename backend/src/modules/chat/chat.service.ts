@@ -294,17 +294,185 @@ export class ChatService {
     });
   }
 
-  /** Só quem criou o canal ou um administrador arquiva. Os canais iniciais, só administrador. */
+  /** Só quem criou o canal ou um administrador arquiva. Em DM, qualquer membro pode fechar/apagar. */
   async archiveChannel(
     email: string,
     channelId: string,
     isAdmin: boolean,
   ): Promise<Result<null>> {
     const channel = await this.deps.channels.get(channelId);
-    if (channel?.kind !== 'public') return fail('not_found');
+    if (!channel) return fail('not_found');
+    if (channel.kind === 'dm') {
+      if (!dmMembers(channel.id)?.includes(email)) return fail('forbidden');
+      await this.deps.channels.setArchived(channelId, true);
+      return ok(null);
+    }
     if (!isAdmin && channel.createdBy !== email) return fail('forbidden');
     await this.deps.channels.setArchived(channelId, true);
     return ok(null);
+  }
+
+  async editMessage(
+    sender: Sender,
+    channelId: string,
+    messageId: string,
+    rawText: string,
+  ): Promise<
+    Result<{
+      message: ChatMessage;
+      emails?: string[];
+      restrictedAccess?: Pick<
+        ChannelAccess,
+        'viewTiers' | 'allowedEmails' | 'blockedEmails'
+      >;
+    }>
+  > {
+    const text = rawText.trim().slice(0, CHAT_TEXT_MAX_LENGTH);
+    if (!text) return fail('empty');
+    const existing = await this.deps.chat.byId(messageId);
+    if (!existing || existing.channel !== channelId) return fail('not_found');
+    if (existing.authorId !== sender.email) return fail('forbidden');
+    if (existing.deletedAt) return fail('archived');
+
+    const senderTiers = sender.tiers ?? (sender.tier ? [sender.tier] : null);
+    const access = await this.access(
+      sender.email,
+      channelId,
+      senderTiers ?? undefined,
+    );
+    if (!access.ok) return access;
+    const channel = access.value;
+
+    const mod = this.moderator.evaluate(sender.email, text, this.now());
+    if (!mod.allowed) return fail(mod.code);
+
+    const members = dmMembers(channel.id);
+    const mentions = await this.resolveMentions(
+      mod.text,
+      sender.email,
+      members,
+    );
+    const updated = await this.deps.chat.updateMessage?.(messageId, {
+      text: mod.text,
+      mentions,
+      editedAt: this.now(),
+    });
+    if (!updated) return fail('not_found');
+
+    const isRestrictedPublic =
+      channel.kind === 'public' &&
+      ((channel.viewTiers !== undefined &&
+        channel.viewTiers.length > 0 &&
+        !ACCOUNT_TIERS.every((t) => channel.viewTiers!.includes(t))) ||
+        (channel.blockedEmails?.length ?? 0) > 0);
+
+    return ok({
+      message: updated,
+      ...(members ? { emails: [...members] } : {}),
+      ...(isRestrictedPublic
+        ? {
+            restrictedAccess: {
+              viewTiers: channel.viewTiers,
+              allowedEmails: channel.allowedEmails,
+              blockedEmails: channel.blockedEmails,
+            },
+          }
+        : {}),
+    });
+  }
+
+  async deleteMessage(
+    sender: Sender,
+    channelId: string,
+    messageId: string,
+  ): Promise<
+    Result<{
+      message: ChatMessage;
+      emails?: string[];
+      restrictedAccess?: Pick<
+        ChannelAccess,
+        'viewTiers' | 'allowedEmails' | 'blockedEmails'
+      >;
+    }>
+  > {
+    const existing = await this.deps.chat.byId(messageId);
+    if (!existing || existing.channel !== channelId) return fail('not_found');
+    if (existing.authorId !== sender.email) return fail('forbidden');
+
+    const senderTiers = sender.tiers ?? (sender.tier ? [sender.tier] : null);
+    const access = await this.access(
+      sender.email,
+      channelId,
+      senderTiers ?? undefined,
+    );
+    if (!access.ok) return access;
+    const channel = access.value;
+
+    const updated = await this.deps.chat.updateMessage?.(messageId, {
+      text: '',
+      mentions: [],
+      deletedAt: this.now(),
+    });
+    if (!updated) return fail('not_found');
+
+    const members = dmMembers(channel.id);
+    const isRestrictedPublic =
+      channel.kind === 'public' &&
+      ((channel.viewTiers !== undefined &&
+        channel.viewTiers.length > 0 &&
+        !ACCOUNT_TIERS.every((t) => channel.viewTiers!.includes(t))) ||
+        (channel.blockedEmails?.length ?? 0) > 0);
+
+    return ok({
+      message: updated,
+      ...(members ? { emails: [...members] } : {}),
+      ...(isRestrictedPublic
+        ? {
+            restrictedAccess: {
+              viewTiers: channel.viewTiers,
+              allowedEmails: channel.allowedEmails,
+              blockedEmails: channel.blockedEmails,
+            },
+          }
+        : {}),
+    });
+  }
+
+  async typingTargets(
+    email: string,
+    channelId: string,
+    tiers?: readonly AccountTier[],
+  ): Promise<
+    Result<{
+      emails?: string[];
+      restrictedAccess?: Pick<
+        ChannelAccess,
+        'viewTiers' | 'allowedEmails' | 'blockedEmails'
+      >;
+    }>
+  > {
+    const access = await this.access(email, channelId, tiers);
+    if (!access.ok) return access;
+    const channel = access.value;
+    const members = dmMembers(channel.id);
+    const isRestrictedPublic =
+      channel.kind === 'public' &&
+      ((channel.viewTiers !== undefined &&
+        channel.viewTiers.length > 0 &&
+        !ACCOUNT_TIERS.every((t) => channel.viewTiers!.includes(t))) ||
+        (channel.blockedEmails?.length ?? 0) > 0);
+    return ok({
+      ...(members ? { emails: [...members] } : {}),
+      ...(isRestrictedPublic
+        ? {
+            restrictedAccess: {
+              viewTiers: channel.viewTiers,
+              allowedEmails: channel.allowedEmails,
+              blockedEmails: channel.blockedEmails,
+            },
+          }
+        : {}),
+    });
   }
 
   /** Abre (ou reaproveita) a conversa direta com outra pessoa. */
@@ -326,6 +494,7 @@ export class ChatService {
       createdBy: email,
       createdAt: this.now(),
     });
+    await this.deps.channels.setArchived(id, false);
     await this.deps.reads.set(email, id, this.now());
     const row = (await this.deps.channels.get(id))!;
     return ok({

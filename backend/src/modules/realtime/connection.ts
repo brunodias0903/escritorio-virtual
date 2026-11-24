@@ -383,6 +383,91 @@ export class Connection {
         ]);
       }
 
+      case 'editChat': {
+        const tiers = await this.effectiveTiers(claims);
+        const result = await chat.editMessage(
+          {
+            email: claims.email,
+            name: player.name,
+            color: player.color,
+            tier: tiers[0] ?? 'tester',
+            tiers,
+          },
+          message.channel,
+          message.messageId,
+          message.text,
+        );
+        if (!result.ok) return send({ type: 'chatError', code: result.error });
+        const recipients = await this.chatRecipients(
+          claims.email,
+          result.value.emails,
+          result.value.restrictedAccess,
+        );
+        return cluster.dispatch(id, [
+          {
+            to: 'all',
+            message: { type: 'chatUpdated', message: result.value.message },
+            ...(recipients ? { emails: recipients } : {}),
+          },
+        ]);
+      }
+
+      case 'deleteChat': {
+        const tiers = await this.effectiveTiers(claims);
+        const result = await chat.deleteMessage(
+          {
+            email: claims.email,
+            name: player.name,
+            color: player.color,
+            tier: tiers[0] ?? 'tester',
+            tiers,
+          },
+          message.channel,
+          message.messageId,
+        );
+        if (!result.ok) return send({ type: 'chatError', code: result.error });
+        const recipients = await this.chatRecipients(
+          claims.email,
+          result.value.emails,
+          result.value.restrictedAccess,
+        );
+        return cluster.dispatch(id, [
+          {
+            to: 'all',
+            message: { type: 'chatUpdated', message: result.value.message },
+            ...(recipients ? { emails: recipients } : {}),
+          },
+        ]);
+      }
+
+      case 'typing': {
+        const tiers = await this.effectiveTiers(claims);
+        const result = await chat.typingTargets(
+          claims.email,
+          message.channel,
+          tiers,
+        );
+        if (!result.ok) return;
+        const recipients = await this.chatRecipients(
+          claims.email,
+          result.value.emails,
+          result.value.restrictedAccess,
+        );
+        return cluster.dispatch(id, [
+          {
+            to: 'others',
+            message: {
+              type: 'typing',
+              channel: message.channel,
+              userId: claims.email,
+              name: player.name,
+              typing: message.typing,
+            },
+            ...(recipients ? { emails: recipients } : {}),
+          },
+        ]);
+      }
+
       case 'thread': {
         const tiers = await this.effectiveTiers(claims);
         const result = await chat.thread(claims.email, message.threadId, tiers);
@@ -518,5 +603,36 @@ export class Connection {
         );
       }
     }
+  }
+
+  private async chatRecipients(
+    senderEmail: string,
+    emails?: string[],
+    restrictedAccess?: Parameters<typeof canViewChannel>[0],
+  ): Promise<string[] | undefined> {
+    if (emails || !restrictedAccess) return emails;
+    const onlineEmails = [
+      ...new Set(
+        this.deps.office
+          .everyone()
+          .map((p) => p.email)
+          .filter((e): e is string => Boolean(e)),
+      ),
+    ];
+    const allowed: string[] = [];
+    await Promise.all(
+      onlineEmails.map(async (email) => {
+        const acc = await this.deps.accounts.byEmail(email);
+        const accTiers = effectiveTiersOf(
+          acc?.tier ?? 'tester',
+          acc?.secondaryTiers,
+        );
+        if (canViewChannel(restrictedAccess, accTiers, email)) {
+          allowed.push(email);
+        }
+      }),
+    );
+    if (!allowed.includes(senderEmail)) allowed.push(senderEmail);
+    return allowed;
   }
 }

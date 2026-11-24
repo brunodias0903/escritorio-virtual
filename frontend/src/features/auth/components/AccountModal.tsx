@@ -6,6 +6,11 @@ import { beginSession } from '@/app/session';
 import { AccessibilityModal } from '@/features/accessibility/AccessibilityModal';
 import { useAccessibilityStore } from '@/features/accessibility/accessibilityStore';
 import { validateUpdate } from '@/features/auth/model/validation';
+import {
+  CHAT_NOTIFY_MODES,
+  useNotificationPrefsStore,
+  type ChatNotifyMode,
+} from '@/features/chat/model/notificationPrefsStore';
 import { LegalModal } from '@/features/legal/LegalModal';
 import { FaceAvatar } from '@/features/office/components/FaceAvatar';
 import {
@@ -69,6 +74,8 @@ export function AccountModal({
   onClose,
 }: Props) {
   const { locale, setLocale, t } = useI18n();
+  const notifyMode = useNotificationPrefsStore((s) => s.mode);
+  const setNotifyMode = useNotificationPrefsStore((s) => s.setMode);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [loaded, setLoaded] = useState(false);
 
@@ -652,6 +659,30 @@ export function AccountModal({
                     {SUPPORTED_LOCALES.map((loc) => (
                       <option key={loc} value={loc}>
                         {t(`common.language.${loc}`)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.prefCard}>
+                  <div>
+                    <strong>🔔 Notificações do servidor e DMs</strong>
+                    <p className={styles.hint}>
+                      Escolha quais mensagens disparam o contador no ícone do
+                      servidor e o som de alerta.
+                    </p>
+                  </div>
+                  <select
+                    aria-label="Notificações do servidor e DMs"
+                    value={notifyMode}
+                    onChange={(e) =>
+                      setNotifyMode(e.target.value as ChatNotifyMode)
+                    }
+                    className={styles.select}
+                  >
+                    {CHAT_NOTIFY_MODES.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>

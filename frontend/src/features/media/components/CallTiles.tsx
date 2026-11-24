@@ -189,14 +189,23 @@ export function CallTiles({
   const { height: windowHeight } = useWindowSize();
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [mobileGridOpen, setMobileGridOpen] = useState(false);
+  const [collapsedScreens, setCollapsedScreens] = useState<
+    Record<string, boolean>
+  >({});
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  const toggleScreenCollapsed = (key: string) => {
+    setCollapsedScreens((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const scrollCarousel = (delta: number) => {
+    carouselRef.current?.scrollBy({ left: delta, behavior: 'smooth' });
+  };
 
   const mine = tiles.filter((t) => t.self && t.kind === 'camera');
   const myShare = tiles.filter((t) => t.self && t.kind === 'screen');
   const shares = tiles.filter((t) => !t.self && t.kind === 'screen');
   const others = tiles.filter((t) => !t.self && t.kind === 'camera');
-
-  // Se a tela ampliada parar de ser compartilhada, volta ao normal sozinho.
-  const focused = shares.find((t) => t.key === focusKey) ?? null;
 
   // Câmera ampliada em destaque (própria ou de outra pessoa).
   const spotlightTile =
@@ -211,14 +220,21 @@ export function CallTiles({
       ? others.filter((t) => t.key !== spotlightTile.key)
       : others;
 
+  // Foco ampliado para tela compartilhada (própria ou de outro participante).
+  const focused =
+    [...shares, ...myShare].find((t) => t.key === focusKey) ?? null;
+
   useEffect(() => {
-    if (!spotlightTile || !onSpotlightChange) return;
+    if (!spotlightTile && !focused) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onSpotlightChange(null);
+      if (event.key === 'Escape') {
+        if (focused) setFocusKey(null);
+        if (spotlightTile && onSpotlightChange) onSpotlightChange(null);
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [spotlightTile, onSpotlightChange]);
+  }, [spotlightTile, focused, onSpotlightChange]);
 
   // --- Experiência dedicada para Mobile (strip compacto + grid expansível estilo Discord) ---
   if (compact) {
@@ -420,46 +436,116 @@ export function CallTiles({
   const spotHeight = Math.round(spotWidth * TILE_RATIO);
   const canTrueCenter = compact || width >= spotWidth + 620;
 
+  const hasTopRightSelf =
+    !compact &&
+    ((mine.length > 0 && !spotlightTile?.self) || myShare.length > 0);
+
+  // Emparelha cada câmera com a respectiva tela compartilhada logo abaixo.
+  const pairedOthers = rowOthers.map((cam) => ({
+    cam,
+    screen: shares.find((s) => s.key === `${cam.key}-screen`) ?? null,
+  }));
+  const orphanShares = shares.filter(
+    (s) => !rowOthers.some((cam) => s.key === `${cam.key}-screen`),
+  );
+  const topCarouselCount = pairedOthers.length + orphanShares.length;
+
+  const renderScreenSlot = (screen: CallTile, w: number) => {
+    const isCollapsed = Boolean(collapsedScreens[screen.key]);
+    if (isCollapsed) {
+      return (
+        <div key={screen.key} className={styles.screenCollapsedRow}>
+          <button
+            type="button"
+            className={styles.screenCollapsedBtn}
+            onClick={() => toggleScreenCollapsed(screen.key)}
+          >
+            🖥️ Mostrar tela
+          </button>
+          {!compact ? (
+            <TileButton
+              icon="expand"
+              label="Ampliar a tela"
+              onClick={() => setFocusKey(screen.key)}
+            />
+          ) : null}
+        </div>
+      );
+    }
+    return (
+      <Tile
+        key={screen.key}
+        tile={screen}
+        width={w}
+        height={Math.round(w * SCREEN_RATIO)}
+      >
+        <div className={styles.tileActions}>
+          <TileButton
+            icon="chevronUp"
+            label="Recolher tela"
+            onClick={() => toggleScreenCollapsed(screen.key)}
+          />
+          {!compact ? (
+            <TileButton
+              icon="expand"
+              label="Ampliar a tela"
+              onClick={() => setFocusKey(screen.key)}
+            />
+          ) : null}
+        </div>
+      </Tile>
+    );
+  };
+
   return (
     <div className={styles.layer}>
-      {shares.length + rowOthers.length > 0 ? (
-        <div className={`${styles.row} ${compact ? styles.rowCompact : ''}`}>
-          {shares.map((tile) => (
-            <Tile
-              key={tile.key}
-              tile={tile}
-              width={row.screenWidth}
-              height={row.height}
+      {topCarouselCount > 0 ? (
+        <div
+          className={`${styles.carouselWrap} ${hasTopRightSelf ? styles.carouselWithSelf : ''}`}
+        >
+          {topCarouselCount > 2 ? (
+            <button
+              type="button"
+              className={styles.carouselBtn}
+              aria-label="Câmeras anteriores"
+              onClick={() => scrollCarousel(-260)}
             >
-              {!compact ? (
-                <div className={styles.tileActions}>
-                  <TileButton
-                    icon="expand"
-                    label="Ampliar a tela"
-                    onClick={() => setFocusKey(tile.key)}
-                  />
-                </div>
-              ) : null}
-            </Tile>
-          ))}
-          {rowOthers.map((tile) => (
-            <Tile
-              key={tile.key}
-              tile={tile}
-              width={row.cameraWidth}
-              height={row.height}
+              <Icon name="chevronLeft" size={16} color="#ffffff" />
+            </button>
+          ) : null}
+          <div ref={carouselRef} className={styles.carouselTrack}>
+            {pairedOthers.map(({ cam, screen }) => (
+              <div key={cam.key} className={styles.participantCol}>
+                <Tile tile={cam} width={row.cameraWidth} height={row.height}>
+                  {onSpotlightChange ? (
+                    <div className={styles.tileActions}>
+                      <TileButton
+                        icon="expand"
+                        label={`Ampliar câmera de ${cam.label}`}
+                        onClick={() => onSpotlightChange(cam.key)}
+                      />
+                    </div>
+                  ) : null}
+                </Tile>
+                {screen ? renderScreenSlot(screen, row.cameraWidth) : null}
+              </div>
+            ))}
+            {orphanShares.map((screen) => (
+              <div key={screen.key} className={styles.participantCol}>
+                {renderScreenSlot(screen, row.screenWidth)}
+              </div>
+            ))}
+          </div>
+          {topCarouselCount > 2 ? (
+            <button
+              type="button"
+              className={styles.carouselBtn}
+              aria-label="Próximas câmeras"
+              onClick={() => scrollCarousel(260)}
             >
-              {onSpotlightChange ? (
-                <div className={styles.tileActions}>
-                  <TileButton
-                    icon="expand"
-                    label={`Ampliar câmera de ${tile.label}`}
-                    onClick={() => onSpotlightChange(tile.key)}
-                  />
-                </div>
-              ) : null}
-            </Tile>
-          ))}
+              <Icon name="chevronRight" size={16} color="#ffffff" />
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -482,17 +568,35 @@ export function CallTiles({
         </div>
       ) : null}
 
-      {/* Minha tela compartilhada (a própria câmera agora fica acoplada no cartão inferior esquerdo). */}
-      {myShare.length > 0 ? (
-        <div className={compact ? styles.selfCompact : styles.self}>
-          {myShare.map((tile) => (
-            <Tile
-              key={tile.key}
-              tile={tile}
-              width={selfHeight / SCREEN_RATIO}
-              height={selfHeight}
-            />
-          ))}
+      {/* Minha câmera e tela fixas no canto superior direito (tela logo abaixo da câmera) */}
+      {hasTopRightSelf ? (
+        <div className={styles.selfTopRight}>
+          {topCarouselCount > 0 ? (
+            <div className={styles.selfDivider} aria-hidden="true" />
+          ) : null}
+          <div className={styles.selfCol}>
+            {!spotlightTile?.self
+              ? mine.map((tile) => (
+                  <Tile
+                    key={tile.key}
+                    tile={tile}
+                    width={selfWidth}
+                    height={Math.round(selfHeight)}
+                  >
+                    {onSpotlightChange ? (
+                      <div className={styles.tileActions}>
+                        <TileButton
+                          icon="expand"
+                          label="Ampliar minha câmera"
+                          onClick={() => onSpotlightChange('self')}
+                        />
+                      </div>
+                    ) : null}
+                  </Tile>
+                ))
+              : null}
+            {myShare.map((tile) => renderScreenSlot(tile, selfWidth))}
+          </div>
         </div>
       ) : null}
     </div>

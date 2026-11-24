@@ -697,4 +697,57 @@ describe('mesinhas adotáveis', () => {
       }),
     ]);
   });
+
+  it('transmite digitando, edição e exclusão de mensagem em tempo real', async () => {
+    const w = world();
+    const ana = await w.login('a', 'ana@empresa.com', 'Ana');
+    const bia = await w.login('b', 'bia@empresa.com', 'Bia');
+
+    await ana.send({ type: 'typing', channel: 'geral', typing: true });
+    expect(bia.ofType('typing')).toEqual([
+      {
+        type: 'typing',
+        channel: 'geral',
+        userId: 'ana@empresa.com',
+        name: 'Ana',
+        typing: true,
+      },
+    ]);
+
+    await ana.send({ type: 'chat', channel: 'geral', text: 'oi pessoal' });
+    const sent = ana.ofType('chat')[0]!;
+    expect(sent.message.text).toBe('oi pessoal');
+
+    await ana.send({
+      type: 'editChat',
+      channel: 'geral',
+      messageId: sent.message.id,
+      text: 'oi editado',
+    });
+    expect(bia.ofType('chatUpdated').at(-1)?.message.text).toBe('oi editado');
+
+    await bia.send({
+      type: 'editChat',
+      channel: 'geral',
+      messageId: sent.message.id,
+      text: 'sem permissao',
+    });
+    expect(bia.ofType('chatError').at(-1)?.code).toBe('forbidden');
+
+    await bia.send({
+      type: 'deleteChat',
+      channel: 'geral',
+      messageId: sent.message.id,
+    });
+    expect(bia.ofType('chatError').at(-1)?.code).toBe('forbidden');
+
+    await ana.send({ type: 'typing', channel: 'inexistente', typing: true });
+
+    await ana.send({
+      type: 'deleteChat',
+      channel: 'geral',
+      messageId: sent.message.id,
+    });
+    expect(bia.ofType('chatUpdated').at(-1)?.message.deletedAt).toBeDefined();
+  });
 });

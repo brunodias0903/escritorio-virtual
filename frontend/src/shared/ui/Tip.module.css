@@ -47,6 +47,34 @@
   margin-right: 13px;
 }
 
+.bottom {
+  bottom: auto;
+  top: 100%;
+  margin-bottom: 0;
+  margin-top: 8px;
+}
+
+.bottomEnd {
+  left: auto;
+  right: 0;
+  transform: none;
+  align-items: flex-end;
+}
+
+.bottomEnd .arrowUp {
+  margin-right: 13px;
+}
+
+.arrowUp {
+  width: 10px;
+  height: 10px;
+  margin-bottom: -6px;
+  background-color: var(--bg-tooltip);
+  border-left: 1px solid var(--border-accent);
+  border-top: 1px solid var(--border-accent);
+  transform: rotate(45deg);
+}
+
 .right {
   bottom: auto;
   top: 50%;

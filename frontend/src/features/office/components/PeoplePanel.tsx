@@ -20,6 +20,7 @@ type Props = {
   query: string;
   onQuery: (query: string) => void;
   onGoToDesk: (desk: DeskInfo) => void;
+  onHoverDesk?: (desk: DeskInfo | null) => void;
   /** Abre a conversa direta com a pessoa (pelo e-mail). */
   onMessage: (email: string) => void;
   onClose: () => void;
@@ -33,12 +34,16 @@ function Action({
   text,
   disabled = false,
   onClick,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   icon: IconName;
   label: string;
   text: string;
   disabled?: boolean;
   onClick: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   return (
     <button
@@ -46,6 +51,8 @@ function Action({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={styles.action}
     >
       <Icon name={icon} size={16} color={disabled ? '#5c6396' : '#ffffff'} />
@@ -58,11 +65,13 @@ function Row({
   row,
   self,
   onGoToDesk,
+  onHoverDesk,
   onMessage,
 }: {
   row: PersonRow;
   self: boolean;
   onGoToDesk: (desk: DeskInfo) => void;
+  onHoverDesk?: (desk: DeskInfo | null) => void;
   onMessage: (email: string) => void;
 }) {
   const { person, desk } = row;
@@ -135,6 +144,8 @@ function Row({
           text={desk ? (self ? 'Minha mesa' : 'Ir à mesa') : 'Sem mesa'}
           disabled={!desk}
           onClick={() => desk && onGoToDesk(desk)}
+          onMouseEnter={() => desk && onHoverDesk?.(desk)}
+          onMouseLeave={() => onHoverDesk?.(null)}
         />
         {!self ? (
           <Action
@@ -160,6 +171,7 @@ export function PeoplePanel({
   query,
   onQuery,
   onGoToDesk,
+  onHoverDesk,
   onMessage,
   onClose,
   embedded = false,
@@ -204,7 +216,13 @@ export function PeoplePanel({
       </div>
       <div className={styles.list}>
         {me ? (
-          <Row row={me} self onGoToDesk={onGoToDesk} onMessage={onMessage} />
+          <Row
+            row={me}
+            self
+            onGoToDesk={onGoToDesk}
+            onHoverDesk={onHoverDesk}
+            onMessage={onMessage}
+          />
         ) : null}
         <div className={styles.divider} />
         {others.length === 0 ? (
@@ -218,6 +236,7 @@ export function PeoplePanel({
               row={row}
               self={false}
               onGoToDesk={onGoToDesk}
+              onHoverDesk={onHoverDesk}
               onMessage={onMessage}
             />
           ))

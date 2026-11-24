@@ -55,6 +55,10 @@ export const ChatMessageSchema = z.object({
   mentions: z.array(z.string()).default([]),
   /** Só nas mensagens que abrem conversa: quantas respostas têm. */
   replyCount: z.number().int().min(0).default(0),
+  /** Timestamp da última edição da mensagem. */
+  editedAt: z.number().optional(),
+  /** Timestamp de exclusão ("apagar para todos"). */
+  deletedAt: z.number().optional(),
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
@@ -87,6 +91,22 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     text: z.string(),
     threadId: z.string().max(80).optional(),
   }),
+  z.object({
+    type: z.literal('editChat'),
+    channel: ChannelIdSchema,
+    messageId: z.string().max(80),
+    text: z.string(),
+  }),
+  z.object({
+    type: z.literal('deleteChat'),
+    channel: ChannelIdSchema,
+    messageId: z.string().max(80),
+  }),
+  z.object({
+    type: z.literal('typing'),
+    channel: ChannelIdSchema,
+    typing: z.boolean(),
+  }),
   z.object({ type: z.literal('status'), status: StatusSchema }),
   z.object({ type: z.literal('emote'), emote: EmoteSchema }),
   z.object({ type: z.literal('appearance'), appearance: AppearanceSchema }),
@@ -114,7 +134,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   /** Pede a lista de canais e conversas (com não lidas). */
   z.object({ type: z.literal('channels') }),
   z.object({ type: z.literal('createChannel'), name: z.string().max(60) }),
-  z.object({ type: z.literal('archiveChannel'), id: z.string().max(60) }),
+  z.object({ type: z.literal('archiveChannel'), id: ChannelIdSchema }),
   /** Abre (ou reaproveita) a conversa direta com outra pessoa. */
   z.object({ type: z.literal('openDm'), email: z.string().max(254) }),
   /** Pede a lista de pessoas para escolher com quem conversar. */
@@ -160,6 +180,14 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     appearance: AppearanceSchema,
   }),
   z.object({ type: z.literal('chat'), message: ChatMessageSchema }),
+  z.object({ type: z.literal('chatUpdated'), message: ChatMessageSchema }),
+  z.object({
+    type: z.literal('typing'),
+    channel: ChannelIdSchema,
+    userId: z.string(),
+    name: z.string(),
+    typing: z.boolean(),
+  }),
   z.object({
     type: z.literal('history'),
     messages: z.array(ChatMessageSchema),

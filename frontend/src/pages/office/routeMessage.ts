@@ -63,6 +63,17 @@ export function routeServerMessage(
         notify(`🔔 Nova mensagem de ${message.message.author} no chat.`);
       }
       break;
+    case 'chatUpdated':
+      chat.updateMessage(message.message);
+      break;
+    case 'typing':
+      chat.setTyping(
+        message.channel,
+        message.userId,
+        message.name,
+        message.typing,
+      );
+      break;
     case 'history':
       chat.setHistory(message.messages);
       break;

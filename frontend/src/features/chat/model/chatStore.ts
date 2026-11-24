@@ -19,6 +19,7 @@ type ChatState = {
   panelOpen: boolean;
   thread: { rootId: string; messages: ChatMessage[] } | null;
   people: Person[];
+  typingByChannel: Record<string, Record<string, { name: string; at: number }>>;
   /** Código do último erro do chat (veja `errorMessage`). */
   error: string | null;
   setMe: (email: string) => void;
@@ -30,6 +31,13 @@ type ChatState = {
   setHistory: (messages: ChatMessage[]) => void;
   /** Devolve 'unknown-channel' quando o canal ainda não está na lista (peça a lista de novo). */
   receive: (message: ChatMessage) => 'ok' | 'unknown-channel';
+  updateMessage: (message: ChatMessage) => void;
+  setTyping: (
+    channel: string,
+    userId: string,
+    name: string,
+    typing: boolean,
+  ) => void;
   setActive: (channel: string) => void;
   setPanelOpen: (open: boolean) => void;
   openThread: (rootId: string) => void;
@@ -48,6 +56,7 @@ const initial = () => ({
   panelOpen: false,
   thread: null as ChatState['thread'],
   people: [] as Person[],
+  typingByChannel: {} as ChatState['typingByChannel'],
   error: null as string | null,
 });
 
@@ -165,10 +174,54 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 : c,
             );
 
-      return { messages, thread, channels };
+      const prevTyping = current.typingByChannel[message.channel];
+      const nextTyping =
+        prevTyping && prevTyping[message.authorId]
+          ? (() => {
+              const copy = { ...prevTyping };
+              delete copy[message.authorId];
+              return { ...current.typingByChannel, [message.channel]: copy };
+            })()
+          : current.typingByChannel;
+
+      return { messages, thread, channels, typingByChannel: nextTyping };
     });
     return known ? 'ok' : 'unknown-channel';
   },
+
+  updateMessage: (message) =>
+    set((current) => {
+      const list = current.messages[message.channel] ?? [];
+      const messages = {
+        ...current.messages,
+        [message.channel]: list.map((m) =>
+          m.id === message.id ? { ...m, ...message } : m,
+        ),
+      };
+      const thread = current.thread
+        ? {
+            ...current.thread,
+            messages: current.thread.messages.map((m) =>
+              m.id === message.id ? { ...m, ...message } : m,
+            ),
+          }
+        : null;
+      return { messages, thread };
+    }),
+
+  setTyping: (channel, userId, name, typing) =>
+    set((current) => {
+      const prev = current.typingByChannel[channel] ?? {};
+      const next = { ...prev };
+      if (typing) {
+        next[userId] = { name, at: Date.now() };
+      } else {
+        delete next[userId];
+      }
+      return {
+        typingByChannel: { ...current.typingByChannel, [channel]: next },
+      };
+    }),
 
   setActive: (channel) =>
     set((state) => ({

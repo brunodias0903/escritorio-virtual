@@ -8,11 +8,11 @@ import { useAccessibilityStore } from '@/features/accessibility/accessibilitySto
 import { AccountModal } from '@/features/auth/components/AccountModal';
 import { EmailPrefsPrompt } from '@/features/auth/components/EmailPrefsPrompt';
 import { VerifyEmailPrompt } from '@/features/auth/components/VerifyEmailPrompt';
+import { useChatStore } from '@/features/chat/model/chatStore';
 import {
-  totalMentions,
-  totalUnread,
-  useChatStore,
-} from '@/features/chat/model/chatStore';
+  effectiveNotificationCounts,
+  useNotificationPrefsStore,
+} from '@/features/chat/model/notificationPrefsStore';
 import { DeskEditor } from '@/features/desks/components/DeskEditor';
 import { myDesk, useDeskStore } from '@/features/desks/model/deskStore';
 import { CallTiles } from '@/features/media/components/CallTiles';
@@ -95,6 +95,30 @@ const STATUS_LABEL: Record<SocketStatus, string> = {
   closed: 'Sem conexão com o servidor',
 };
 
+const SIDEBAR_OPEN_KEY = 'ev.sidebar.open';
+const SIDEBAR_TAB_KEY = 'ev.sidebar.tab';
+
+const readSavedSidebarOpen = (fallback: boolean): boolean => {
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_OPEN_KEY);
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
+  } catch {
+    // ignore storage errors
+  }
+  return fallback;
+};
+
+const readSavedSidebarTab = (): SidebarTab => {
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_TAB_KEY);
+    if (raw === 'channels' || raw === 'people') return raw;
+  } catch {
+    // ignore storage errors
+  }
+  return 'channels';
+};
+
 export function OfficePage({ session }: { session: Session }) {
   const windowSize = useWindowSize();
   const isMobile = isMobileViewport(windowSize.width, windowSize.height);
@@ -106,8 +130,11 @@ export function OfficePage({ session }: { session: Session }) {
   const panelOpen = useChatStore((state) => state.panelOpen);
   const setPanelOpen = useChatStore((state) => state.setPanelOpen);
   const active = useChatStore((state) => state.active);
-  const unread = useChatStore((state) => totalUnread(state.channels));
-  const mentions = useChatStore((state) => totalMentions(state.channels));
+  const allChannels = useChatStore((state) => state.channels);
+  const notifyMode = useNotificationPrefsStore((s) => s.mode);
+  const notifyCounts = effectiveNotificationCounts(allChannels, notifyMode);
+  const unread = notifyCounts.totalUnread;
+  const mentions = notifyCounts.totalMentions;
 
   const [world] = useState(() => new OfficeWorld());
   const [view, setView] = useState<{ snapshot: WorldSnapshot; time: number }>(
@@ -145,11 +172,32 @@ export function OfficePage({ session }: { session: Session }) {
   }, [setServerSettings]);
   const [editingDeskId, setEditingDeskId] = useState<string | null>(null);
   const [movingDeskId, setMovingDeskId] = useState<string | null>(null);
+  const [previewDesk, setPreviewDesk] = useState<DeskInfo | null>(null);
   const [notice, setNotice] = useState('');
   const desks = useDeskStore((state) => state.desks);
   const allPeople = usePeopleStore((state) => state.people);
   const [peopleQuery, setPeopleQuery] = useState('');
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('channels');
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>(() =>
+    readSavedSidebarTab(),
+  );
+
+  const persistSidebarOpen = (open: boolean) => {
+    try {
+      window.localStorage.setItem(SIDEBAR_OPEN_KEY, String(open));
+    } catch {
+      // ignore storage errors
+    }
+    setPanelOpen(open);
+  };
+
+  const persistSidebarTab = (next: SidebarTab) => {
+    try {
+      window.localStorage.setItem(SIDEBAR_TAB_KEY, next);
+    } catch {
+      // ignore storage errors
+    }
+    setSidebarTab(next);
+  };
 
   const keyboard = useKeyboardDirection();
   const touch = useRef<Direction>({ dx: 0, dy: 0 });
@@ -223,32 +271,22 @@ export function OfficePage({ session }: { session: Session }) {
     };
   }, [unread, mentions, myStatus]);
 
-  // Largo: o chat começa aberto. Estreito: começa fechado. Depois, o botão manda.
+  // Restaura como o usuário deixou a sidebar (aberta/fechada) ou usa `wide` na primeira vez.
   useEffect(() => {
-    setPanelOpen(wide);
+    setPanelOpen(readSavedSidebarOpen(wide));
   }, [wide, setPanelOpen]);
 
   // Ao ver um canal ou DM na aba correspondente, ele conta como lido também no servidor.
   const activeChannelObj = useChatStore((s) =>
     s.channels.find((c) => c.id === s.active),
   );
-  const channelUnread = useChatStore((s) =>
-    totalUnread(s.channels.filter((c) => c.kind === 'public')),
-  );
-  const channelMentions = useChatStore((s) =>
-    totalMentions(s.channels.filter((c) => c.kind === 'public')),
-  );
-  const dmUnread = useChatStore((s) =>
-    totalUnread(s.channels.filter((c) => c.kind === 'dm')),
-  );
-  const dmMentions = useChatStore((s) =>
-    totalMentions(s.channels.filter((c) => c.kind === 'dm')),
-  );
+  const channelUnread = notifyCounts.channelUnread;
+  const channelMentions = notifyCounts.channelMentions;
+  const dmUnread = notifyCounts.dmUnread;
+  const dmMentions = notifyCounts.dmMentions;
   const chatVisible = isMobile
     ? mobileTab === 'chat'
-    : panelOpen &&
-      ((sidebarTab === 'channels' && activeChannelObj?.kind === 'public') ||
-        (sidebarTab === 'dms' && activeChannelObj?.kind === 'dm'));
+    : panelOpen && sidebarTab === 'channels' && Boolean(activeChannelObj);
   useEffect(() => {
     if (chatVisible) {
       socketRef.current?.send({ type: 'markRead', channel: active });
@@ -366,16 +404,15 @@ export function OfficePage({ session }: { session: Session }) {
   };
   const selectSidebarTab = (next: SidebarTab) => {
     if (panelOpen && sidebarTab === next) {
-      setPanelOpen(false);
-    } else {
-      setSidebarTab(next);
-      setPanelOpen(true);
+      return;
     }
+    persistSidebarTab(next);
+    persistSidebarOpen(true);
   };
   const openDm = (email: string) => {
     send({ type: 'openDm', email });
-    setSidebarTab('dms');
-    setPanelOpen(true);
+    persistSidebarTab('channels');
+    persistSidebarOpen(true);
   };
   const openAccount = () => {
     setAccountOpen(true);
@@ -562,8 +599,8 @@ export function OfficePage({ session }: { session: Session }) {
           peopleQuery={peopleQuery}
           onPeopleQuery={setPeopleQuery}
           onSelectTab={selectSidebarTab}
-          onToggleOpen={() => setPanelOpen(!panelOpen)}
-          onClose={() => setPanelOpen(false)}
+          onToggleOpen={() => persistSidebarOpen(!panelOpen)}
+          onClose={() => persistSidebarOpen(false)}
           onGoToDesk={goToDesk}
           onOpenDm={openDm}
           accountOpen={accountOpen}
@@ -588,6 +625,12 @@ export function OfficePage({ session }: { session: Session }) {
           myEmail={myEmail}
           iHaveDesk={mine !== undefined}
           isAdmin={session.user.admin}
+          inCall={call.tiles.length > 0}
+          previewDeskId={
+            previewDesk && previewDesk.map === view.snapshot.map
+              ? previewDesk.deskId
+              : null
+          }
           onAdoptDesk={(deskId) => send({ type: 'deskAdopt', deskId })}
           onMoveDesk={(deskId) => setMovingDeskId(deskId)}
           onToggleDeskLock={(deskId) => {
@@ -704,6 +747,9 @@ export function OfficePage({ session }: { session: Session }) {
             call={call}
             hasDesk={mine !== undefined}
             onGoToMyDesk={() => mine && goToDesk(mine)}
+            onHoverMyDesk={(hover) =>
+              setPreviewDesk(hover && mine ? mine : null)
+            }
             inCallZone={callId !== null && status === 'open' && !isBusy}
             optedOut={optedOut}
             onLeaveCall={() => {
@@ -725,7 +771,7 @@ export function OfficePage({ session }: { session: Session }) {
             showMenuButton={!wide}
             unread={unread}
             mentions={mentions}
-            onOpenSidebar={() => setPanelOpen(true)}
+            onOpenSidebar={() => persistSidebarOpen(true)}
             onStatus={handleStatusChange}
             onEmote={(emote) => send({ type: 'emote', emote })}
             onAvatar={() => setAvatarOpen(true)}

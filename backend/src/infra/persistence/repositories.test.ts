@@ -245,6 +245,19 @@ describe.each(suites)('repositórios (%s)', (_name, setup) => {
       });
       expect(await chat.byId('nada')).toBeUndefined();
       expect(await chat.recentRoots(['geral'], 10)).toHaveLength(1);
+
+      expect(await chat.updateMessage?.('nada', { text: 'x' })).toBeUndefined();
+      const edited = await chat.updateMessage?.('m0001', {
+        text: 'editado',
+        editedAt: 2000,
+      });
+      expect(edited).toMatchObject({ text: 'editado', editedAt: 2000 });
+      const deleted = await chat.updateMessage?.('m0001', {
+        text: '',
+        mentions: [],
+        deletedAt: 3000,
+      });
+      expect(deleted).toMatchObject({ text: '', deletedAt: 3000 });
     });
 
     it('conta não lidas e menções depois de um instante, sem as mensagens da própria pessoa', async () => {

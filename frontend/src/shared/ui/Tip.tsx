@@ -8,7 +8,8 @@ type Props = {
   /** Esconde o balão (ex.: com um menu aberto em cima do botão). */
   disabled?: boolean;
   /** Onde abrir o balão em relação ao botão. */
-  placement?: 'top' | 'top-start' | 'top-end' | 'right';
+  placement?:
+    'top' | 'top-start' | 'top-end' | 'bottom' | 'bottom-end' | 'right';
   children: ReactNode;
 };
 
@@ -27,7 +28,12 @@ export function Tip({
         ? styles.topStart
         : placement === 'top-end'
           ? styles.topEnd
-          : '';
+          : placement === 'bottom'
+            ? styles.bottom
+            : placement === 'bottom-end'
+              ? `${styles.bottom} ${styles.bottomEnd}`
+              : '';
+  const isBottom = placement === 'bottom' || placement === 'bottom-end';
 
   return (
     <div
@@ -45,10 +51,13 @@ export function Tip({
       {hover && !disabled ? (
         <div className={`${styles.bubbleRow} ${placementClass}`} role="tooltip">
           {placement === 'right' ? <div className={styles.arrowLeft} /> : null}
+          {isBottom ? <div className={styles.arrowUp} /> : null}
           <div className={styles.bubble}>
             <span className={styles.text}>{label}</span>
           </div>
-          {placement !== 'right' ? <div className={styles.arrow} /> : null}
+          {placement !== 'right' && !isBottom ? (
+            <div className={styles.arrow} />
+          ) : null}
         </div>
       ) : null}
     </div>

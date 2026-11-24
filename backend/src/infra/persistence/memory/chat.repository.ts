@@ -13,6 +13,29 @@ export class MemoryChatRepository implements ChatRepository {
     return this.messages.find((m) => m.id === id);
   }
 
+  async updateMessage(
+    id: string,
+    patch: {
+      text?: string;
+      mentions?: string[];
+      editedAt?: number;
+      deletedAt?: number;
+    },
+  ) {
+    const idx = this.messages.findIndex((m) => m.id === id);
+    if (idx < 0) return undefined;
+    const prev = this.messages[idx]!;
+    const next: ChatMessage = {
+      ...prev,
+      ...(patch.text !== undefined ? { text: patch.text } : {}),
+      ...(patch.mentions !== undefined ? { mentions: patch.mentions } : {}),
+      ...(patch.editedAt !== undefined ? { editedAt: patch.editedAt } : {}),
+      ...(patch.deletedAt !== undefined ? { deletedAt: patch.deletedAt } : {}),
+    };
+    this.messages[idx] = next;
+    return { ...next };
+  }
+
   async recentRoots(channels: string[], limit: number) {
     return channels.flatMap((channel) =>
       this.messages
@@ -31,7 +54,11 @@ export class MemoryChatRepository implements ChatRepository {
 
   async countSince(channel: string, since: number, email: string) {
     const fresh = this.messages.filter(
-      (m) => m.channel === channel && m.at > since && m.authorId !== email,
+      (m) =>
+        m.channel === channel &&
+        m.at > since &&
+        m.authorId !== email &&
+        !m.deletedAt,
     );
     return {
       unread: fresh.length,

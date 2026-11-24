@@ -13,10 +13,12 @@ type ChatRow = {
   thread_id: string | null;
   mentions: string;
   reply_count?: string | number;
+  edited_at?: string | number | null;
+  deleted_at?: string | number | null;
 };
 
 const CHAT_COLUMNS =
-  'id, channel, author_id, author, color, text, at, thread_id, mentions';
+  'id, channel, author_id, author, color, text, at, thread_id, mentions, edited_at, deleted_at';
 
 const parseMentions = (raw: string): string[] => {
   try {
@@ -40,6 +42,8 @@ const toMessage = (row: ChatRow): ChatMessage => ({
   ...(row.thread_id ? { threadId: row.thread_id } : {}),
   mentions: parseMentions(row.mentions),
   replyCount: Number(row.reply_count ?? 0),
+  ...(row.edited_at ? { editedAt: Number(row.edited_at) } : {}),
+  ...(row.deleted_at ? { deletedAt: Number(row.deleted_at) } : {}),
 });
 
 export class PgChatRepository implements ChatRepository {
@@ -74,6 +78,36 @@ export class PgChatRepository implements ChatRepository {
       [id],
     );
     return rows[0] ? toMessage(rows[0] as ChatRow) : undefined;
+  }
+
+  async updateMessage(
+    id: string,
+    patch: {
+      text?: string;
+      mentions?: string[];
+      editedAt?: number;
+      deletedAt?: number;
+    },
+  ) {
+    const existing = await this.byId(id);
+    if (!existing) return undefined;
+    const text = patch.text ?? existing.text;
+    const mentions = patch.mentions ?? existing.mentions;
+    const editedAt = patch.editedAt ?? existing.editedAt ?? null;
+    const deletedAt = patch.deletedAt ?? existing.deletedAt ?? null;
+    await this.db.query(
+      `UPDATE chat_messages
+       SET text = $2, mentions = $3, edited_at = $4, deleted_at = $5
+       WHERE id = $1`,
+      [id, text, JSON.stringify(mentions), editedAt, deletedAt],
+    );
+    return {
+      ...existing,
+      text,
+      mentions,
+      ...(editedAt !== null ? { editedAt } : {}),
+      ...(deletedAt !== null ? { deletedAt } : {}),
+    };
   }
 
   async recentRoots(channels: string[], limit: number) {
@@ -117,7 +151,7 @@ export class PgChatRepository implements ChatRepository {
   async countSince(channel: string, since: number, email: string) {
     const { rows } = await this.db.query(
       `SELECT ${CHAT_COLUMNS} FROM chat_messages
-       WHERE channel = $1 AND at > $2 AND author_id <> $3`,
+       WHERE channel = $1 AND at > $2 AND author_id <> $3 AND deleted_at IS NULL`,
       [channel, since, email],
     );
     const fresh = (rows as ChatRow[]).map(toMessage);

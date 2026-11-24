@@ -21,7 +21,7 @@ import { FaceAvatar } from './FaceAvatar';
 import { PeoplePanel } from './PeoplePanel';
 import styles from './WorkspaceSidebar.module.css';
 
-export type SidebarTab = 'channels' | 'dms' | 'people';
+export type SidebarTab = 'channels' | 'people';
 
 const MIN_WIDTH = SIZES.sidebarMin;
 const MAX_WIDTH = SIZES.sidebarMax;
@@ -58,6 +58,7 @@ type Props = {
   onToggleOpen: () => void;
   onClose: () => void;
   onGoToDesk: (desk: DeskInfo) => void;
+  onHoverDesk?: (desk: DeskInfo | null) => void;
   onOpenDm: (email: string) => void;
   accountOpen?: boolean;
   onOpenAccount: () => void;
@@ -144,6 +145,7 @@ export function WorkspaceSidebar({
   onToggleOpen,
   onClose,
   onGoToDesk,
+  onHoverDesk,
   onOpenDm,
   accountOpen = false,
   onOpenAccount,
@@ -161,14 +163,11 @@ export function WorkspaceSidebar({
     Boolean(onOpenServerSettings) && canManageServer(userTiers);
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [resizing, setResizing] = useState(false);
-  const [chatExpanded, setChatExpanded] = useState(false);
   const dragging = useRef(false);
 
-  const isChatTab = tab === 'channels' || tab === 'dms';
-  const isWideChat = wide && open && isChatTab && chatExpanded;
-  const targetWidth = isWideChat
-    ? 'min(860px, calc(100vw - 96px))'
-    : `${width}px`;
+  const isChatTab = tab === 'channels';
+  const isWideChat = wide && open && isChatTab;
+  const targetWidth = isWideChat ? 'clamp(520px, 46vw, 760px)' : `${width}px`;
 
   useEffect(() => {
     const onMove = (event: globalThis.PointerEvent) => {
@@ -193,53 +192,37 @@ export function WorkspaceSidebar({
     };
   }, []);
 
-  useEffect(() => {
-    if (!isWideChat) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setChatExpanded(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isWideChat]);
-
   const startResize = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
-    setChatExpanded(false);
     dragging.current = true;
     setResizing(true);
     document.body.style.cursor = 'col-resize';
   };
 
-  const channelsBadge =
-    channelMentions > 0
-      ? `@${channelMentions}`
-      : channelUnread > 0
-        ? String(channelUnread)
-        : undefined;
-  const dmBadge =
-    dmMentions > 0
-      ? `@${dmMentions}`
-      : dmUnread > 0
-        ? String(dmUnread)
+  const totalMentions = channelMentions + dmMentions;
+  const totalUnread = channelUnread + dmUnread;
+  const serverBadge =
+    totalMentions > 0
+      ? `@${totalMentions}`
+      : totalUnread > 0
+        ? String(totalUnread)
         : undefined;
 
   const myAppearance = appearance ?? defaultAppearance(session.user.email);
   const channelsActive = open && tab === 'channels';
-  const headerLabel =
-    tab === 'dms'
-      ? 'Mensagens diretas'
-      : tab === 'people'
-        ? 'Pessoas'
-        : serverName;
+  const headerLabel = tab === 'people' ? 'Pessoas' : serverName;
 
   const rail = (
     <nav className={styles.rail} aria-label="Servidores e navegação">
-      {/* Topo: servidor (canais), mensagens diretas e pessoas */}
+      {/* Topo: servidor (canais e DMs) e pessoas */}
       <div className={styles.railGroup}>
-        <Tip label={`${serverName} · Canais do servidor`} placement="right">
+        <Tip
+          label={`${serverName} · Canais e conversas diretas`}
+          placement="right"
+        >
           <button
             type="button"
-            aria-label={`${serverName} — Canais do servidor`}
+            aria-label={`${serverName} — Canais e conversas diretas`}
             aria-pressed={channelsActive}
             className={`${styles.serverBadge} ${channelsActive ? styles.serverBadgeOpen : ''}`}
             onClick={() => onSelectTab('channels')}
@@ -259,11 +242,11 @@ export function WorkspaceSidebar({
                 {serverName.charAt(0).toUpperCase()}
               </span>
             )}
-            {channelsBadge ? (
+            {serverBadge ? (
               <span
-                className={`${styles.badge} ${channelMentions > 0 ? styles.badgeAlert : ''}`}
+                className={`${styles.badge} ${totalMentions > 0 ? styles.badgeAlert : ''}`}
               >
-                {channelsBadge}
+                {serverBadge}
               </span>
             ) : null}
           </button>
@@ -289,28 +272,12 @@ export function WorkspaceSidebar({
         <div className={styles.railDivider} />
 
         <RailButton
-          icon="chat"
-          label="Mensagens diretas"
-          active={open && tab === 'dms'}
-          badge={dmBadge}
-          badgeAlert={dmMentions > 0}
-          onClick={() => onSelectTab('dms')}
-        />
-        <RailButton
           icon="people"
           label={`Pessoas (${online} online)`}
           active={open && tab === 'people'}
           badge={online > 0 ? String(online) : undefined}
           onClick={() => onSelectTab('people')}
         />
-        {canConfigureServer && onOpenServerSettings ? (
-          <RailButton
-            icon="settings"
-            label={t('sidebar.serverSettings')}
-            active={false}
-            onClick={onOpenServerSettings}
-          />
-        ) : null}
       </div>
 
       {/* Rodapé: perfil com avatar, recolher barra e sair */}
@@ -370,8 +337,8 @@ export function WorkspaceSidebar({
             <span className={styles.workspaceName}>{headerLabel}</span>
           </div>
           <div className={styles.headerActions}>
-            {canConfigureServer ? (
-              <Tip label={t('sidebar.serverSettings')} placement="top-end">
+            {canConfigureServer && tab === 'channels' ? (
+              <Tip label={t('sidebar.serverSettings')} placement="bottom-end">
                 <button
                   type="button"
                   className={styles.headerBtn}
@@ -382,43 +349,18 @@ export function WorkspaceSidebar({
                 </button>
               </Tip>
             ) : null}
-            {wide && isChatTab ? (
-              <Tip
-                label={
-                  chatExpanded
-                    ? 'Reduzir visualização do chat'
-                    : 'Expandir chat (2 colunas)'
-                }
-                placement="top-end"
-              >
+            {!wide ? (
+              <Tip label="Fechar painel" placement="bottom-end">
                 <button
                   type="button"
-                  className={`${styles.headerBtn} ${chatExpanded ? styles.headerBtnActive : ''}`}
-                  aria-label={chatExpanded ? 'Reduzir chat' : 'Expandir chat'}
-                  aria-pressed={chatExpanded}
-                  onClick={() => setChatExpanded((prev) => !prev)}
+                  className={styles.headerBtn}
+                  aria-label="Fechar painel"
+                  onClick={onClose}
                 >
-                  <Icon
-                    name={chatExpanded ? 'shrink' : 'expand'}
-                    size={15}
-                    color="#ffffff"
-                  />
+                  <Icon name="chevronLeft" size={17} color="var(--text-icon)" />
                 </button>
               </Tip>
             ) : null}
-            <Tip
-              label={wide ? 'Recolher barra lateral' : 'Fechar painel'}
-              placement="top-end"
-            >
-              <button
-                type="button"
-                className={styles.headerBtn}
-                aria-label={wide ? 'Recolher barra lateral' : 'Fechar painel'}
-                onClick={onClose}
-              >
-                <Icon name="chevronLeft" size={17} color="var(--text-icon)" />
-              </button>
-            </Tip>
           </div>
         </header>
 
@@ -426,7 +368,7 @@ export function WorkspaceSidebar({
           {isChatTab ? (
             <SlackChatView
               send={send}
-              section={tab === 'dms' ? 'dms' : 'channels'}
+              section="all"
               expanded={isWideChat}
               userTier={userTiers[0] ?? 'tester'}
               userTiers={userTiers}
@@ -441,6 +383,7 @@ export function WorkspaceSidebar({
               query={peopleQuery}
               onQuery={onPeopleQuery}
               onGoToDesk={onGoToDesk}
+              onHoverDesk={onHoverDesk}
               onMessage={onOpenDm}
               onClose={onClose}
               embedded

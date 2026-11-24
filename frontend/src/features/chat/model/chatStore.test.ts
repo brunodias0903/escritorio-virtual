@@ -250,3 +250,35 @@ describe('useChatStore: respostas', () => {
     ]);
   });
 });
+
+describe('useChatStore: edição, exclusão e digitando', () => {
+  it('atualiza mensagem editada ou apagada no canal e na thread', () => {
+    state().setHistory([msg(1)]);
+    state().openThread('m1');
+    state().updateMessage({
+      ...msg(1),
+      text: 'texto editado',
+      editedAt: 99,
+    });
+    expect(state().messages.geral?.[0]?.text).toBe('texto editado');
+    expect(state().messages.geral?.[0]?.editedAt).toBe(99);
+    expect(state().thread?.messages[0]?.text).toBe('texto editado');
+
+    state().updateMessage({ ...msg(1), text: '', deletedAt: 100 });
+    expect(state().messages.geral?.[0]?.deletedAt).toBe(100);
+  });
+
+  it('controla estado de digitando e limpa ao receber mensagem', () => {
+    state().setTyping('geral', 'ana@empresa.com', 'Ana', true);
+    expect(state().typingByChannel.geral?.['ana@empresa.com']?.name).toBe(
+      'Ana',
+    );
+
+    state().receive(msg(10, 'geral', { authorId: 'ana@empresa.com' }));
+    expect(state().typingByChannel.geral?.['ana@empresa.com']).toBeUndefined();
+
+    state().setTyping('geral', 'ana@empresa.com', 'Ana', true);
+    state().setTyping('geral', 'ana@empresa.com', 'Ana', false);
+    expect(state().typingByChannel.geral?.['ana@empresa.com']).toBeUndefined();
+  });
+});

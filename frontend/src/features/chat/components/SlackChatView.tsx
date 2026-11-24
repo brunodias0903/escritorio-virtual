@@ -70,6 +70,7 @@ export function SlackChatView({
   const me = useChatStore((s) => s.me);
   const people = useChatStore((s) => s.people);
   const allMessages = useChatStore((s) => s.messages);
+  const typingByChannel = useChatStore((s) => s.typingByChannel);
   const thread = useChatStore((s) => s.thread);
   const error = useChatStore((s) => s.error);
   const setActive = useChatStore((s) => s.setActive);
@@ -86,13 +87,24 @@ export function SlackChatView({
   const [dragChannelId, setDragChannelId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    item: ChannelInfo;
+    x: number;
+    y: number;
+  } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const effectiveTiers = userTiers ?? [userTier];
   const canReorder = Boolean(token) && canManageServer(effectiveTiers);
 
   const publicChannels = channels.filter((c) => c.kind === 'public');
-  const dmChannels = channels.filter((c) => c.kind === 'dm');
+  const lastDmAt = (channelId: string): number => {
+    const list = allMessages[channelId];
+    return list?.[list.length - 1]?.at ?? 0;
+  };
+  const dmChannels = [...channels.filter((c) => c.kind === 'dm')].sort(
+    (a, b) => lastDmAt(b.id) - lastDmAt(a.id),
+  );
   const showChannels = section === 'all' || section === 'channels';
   const showDms = section === 'all' || section === 'dms';
 
@@ -103,8 +115,7 @@ export function SlackChatView({
         ? dmChannels
         : channels;
 
-  const channel =
-    sectionChannels.find((c) => c.id === active) ?? sectionChannels[0] ?? null;
+  const channel = sectionChannels.find((c) => c.id === active) ?? null;
   const activeId = channel?.id ?? null;
   const messages = activeId ? allMessages[activeId] : undefined;
   const title = channel ? channelTitle(channel, me) : '';
@@ -126,6 +137,20 @@ export function SlackChatView({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [mode]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    window.addEventListener('click', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu]);
 
   const select = (id: string) => {
     setError(null);
@@ -163,16 +188,6 @@ export function SlackChatView({
       return;
     }
     onNotify?.(t('server.channels.reordered'));
-  };
-
-  const moveChannel = (index: number, delta: -1 | 1) => {
-    const target = index + delta;
-    if (target < 0 || target >= publicChannels.length) return;
-    const ids = publicChannels.map((c) => c.id);
-    const [moved] = ids.splice(index, 1);
-    if (!moved) return;
-    ids.splice(target, 0, moved);
-    void commitOrder(ids);
   };
 
   const handleDragStart = (event: DragEvent<HTMLDivElement>, id: string) => {
@@ -223,6 +238,12 @@ export function SlackChatView({
       channel,
       me ?? undefined,
     );
+
+  const typingUsers = activeId
+    ? Object.entries(typingByChannel[activeId] ?? {})
+        .filter(([email]) => email !== me)
+        .map(([, info]) => info.name)
+    : [];
 
   return (
     <div className={`${styles.root} ${expanded ? styles.rootExpanded : ''}`}>
@@ -302,7 +323,7 @@ export function SlackChatView({
                         Nenhum canal disponível para o seu cargo.
                       </p>
                     ) : (
-                      publicChannels.map((item, idx) => {
+                      publicChannels.map((item) => {
                         const isActive = item.id === activeId;
                         const bold = isActive || item.unread > 0;
                         const restricted = isRestrictedChannel(item);
@@ -323,6 +344,14 @@ export function SlackChatView({
                             onDragEnd={() => {
                               setDragChannelId(null);
                               setDropTargetId(null);
+                            }}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setContextMenu({
+                                item,
+                                x: e.clientX,
+                                y: e.clientY,
+                              });
                             }}
                             className={`${styles.channelRow} ${isDragging ? styles.channelRowDragging : ''} ${isDropTarget ? styles.channelRowDropTarget : ''}`}
                           >
@@ -362,33 +391,6 @@ export function SlackChatView({
                                 </span>
                               ) : null}
                             </button>
-                            {canReorder && publicChannels.length > 1 ? (
-                              <div className={styles.reorderBtns}>
-                                <button
-                                  type="button"
-                                  className={styles.reorderBtn}
-                                  disabled={idx === 0 || reordering}
-                                  aria-label={`Mover #${item.name} para cima`}
-                                  title="Mover para cima"
-                                  onClick={() => moveChannel(idx, -1)}
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.reorderBtn}
-                                  disabled={
-                                    idx === publicChannels.length - 1 ||
-                                    reordering
-                                  }
-                                  aria-label={`Mover #${item.name} para baixo`}
-                                  title="Mover para baixo"
-                                  onClick={() => moveChannel(idx, 1)}
-                                >
-                                  ↓
-                                </button>
-                              </div>
-                            ) : null}
                           </div>
                         );
                       })
@@ -396,6 +398,10 @@ export function SlackChatView({
                   </div>
                 ) : null}
               </>
+            ) : null}
+
+            {showChannels && showDms ? (
+              <div className={styles.sectionDivider} role="separator" />
             ) : null}
 
             {showDms ? (
@@ -472,6 +478,14 @@ export function SlackChatView({
                             role="tab"
                             aria-selected={isActive}
                             onClick={() => select(item.id)}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setContextMenu({
+                                item,
+                                x: e.clientX,
+                                y: e.clientY,
+                              });
+                            }}
                             className={`${styles.item} ${isActive ? styles.itemActive : ''}`}
                           >
                             <span className={styles.at}>@</span>
@@ -545,6 +559,23 @@ export function SlackChatView({
                     message={row.message}
                     showHeader={row.showHeader}
                     me={me}
+                    onEdit={(messageId, text) =>
+                      activeId &&
+                      send({
+                        type: 'editChat',
+                        channel: activeId,
+                        messageId,
+                        text,
+                      })
+                    }
+                    onDelete={(messageId) =>
+                      activeId &&
+                      send({
+                        type: 'deleteChat',
+                        channel: activeId,
+                        messageId,
+                      })
+                    }
                   />
                 ))
               ) : rows.length === 0 ? (
@@ -560,10 +591,46 @@ export function SlackChatView({
                     showHeader={row.showHeader}
                     me={me}
                     onOpenThread={startThread}
+                    onEdit={(messageId, text) =>
+                      activeId &&
+                      send({
+                        type: 'editChat',
+                        channel: activeId,
+                        messageId,
+                        text,
+                      })
+                    }
+                    onDelete={(messageId) =>
+                      activeId &&
+                      send({
+                        type: 'deleteChat',
+                        channel: activeId,
+                        messageId,
+                      })
+                    }
                   />
                 ))
               )}
             </div>
+
+            {typingUsers.length > 0 ? (
+              <div
+                className={styles.typingBar}
+                role="status"
+                aria-live="polite"
+              >
+                <span>
+                  {typingUsers.length === 1
+                    ? `${typingUsers[0]} está digitando`
+                    : `${typingUsers.slice(0, 2).join(', ')} estão digitando`}
+                </span>
+                <span className={styles.typingDots} aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              </div>
+            ) : null}
 
             {error ? (
               <p className={styles.error} role="alert">
@@ -582,6 +649,10 @@ export function SlackChatView({
                     ? 'Responder na thread…'
                     : `Mensagem em ${prefix}${title} (@ para citar)`
                 }
+                onTyping={(typing) => {
+                  if (!activeId) return;
+                  send({ type: 'typing', channel: activeId, typing });
+                }}
                 onSend={(text) => {
                   if (!activeId) return;
                   setError(null);
@@ -599,10 +670,10 @@ export function SlackChatView({
           <div className={styles.emptyState}>
             <p className={styles.empty}>
               {section === 'dms'
-                ? 'Suas mensagens diretas ficam aqui.'
-                : 'Nenhum canal disponível no momento.'}
+                ? 'Selecione uma conversa direta para visualizar as mensagens.'
+                : 'Selecione um canal ou conversa direta para visualizar as mensagens.'}
             </p>
-            {section === 'dms' ? (
+            {section === 'dms' || dmChannels.length === 0 ? (
               <button
                 type="button"
                 className={styles.emptyActionBtn}
@@ -618,6 +689,44 @@ export function SlackChatView({
           </div>
         )}
       </div>
+      {contextMenu ? (
+        <div
+          className={styles.contextMenu}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          role="menu"
+          aria-label="Opções da conversa"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.contextMenuItem}
+            onClick={() => {
+              send({ type: 'markRead', channel: contextMenu.item.id });
+              setContextMenu(null);
+            }}
+          >
+            Marcar como lido
+          </button>
+          {contextMenu.item.kind === 'dm' ||
+          (canReorder && contextMenu.item.id !== 'geral') ? (
+            <button
+              type="button"
+              role="menuitem"
+              className={`${styles.contextMenuItem} ${styles.contextMenuDanger}`}
+              onClick={() => {
+                send({ type: 'archiveChannel', id: contextMenu.item.id });
+                if (active === contextMenu.item.id) setActive('');
+                setContextMenu(null);
+              }}
+            >
+              {contextMenu.item.kind === 'dm'
+                ? 'Apagar conversa'
+                : 'Apagar canal'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

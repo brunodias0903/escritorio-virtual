@@ -38,6 +38,9 @@
   position: absolute;
   right: 8px;
   bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   pointer-events: auto;
 }
 
@@ -66,30 +69,119 @@
   font-weight: 700;
 }
 
-.row {
+.carouselWrap {
   position: absolute;
-  top: 56px;
-  left: 0;
-  right: 0;
+  top: 14px;
+  left: 14px;
+  right: 16px;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  padding: 0 12px;
+  align-items: flex-start;
+  gap: 8px;
   pointer-events: none;
 }
 
-.rowCompact {
-  top: calc(env(safe-area-inset-top) + 58px);
-  padding: 0 calc(env(safe-area-inset-right) + 58px) 0
-    calc(env(safe-area-inset-left) + 12px);
+.carouselWithSelf {
+  right: 232px;
+}
+
+.carouselTrack {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+
+.participantCol,
+.selfCol {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.screenCollapsedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background-color: var(--bg-bar-glass);
+  border: 1px solid var(--border-glass);
+  pointer-events: auto;
+}
+
+.screenCollapsedBtn {
+  flex: 1;
+  text-align: left;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 6px;
+}
+
+.screenCollapsedBtn:hover {
+  text-decoration: underline;
+}
+
+.carouselTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.carouselTrack > * {
+  scroll-snap-align: start;
+}
+
+.carouselBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-bar-glass);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  pointer-events: auto;
+  transition: filter var(--motion-fast) var(--ease-standard);
+}
+
+.carouselBtn:hover {
+  filter: brightness(1.18);
+}
+
+.selfTopRight {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.selfDivider {
+  width: 2px;
+  border-radius: 2px;
+  margin-right: 2px;
+  background-color: var(--border-bar);
+  opacity: 0.9;
 }
 
 .spotlight {
   position: absolute;
   left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
+  top: 54%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -99,17 +191,19 @@
 .spotlightOffset {
   left: 300px;
   right: 16px;
-  transform: none;
+  top: 54%;
+  bottom: auto;
+  transform: translateY(-50%);
 }
 
 @keyframes spotlightIn {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(12px) scale(0.94);
+    transform: translate(-50%, -44%) scale(0.94);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
@@ -120,11 +214,11 @@
 @keyframes spotlightInOffset {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.94);
+    transform: translateY(-44%) scale(0.94);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(-50%) scale(1);
   }
 }
 

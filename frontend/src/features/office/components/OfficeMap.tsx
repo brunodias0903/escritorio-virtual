@@ -37,6 +37,10 @@ type Props = {
   myEmail: string;
   iHaveDesk: boolean;
   isAdmin: boolean;
+  /** True quando o usuário está em chamada (posiciona balões para baixo longe das câmeras). */
+  inCall?: boolean;
+  /** Mesa para focar suavemente com a câmera (ex.: hover no botão "Ir até a mesa"). */
+  previewDeskId?: string | null;
   onAdoptDesk: (deskId: string) => void;
   onMoveDesk: (deskId: string) => void;
   onToggleDeskLock: (deskId: string) => void;
@@ -59,6 +63,8 @@ export function OfficeMap({
   myEmail,
   iHaveDesk,
   isAdmin,
+  inCall = false,
+  previewDeskId = null,
   onAdoptDesk,
   onMoveDesk,
   onToggleDeskLock,
@@ -93,6 +99,42 @@ export function OfficeMap({
   const map = resolveMap(snapshot.map, deskList);
   const me = snapshot.players.find((p) => p.id === snapshot.meId);
   const activeDeskId = me ? callZoneId(map, me) : null;
+
+  const previewTarget = previewDeskId
+    ? map.desks.find((d) => d.id === previewDeskId)
+    : undefined;
+  const targetCenter = previewTarget
+    ? {
+        x: previewTarget.x + previewTarget.w / 2,
+        y: previewTarget.y + previewTarget.h / 2,
+      }
+    : (me ?? { x: map.width / 2, y: map.height / 2 });
+
+  const [camCenter, setCamCenter] = useState(targetCenter);
+  const camCenterRef = useRef(targetCenter);
+
+  useEffect(() => {
+    const tgt = { x: targetCenter.x, y: targetCenter.y };
+    let raf = 0;
+    const step = () => {
+      const cur = camCenterRef.current;
+      const dx = tgt.x - cur.x;
+      const dy = tgt.y - cur.y;
+      if (Math.hypot(dx, dy) < 0.8) {
+        if (cur.x !== tgt.x || cur.y !== tgt.y) {
+          camCenterRef.current = tgt;
+          setCamCenter(tgt);
+        }
+        return;
+      }
+      const next = { x: cur.x + dx * 0.2, y: cur.y + dy * 0.2 };
+      camCenterRef.current = next;
+      setCamCenter(next);
+      raf = window.requestAnimationFrame(step);
+    };
+    raf = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(raf);
+  }, [targetCenter.x, targetCenter.y]);
 
   const enterDesk = (deskId: string) => {
     if (leaveTimerRef.current !== null) {
@@ -159,17 +201,9 @@ export function OfficeMap({
   const visibleBalloons = movingDeskId
     ? []
     : map.desks.filter(
-        (desk) =>
-          desk.id === activeDeskId ||
-          desk.id === hoveredDeskId ||
-          desk.id === closingDeskId,
+        (desk) => desk.id === hoveredDeskId || desk.id === closingDeskId,
       );
-  const view = computeViewBox(
-    map,
-    viewport,
-    zoom,
-    me ?? { x: map.width / 2, y: map.height / 2 },
-  );
+  const view = computeViewBox(map, viewport, zoom, camCenter);
 
   const tileFromPointer = (
     event: MouseEvent<SVGSVGElement>,
@@ -246,6 +280,7 @@ export function OfficeMap({
         <MapLayer
           mapId={snapshot.map}
           desks={desks}
+          myEmail={myEmail}
           onHoverDesk={movingDeskId ? undefined : handleMapHoverDesk}
         />
         {[...snapshot.players]
@@ -366,12 +401,15 @@ export function OfficeMap({
         const screenX =
           ((desk.x + desk.w / 2 - view.x) / view.w) * viewport.width;
         const screenY = ((desk.y - view.y) / view.h) * viewport.height;
+        const bottomY = ((desk.y + desk.h - view.y) / view.h) * viewport.height;
+        const placeBelow = inCall || screenY < 220;
 
         return (
           <DeskBalloon
             key={desk.id}
             x={screenX}
-            y={screenY}
+            y={placeBelow ? bottomY : screenY}
+            placeBelow={placeBelow}
             desk={desk}
             info={info}
             state={state}

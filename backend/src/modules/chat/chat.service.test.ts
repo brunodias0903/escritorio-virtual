@@ -459,4 +459,63 @@ describe('visibilidade, escrita por cargo e exceções individuais', () => {
       expect(await scoped.history(CAIO.email, ['tester'])).toHaveLength(1);
     }
   });
+
+  it('permite editar, apagar para todos, enviar digitando e arquivar DM', async () => {
+    const sent = await service.send(ANA, 'geral', 'mensagem original');
+    expect(sent.ok).toBe(true);
+    if (!sent.ok) return;
+    const msgId = sent.value.message.id;
+
+    // Outro usuário não pode editar nem apagar
+    expect(await service.editMessage(BIA, 'geral', msgId, 'invasão')).toEqual({
+      ok: false,
+      error: 'forbidden',
+    });
+    expect(await service.deleteMessage(BIA, 'geral', msgId)).toEqual({
+      ok: false,
+      error: 'forbidden',
+    });
+
+    // Autor edita
+    const edited = await service.editMessage(ANA, 'geral', msgId, 'editada');
+    expect(edited.ok).toBe(true);
+    if (edited.ok) {
+      expect(edited.value.message.text).toBe('editada');
+      expect(edited.value.message.editedAt).toBeDefined();
+    }
+
+    // Indicador de digitando
+    expect(await service.typingTargets(ANA.email, 'geral')).toEqual({
+      ok: true,
+      value: {},
+    });
+
+    // Autor apaga para todos e não pode editar depois
+    const deleted = await service.deleteMessage(ANA, 'geral', msgId);
+    expect(deleted.ok).toBe(true);
+    if (deleted.ok) {
+      expect(deleted.value.message.text).toBe('');
+      expect(deleted.value.message.deletedAt).toBeDefined();
+    }
+    expect(
+      await service.editMessage(ANA, 'geral', msgId, 'tarde demais'),
+    ).toEqual({ ok: false, error: 'archived' });
+
+    // DM: membro pode arquivar/apagar conversa e reabrir depois
+    const dm = await service.openDirect(ANA.email, BIA.email);
+    expect(dm.ok).toBe(true);
+    if (!dm.ok) return;
+    expect(await service.typingTargets(ANA.email, dm.value.id)).toMatchObject({
+      ok: true,
+    });
+    expect(
+      await service.archiveChannel(CAIO.email, dm.value.id, false),
+    ).toEqual({ ok: false, error: 'forbidden' });
+    expect(await service.archiveChannel(ANA.email, dm.value.id, false)).toEqual(
+      {
+        ok: true,
+        value: null,
+      },
+    );
+  });
 });

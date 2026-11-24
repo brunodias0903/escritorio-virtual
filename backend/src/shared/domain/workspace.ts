@@ -222,7 +222,94 @@ const BRANCH_PREFIX_BY_KIND: Record<FeedbackKind, string> = {
   question: 'chore',
 };
 
-/** Gera o nome de branch sugerido no padrão Git com a tag do ticket (ex.: bugfix/ev-12-sidebar). */
+const BRANCH_STOPWORDS = new Set([
+  'a',
+  'o',
+  'as',
+  'os',
+  'um',
+  'uma',
+  'de',
+  'da',
+  'do',
+  'das',
+  'dos',
+  'em',
+  'no',
+  'na',
+  'nos',
+  'nas',
+  'para',
+  'pra',
+  'por',
+  'com',
+  'sem',
+  'que',
+  'ao',
+  'aos',
+  'se',
+  'quando',
+  'como',
+  'mais',
+  'muito',
+  'modo',
+  'parte',
+  'clicar',
+  'usar',
+  'fazer',
+  'ficar',
+  'estar',
+  'ter',
+  'cheia',
+]);
+
+const BRANCH_PT_EN: Record<string, string> = {
+  erro: 'error',
+  falha: 'failure',
+  barra: 'sidebar',
+  lateral: 'sidebar',
+  sair: 'exit',
+  fechar: 'close',
+  abrir: 'open',
+  tela: 'screen',
+  chamada: 'call',
+  camera: 'camera',
+  webcam: 'camera',
+  microfone: 'mic',
+  audio: 'audio',
+  som: 'sound',
+  mesa: 'desk',
+  conversa: 'chat',
+  mensagem: 'message',
+  mensagens: 'messages',
+  notificacao: 'notifications',
+  notificacoes: 'notifications',
+  tema: 'theme',
+  conta: 'account',
+  perfil: 'profile',
+  entrar: 'login',
+  senha: 'password',
+  lentidao: 'slowness',
+  lento: 'slow',
+  duvida: 'question',
+  ajuste: 'tweak',
+  melhoria: 'improve',
+  adicionar: 'add',
+  novo: 'new',
+  nova: 'new',
+  remover: 'remove',
+  apagar: 'delete',
+  excluir: 'delete',
+  editar: 'edit',
+  lista: 'list',
+  convite: 'invite',
+  servidor: 'server',
+  canal: 'channel',
+  canais: 'channels',
+  botao: 'button',
+};
+
+/** Gera o nome de branch curto em inglês com a tag do ticket (ex.: bugfix/ev-12-sidebar). */
 export function suggestedFeedbackBranch(item: {
   id: string;
   ticketKey?: string | null;
@@ -233,14 +320,28 @@ export function suggestedFeedbackBranch(item: {
   const tag = (item.ticketKey?.trim() || `EV-${item.id.slice(0, 6)}`)
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, '-');
-  const slug = item.title
+  const words = item.title
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 32)
-    .replace(/-+$/g, '');
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w && !BRANCH_STOPWORDS.has(w))
+    .map((w) => BRANCH_PT_EN[w] ?? w);
+
+  const unique: string[] = [];
+  for (const w of words) {
+    if (!unique.includes(w)) unique.push(w);
+    if (unique.length >= 3) break;
+  }
+
+  let slug = '';
+  for (const w of unique) {
+    const next = slug ? `${slug}-${w}` : w;
+    if (next.length > 20) break;
+    slug = next;
+  }
   return slug ? `${prefix}/${tag}-${slug}` : `${prefix}/${tag}`;
 }
 

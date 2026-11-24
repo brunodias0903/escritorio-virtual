@@ -141,16 +141,137 @@
   pointer-events: auto;
 }
 
+.dockLayout {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.quickRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quickIconBtn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background-color: var(--bg-bar-glass);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-md), var(--shadow-inner);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+}
+
+.remoteArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 12px;
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.remoteArrowOpen {
+  transform: rotate(180deg);
+}
+
 .card {
-  width: 274px;
+  width: 52px;
+  padding: 7px 0;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-3xl);
+  align-items: center;
+  gap: 6px;
+  border-radius: 26px;
   background-color: var(--bg-bar-glass);
   border: 1px solid var(--border-glass);
   box-shadow: var(--shadow-lg), var(--shadow-inner);
   backdrop-filter: blur(var(--blur-md));
   -webkit-backdrop-filter: blur(var(--blur-md));
+}
+
+.verticalList {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(8px) scale(0.94);
+  pointer-events: none;
+  transition:
+    max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease,
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.verticalListOpen {
+  max-height: 480px;
+  opacity: 1;
+  overflow: visible;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.listDivider {
+  width: 24px;
+  height: 1px;
+  background-color: var(--border-bar);
+  opacity: 0.85;
+}
+
+.statusBtn {
+  position: relative;
+  background-color: var(--bg-control);
+}
+
+.avatarDot {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-bar);
+}
+
+.remoteToggle {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-control);
+  transition:
+    background-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.remoteToggle:hover {
+  filter: brightness(1.14);
+}
+
+.remoteToggle:active {
+  transform: scale(0.94);
+}
+
+.remoteToggleOpen {
+  background-color: var(--accent-active);
+}
+
+.remoteStatusDot {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-bar);
 }
 
 .camDock {
@@ -563,8 +684,8 @@
 
 .popup {
   position: absolute;
-  left: 0;
-  bottom: calc(100% + 10px);
+  left: calc(100% + 10px);
+  bottom: 0;
   min-width: 214px;
   display: flex;
   flex-direction: column;
@@ -641,14 +762,51 @@
 
   .dock {
     left: calc(env(safe-area-inset-left) + 12px);
-    right: calc(env(safe-area-inset-right) + 12px);
+    right: auto;
     bottom: calc(env(safe-area-inset-bottom) + 10px);
   }
 
+  .dockLayout {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .quickRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 26px;
+    background-color: var(--bg-bar-glass);
+    border: 1px solid var(--border-glass);
+    box-shadow: var(--shadow-lg), var(--shadow-inner);
+    backdrop-filter: blur(var(--blur-md));
+    -webkit-backdrop-filter: blur(var(--blur-md));
+  }
+
+  .dockLayout {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .quickRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 26px;
+    background-color: var(--bg-bar-glass);
+    border: 1px solid var(--border-glass);
+    box-shadow: var(--shadow-lg), var(--shadow-inner);
+    backdrop-filter: blur(var(--blur-md));
+    -webkit-backdrop-filter: blur(var(--blur-md));
+  }
+
   .card {
-    width: 100%;
-    max-width: 420px;
-    margin: 0 auto;
+    width: 52px;
+    margin: 0;
   }
 
   .camFrame {
@@ -684,9 +842,9 @@
   }
 
   .popup {
-    left: 0;
-    right: 0;
-    min-width: 0;
+    left: calc(100% + 10px);
+    right: auto;
+    min-width: 210px;
   }
 }
 
@@ -703,9 +861,46 @@
     bottom: calc(env(safe-area-inset-bottom) + 10px);
   }
 
+  .dockLayout {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .quickRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 26px;
+    background-color: var(--bg-bar-glass);
+    border: 1px solid var(--border-glass);
+    box-shadow: var(--shadow-lg), var(--shadow-inner);
+    backdrop-filter: blur(var(--blur-md));
+    -webkit-backdrop-filter: blur(var(--blur-md));
+  }
+
+  .dockLayout {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .quickRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 26px;
+    background-color: var(--bg-bar-glass);
+    border: 1px solid var(--border-glass);
+    box-shadow: var(--shadow-lg), var(--shadow-inner);
+    backdrop-filter: blur(var(--blur-md));
+    -webkit-backdrop-filter: blur(var(--blur-md));
+  }
+
   .card {
-    width: 268px;
-    max-width: calc(100vw - 170px);
+    width: 52px;
     margin: 0;
   }
 
@@ -742,7 +937,7 @@
   }
 
   .popup {
-    left: 0;
+    left: calc(100% + 10px);
     right: auto;
     min-width: 210px;
   }

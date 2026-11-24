@@ -33,7 +33,8 @@ export type IconName =
   | 'phoneOff'
   | 'undo'
   | 'palette'
-  | 'settings';
+  | 'settings'
+  | 'remote';
 
 type Props = { name: IconName; size?: number; color?: string };
 
@@ -231,6 +232,16 @@ export function Icon({ name, size = 22, color = '#ffffff' }: Props) {
             d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
             {...stroke}
           />
+        </>
+      ) : null}
+      {name === 'remote' ? (
+        <>
+          <rect x={7} y={2} width={10} height={20} rx={3} {...stroke} />
+          <circle cx={12} cy={7} r={1.2} fill={color} />
+          <circle cx={10} cy={12} r={1} fill={color} />
+          <circle cx={14} cy={12} r={1} fill={color} />
+          <circle cx={12} cy={15.5} r={1} fill={color} />
+          <path d="M10 18.5h4" {...stroke} />
         </>
       ) : null}
     </svg>

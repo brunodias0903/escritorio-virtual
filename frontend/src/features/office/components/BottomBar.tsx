@@ -13,7 +13,6 @@ import {
   type Emote,
   type Status,
 } from '@/shared/domain';
-import { toHexColor } from '@/shared/lib/color';
 import { Icon, type IconName } from '@/shared/ui/Icon';
 import { Tip } from '@/shared/ui/Tip';
 
@@ -40,8 +39,6 @@ const BUSY_HINT =
 const DEVICE_HOVER_MS = 2200;
 /** Tempo segurando no toque (mobile) para abrir as opções de dispositivo (0,52s). */
 const DEVICE_TOUCH_HOLD_MS = 520;
-/** Pequena folga ao mover o mouse do botão para o popover. */
-const DEVICE_CLOSE_GRACE_MS = 220;
 
 /** Anel verde que carrega em volta do botão circular durante o hover. */
 function HoverRing() {
@@ -91,6 +88,7 @@ type Props = {
   /** A pessoa adotou uma mesa: habilita o atalho de ir até ela. */
   hasDesk: boolean;
   onGoToMyDesk: () => void;
+  onHoverMyDesk?: (hovering: boolean) => void;
   /** Está em uma zona de chamada (mesa, sala ou perto de alguém). */
   inCallZone?: boolean;
   /** Saiu manualmente da chamada atual (ainda na mesma zona). */
@@ -121,17 +119,20 @@ export function BottomBar({
   onThemes,
   hasDesk,
   onGoToMyDesk,
+  onHoverMyDesk,
   inCallZone = false,
   optedOut = false,
   onLeaveCall,
   onJoinCall,
-  selfCamExpanded = false,
-  onToggleSelfCamExpand,
 }: Props) {
+  const [controlsPinned, setControlsPinned] = useState(true);
+  const [controlsHover, setControlsHover] = useState(false);
   const [menu, setMenu] = useState<'none' | 'status' | 'emotes'>('none');
   const [deviceMenu, setDeviceMenu] = useState<MediaDeviceKindOption | null>(
     null,
   );
+  const controlsOpen =
+    controlsPinned || controlsHover || menu === 'status' || deviceMenu !== null;
   const [hoveringKind, setHoveringKind] =
     useState<MediaDeviceKindOption | null>(null);
   const [hint, setHint] = useState('');
@@ -140,26 +141,9 @@ export function BottomBar({
   const openTimerRef = useRef<number | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const longPressOpenedRef = useRef(false);
-  const selfVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const selfTile = call.tiles.find((t) => t.self && t.kind === 'camera');
   const selfTrack = selfTile?.track ?? null;
-  const selfColor = toHexColor(
-    selfTile?.color ?? me?.appearance.shirt ?? 0x5b6cff,
-  );
-  const isConnectingCall =
-    inCallZone &&
-    !optedOut &&
-    (call.status === 'connecting' || call.status === 'off');
-
-  useEffect(() => {
-    const el = selfVideoRef.current;
-    if (!el || !selfTrack || selfCamExpanded) return;
-    selfTrack.attach(el);
-    return () => {
-      selfTrack.detach(el);
-    };
-  }, [selfTrack, selfCamExpanded]);
 
   const clearDeviceTimers = () => {
     if (openTimerRef.current !== null) {
@@ -224,13 +208,6 @@ export function BottomBar({
       openTimerRef.current = null;
     }
     setHoveringKind(null);
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current);
-    }
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
-      setDeviceMenu(null);
-    }, DEVICE_CLOSE_GRACE_MS);
   };
 
   const keepDeviceOpen = () => {
@@ -307,7 +284,7 @@ export function BottomBar({
     label: string,
     action: () => void,
     deviceKind?: MediaDeviceKindOption,
-    tipPlacement: 'top' | 'top-start' | 'top-end' = 'top',
+    tipPlacement: 'top' | 'top-start' | 'top-end' | 'right' = 'right',
   ) => {
     const blocked = busy || !live;
     const isLoading = deviceKind !== undefined && hoveringKind === deviceKind;
@@ -530,204 +507,78 @@ export function BottomBar({
           />
         ) : null}
 
-        <div className={styles.card}>
-          {/* Bloco acoplado da própria webcam: expande quando em chamada ativa, online e não está em destaque central */}
+        <div className={styles.dockLayout}>
           <div
-            className={`${styles.camDock} ${!busy && inCallZone && !optedOut && !selfCamExpanded ? styles.camDockOpen : ''}`}
-            aria-hidden={busy || !inCallZone || optedOut || selfCamExpanded}
+            className={styles.card}
+            onMouseEnter={() => setControlsHover(true)}
+            onMouseLeave={() => setControlsHover(false)}
           >
-            <div className={styles.camFrame}>
-              {selfTrack && !selfCamExpanded ? (
-                <video
-                  ref={selfVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={styles.camVideo}
-                />
-              ) : (
-                <div className={styles.camPlaceholder}>
-                  <div
-                    className={styles.camTint}
-                    style={{ backgroundColor: selfColor }}
-                  />
-                  <div
-                    className={styles.camDisc}
-                    style={{ backgroundColor: selfColor }}
-                  >
-                    <span className={styles.camDiscText}>
-                      {(me?.name.charAt(0) ?? 'V').toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {isConnectingCall ? (
-                <div
-                  className={styles.camConnectingOverlay}
-                  role="status"
-                  aria-label="Entrando na chamada"
+            {/* Lista vertical recolhível de status e controles da chamada */}
+            <div
+              className={`${styles.verticalList} ${controlsOpen ? styles.verticalListOpen : ''}`}
+              aria-hidden={!controlsOpen}
+            >
+              {me ? (
+                <Tip
+                  label={`Status: ${STATUS_LABELS[me.status]} (alterar)`}
+                  placement="right"
+                  disabled={menu === 'status'}
                 >
-                  <span className={styles.camSpinner} aria-hidden="true" />
-                </div>
+                  <button
+                    type="button"
+                    aria-label="Alterar status e perfil"
+                    aria-expanded={menu === 'status'}
+                    className={`${styles.circle} ${styles.statusBtn} ${menu === 'status' ? styles.circleActive : ''}`}
+                    onClick={() =>
+                      setMenu(menu === 'status' ? 'none' : 'status')
+                    }
+                  >
+                    <FaceAvatar appearance={me.appearance} size={28} />
+                    <span
+                      className={styles.avatarDot}
+                      style={{ backgroundColor: STATUS_COLORS[me.status] }}
+                    />
+                  </button>
+                </Tip>
               ) : null}
 
-              {onToggleSelfCamExpand && inCallZone && !optedOut ? (
-                <div className={styles.camExpandAction}>
-                  <Tip label="Ampliar câmera" placement="top-start">
-                    <button
-                      type="button"
-                      aria-label="Ampliar câmera"
-                      onClick={onToggleSelfCamExpand}
-                      className={styles.camExpandBtn}
-                    >
-                      <Icon name="expand" size={14} color="#ffffff" />
-                    </button>
-                  </Tip>
-                </div>
-              ) : null}
-
-              {inCallZone && !optedOut && call.status !== 'unavailable' ? (
-                <div className={styles.camCallAction}>
-                  <Tip label="Sair da chamada" placement="top-end">
-                    <button
-                      type="button"
-                      aria-label="Sair da chamada"
-                      onClick={onLeaveCall}
-                      className={`${styles.callBtn} ${styles.callBtnLeave}`}
-                    >
-                      <Icon name="phoneOff" size={16} color="#ffffff" />
-                    </button>
-                  </Tip>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Linha compacta quando a própria câmera está ampliada no destaque central */}
-          <div
-            className={`${styles.rejoinDock} ${!busy && inCallZone && !optedOut && selfCamExpanded ? styles.rejoinDockOpen : ''}`}
-            aria-hidden={busy || !inCallZone || optedOut || !selfCamExpanded}
-          >
-            <div className={`${styles.rejoinRow} ${styles.expandedRow}`}>
-              <div className={styles.expandedLeft}>
-                {onToggleSelfCamExpand ? (
-                  <Tip label="Reduzir câmera" placement="top-start">
-                    <button
-                      type="button"
-                      aria-label="Reduzir câmera"
-                      onClick={onToggleSelfCamExpand}
-                      className={styles.camExpandBtn}
-                    >
-                      <Icon name="shrink" size={14} color="#ffffff" />
-                    </button>
-                  </Tip>
-                ) : null}
-                <span className={styles.expandedLabel}>Câmera ampliada</span>
-              </div>
-              {call.status !== 'unavailable' ? (
-                <Tip label="Sair da chamada" placement="top-end">
+              {busy ? (
+                <Tip label="Ficar online" placement="right">
+                  <button
+                    type="button"
+                    aria-label="Ficar online"
+                    onClick={() => onStatus('available')}
+                    className={`${styles.circle} ${styles.callBtnJoin}`}
+                  >
+                    <span className={styles.goOnlineDot} />
+                  </button>
+                </Tip>
+              ) : inCallZone && !optedOut && call.status !== 'unavailable' ? (
+                <Tip label="Sair da chamada" placement="right">
                   <button
                     type="button"
                     aria-label="Sair da chamada"
                     onClick={onLeaveCall}
-                    className={`${styles.callBtn} ${styles.callBtnLeave}`}
+                    className={`${styles.circle} ${styles.callBtnLeave}`}
                   >
-                    <Icon name="phoneOff" size={15} color="#ffffff" />
+                    <Icon name="phoneOff" size={17} color="#ffffff" />
                   </button>
                 </Tip>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Linha compacta quando saiu da chamada mas segue na mesma mesa/sala */}
-          <div
-            className={`${styles.rejoinDock} ${!busy && inCallZone && optedOut ? styles.rejoinDockOpen : ''}`}
-            aria-hidden={busy || !inCallZone || !optedOut}
-          >
-            <div className={styles.rejoinRow}>
-              <span className={styles.rejoinLabel}>Entrar na chamada</span>
-              <Tip label="Entrar na chamada" placement="top-end">
-                <button
-                  type="button"
-                  aria-label="Entrar na chamada"
-                  onClick={onJoinCall}
-                  className={`${styles.callBtn} ${styles.callBtnJoin}`}
-                >
-                  <Icon name="phone" size={15} color="#ffffff" />
-                </button>
-              </Tip>
-            </div>
-          </div>
-
-          {/* Linha compacta acoplada no modo Ocupado: 1 clique para ficar online (substitui o bloco de chamada) */}
-          <div
-            className={`${styles.rejoinDock} ${busy ? styles.rejoinDockOpen : ''}`}
-            aria-hidden={!busy}
-          >
-            <button
-              type="button"
-              className={`${styles.rejoinRow} ${styles.busyDockRow}`}
-              onClick={() => onStatus('available')}
-            >
-              <span className={styles.busyDockLabel}>Ficar online</span>
-              <span className={styles.busyDockPill} aria-hidden="true">
-                <span className={styles.goOnlineDot} />
-              </span>
-            </button>
-          </div>
-
-          {/* Topo dos controles: avatar, nome e status */}
-          <div className={styles.controlsBody}>
-            <div className={styles.profileRow}>
-              {me ? (
-                <button
-                  type="button"
-                  aria-label="Perfil e status"
-                  aria-expanded={menu === 'status'}
-                  className={styles.profile}
-                  onClick={() => setMenu(menu === 'status' ? 'none' : 'status')}
-                >
-                  <FaceAvatar appearance={me.appearance} size={32} />
-                  <div className={styles.profileText}>
-                    <span className={styles.profileName}>{me.name}</span>
-                    <span className={styles.statusLine}>
-                      <span
-                        className={styles.dot}
-                        style={{ backgroundColor: STATUS_COLORS[me.status] }}
-                      />
-                      <span className={styles.statusText}>
-                        {STATUS_LABELS[me.status]}
-                      </span>
-                    </span>
-                  </div>
-                  <Icon name="chevronUp" size={14} color="#8f98cc" />
-                </button>
-              ) : null}
-
-              {showMenuButton && onOpenSidebar ? (
-                <Tip label="Abrir menu lateral">
+              ) : inCallZone && optedOut ? (
+                <Tip label="Entrar na chamada" placement="right">
                   <button
                     type="button"
-                    aria-label="Abrir menu lateral"
-                    onClick={onOpenSidebar}
-                    className={styles.menuTrigger}
+                    aria-label="Entrar na chamada"
+                    onClick={onJoinCall}
+                    className={`${styles.circle} ${styles.callBtnJoin}`}
                   >
-                    <Icon name="chevronRight" size={18} color="#c9cff5" />
-                    {mentions > 0 || unread > 0 ? (
-                      <span
-                        className={`${styles.badge} ${mentions > 0 ? styles.badgeAlert : ''}`}
-                      >
-                        {mentions > 0 ? `@${mentions}` : unread}
-                      </span>
-                    ) : null}
+                    <Icon name="phone" size={17} color="#ffffff" />
                   </button>
                 </Tip>
               ) : null}
-            </div>
 
-            {/* 6 botões circulares: Headphone primeiro, depois Mic, Câmera, Tela, Emotes e Mesa */}
-            <div className={styles.controls}>
+              <div className={styles.listDivider} />
+
               <Tip
                 label={
                   busy
@@ -737,7 +588,7 @@ export function BottomBar({
                       : 'Ativar áudio (segure o mouse para escolher saída)'
                 }
                 disabled={Boolean(deviceMenu)}
-                placement="top-start"
+                placement="right"
               >
                 <div
                   className={styles.circleWrap}
@@ -800,7 +651,7 @@ export function BottomBar({
                   : 'Ligar microfone (segure para trocar)',
                 call.toggleMic,
                 'audioinput',
-                'top-start',
+                'right',
               )}
 
               {circleCallButton(
@@ -812,7 +663,7 @@ export function BottomBar({
                   : 'Ligar câmera (segure para preview)',
                 call.toggleCam,
                 'videoinput',
-                'top-start',
+                'right',
               )}
 
               <Tip
@@ -823,6 +674,7 @@ export function BottomBar({
                       ? 'Parar de compartilhar a tela'
                       : 'Compartilhar a tela'
                 }
+                placement="right"
               >
                 <button
                   type="button"
@@ -849,46 +701,125 @@ export function BottomBar({
                   />
                 </button>
               </Tip>
-
-              <Tip label="Emotes">
-                <button
-                  type="button"
-                  aria-label="Emotes"
-                  aria-pressed={menu === 'emotes'}
-                  onClick={() => setMenu(menu === 'emotes' ? 'none' : 'emotes')}
-                  className={`${styles.circle} ${menu === 'emotes' ? styles.circleActive : styles.circleIdle}`}
-                >
-                  <Icon
-                    name="smile"
-                    size={18}
-                    color={menu === 'emotes' ? '#ffffff' : '#c9cff5'}
-                  />
-                </button>
-              </Tip>
-
-              <Tip
-                label={
-                  hasDesk
-                    ? 'Ir até a minha mesa'
-                    : 'Adote uma mesa para usar este atalho'
-                }
-                placement="top-end"
-              >
-                <button
-                  type="button"
-                  aria-label="Ir até a minha mesa"
-                  disabled={!hasDesk}
-                  onClick={onGoToMyDesk}
-                  className={`${styles.circle} ${styles.circleIdle} ${!hasDesk ? styles.circleDisabled : ''}`}
-                >
-                  <Icon
-                    name="desk"
-                    size={18}
-                    color={hasDesk ? '#c9cff5' : '#5c6396'}
-                  />
-                </button>
-              </Tip>
             </div>
+
+            {/* Setinha indicadora acima do controle remoto (para cima quando fechado, gira para baixo quando aberto) */}
+            <span
+              className={`${styles.remoteArrow} ${controlsOpen ? styles.remoteArrowOpen : ''}`}
+              aria-hidden="true"
+            >
+              <Icon name="chevronUp" size={13} color="var(--text-muted)" />
+            </span>
+
+            {/* Botão fixo na base para recolher/expandir os controles (ícone de controle remoto) */}
+            <Tip
+              label={
+                controlsPinned
+                  ? 'Ocultar controles de chamada'
+                  : 'Fixar controles abertos'
+              }
+              placement="right"
+            >
+              <button
+                type="button"
+                aria-label={
+                  controlsPinned
+                    ? 'Ocultar controles de chamada'
+                    : 'Fixar controles abertos'
+                }
+                aria-expanded={controlsOpen}
+                onClick={() => {
+                  setControlsPinned((prev) => {
+                    const next = !prev;
+                    if (!next) setControlsHover(false);
+                    return next;
+                  });
+                  setMenu('none');
+                  setDeviceMenu(null);
+                }}
+                className={`${styles.remoteToggle} ${controlsOpen ? styles.remoteToggleOpen : ''}`}
+              >
+                <Icon
+                  name="remote"
+                  size={19}
+                  color={controlsOpen ? '#ffffff' : 'var(--accent-link)'}
+                />
+                {!controlsOpen && me ? (
+                  <span
+                    className={styles.remoteStatusDot}
+                    style={{ backgroundColor: STATUS_COLORS[me.status] }}
+                  />
+                ) : null}
+              </button>
+            </Tip>
+          </div>
+
+          {/* Botões separados na horizontal fora do controle: reações e ir até a própria mesa */}
+          <div className={styles.quickRow}>
+            <Tip
+              label="Reações (Emotes)"
+              placement="top"
+              disabled={menu === 'emotes'}
+            >
+              <button
+                type="button"
+                aria-label="Emotes"
+                aria-pressed={menu === 'emotes'}
+                onClick={() => setMenu(menu === 'emotes' ? 'none' : 'emotes')}
+                className={`${styles.circle} ${styles.quickIconBtn} ${menu === 'emotes' ? styles.circleActive : styles.circleIdle}`}
+              >
+                <Icon
+                  name="smile"
+                  size={18}
+                  color={menu === 'emotes' ? '#ffffff' : '#c9cff5'}
+                />
+              </button>
+            </Tip>
+
+            <Tip
+              label={
+                hasDesk
+                  ? 'Ir até a minha mesa'
+                  : 'Adote uma mesa para usar este atalho'
+              }
+              placement="top"
+            >
+              <button
+                type="button"
+                aria-label="Ir até a minha mesa"
+                disabled={!hasDesk}
+                onClick={onGoToMyDesk}
+                onMouseEnter={() => hasDesk && onHoverMyDesk?.(true)}
+                onMouseLeave={() => onHoverMyDesk?.(false)}
+                className={`${styles.circle} ${styles.quickIconBtn} ${styles.circleIdle} ${!hasDesk ? styles.circleDisabled : ''}`}
+              >
+                <Icon
+                  name="desk"
+                  size={18}
+                  color={hasDesk ? '#c9cff5' : '#5c6396'}
+                />
+              </button>
+            </Tip>
+
+            {showMenuButton && onOpenSidebar ? (
+              <Tip label="Abrir menu lateral" placement="top">
+                <button
+                  type="button"
+                  aria-label="Abrir menu lateral"
+                  onClick={onOpenSidebar}
+                  className={`${styles.menuTrigger} ${styles.quickIconBtn}`}
+                >
+                  <Icon name="chevronRight" size={18} color="#c9cff5" />
+                  {mentions > 0 || unread > 0 ? (
+                    <span
+                      className={`${styles.badge} ${mentions > 0 ? styles.badgeAlert : ''}`}
+                    >
+                      {mentions > 0 ? `@${mentions}` : unread}
+                    </span>
+                  ) : null}
+                </button>
+              </Tip>
+            ) : null}
           </div>
         </div>
       </div>

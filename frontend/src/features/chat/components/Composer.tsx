@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { FaceAvatar } from '@/features/office/components/FaceAvatar';
 import { PERSON_STATUS_COLORS } from '@/features/office/model/people';
@@ -16,15 +16,50 @@ import styles from './Composer.module.css';
 type Props = {
   placeholder: string;
   onSend: (text: string) => void;
+  onTyping?: (typing: boolean) => void;
 };
 
 /** Até quantas pessoas a lista do @ mostra. */
 const MENTION_LIMIT = 8;
 
-export function Composer({ placeholder, onSend }: Props) {
+export function Composer({ placeholder, onSend, onTyping }: Props) {
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const stopTypingRef = useRef<number | null>(null);
+  const lastTypingAtRef = useRef(0);
   const people = usePeopleStore((s) => s.people);
+
+  useEffect(() => {
+    return () => {
+      if (stopTypingRef.current !== null) {
+        window.clearTimeout(stopTypingRef.current);
+      }
+      onTyping?.(false);
+    };
+  }, [onTyping]);
+
+  const notifyTyping = (value: string) => {
+    if (!onTyping) return;
+    if (stopTypingRef.current !== null) {
+      window.clearTimeout(stopTypingRef.current);
+      stopTypingRef.current = null;
+    }
+    if (!value.trim()) {
+      lastTypingAtRef.current = 0;
+      onTyping(false);
+      return;
+    }
+    const now = Date.now();
+    if (now - lastTypingAtRef.current > 1600) {
+      lastTypingAtRef.current = now;
+      onTyping(true);
+    }
+    stopTypingRef.current = window.setTimeout(() => {
+      stopTypingRef.current = null;
+      lastTypingAtRef.current = 0;
+      onTyping(false);
+    }, 2400);
+  };
 
   const query = mentionQuery(text);
   // A mesma ordem da aba Pessoas (online primeiro), filtrada pelo que vem depois do @.
@@ -35,6 +70,12 @@ export function Composer({ placeholder, onSend }: Props) {
 
   const send = () => {
     if (!text.trim()) return;
+    if (stopTypingRef.current !== null) {
+      window.clearTimeout(stopTypingRef.current);
+      stopTypingRef.current = null;
+    }
+    lastTypingAtRef.current = 0;
+    onTyping?.(false);
     onSend(text);
     setText('');
   };
@@ -97,7 +138,10 @@ export function Composer({ placeholder, onSend }: Props) {
           type="text"
           className={styles.input}
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value);
+            notifyTyping(event.target.value);
+          }}
           placeholder={placeholder}
           maxLength={CHAT_TEXT_MAX_LENGTH}
           aria-label={placeholder}

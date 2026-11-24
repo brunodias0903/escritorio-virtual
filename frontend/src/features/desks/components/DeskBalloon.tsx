@@ -15,6 +15,8 @@ type Props = {
   state: DeskCardState;
   /** Usuário está posicionado nesta mesa (libera adotar / devolver admin). */
   isStanding: boolean;
+  /** Abre o balão abaixo da mesa (ex.: durante chamada para não colidir com câmeras). */
+  placeBelow?: boolean;
   /** True quando expandido (hover ou toque); false para a pílula compacta ("Sua mesa" / "Mesa de ..."). */
   expanded: boolean;
   /** True durante a animação de minimizar antes de desmontar. */
@@ -41,6 +43,7 @@ export function DeskBalloon({
   info,
   state,
   isStanding,
+  placeBelow = false,
   expanded,
   closing = false,
   onMouseEnter,
@@ -75,7 +78,7 @@ export function DeskBalloon({
 
   return (
     <div
-      className={styles.anchor}
+      className={`${styles.anchor} ${placeBelow ? styles.anchorBelow : ''}`}
       style={{ left: x, top: y }}
       onPointerEnter={(event) => {
         if (event.pointerType === 'mouse') onMouseEnter();
@@ -231,7 +234,7 @@ export function DeskBalloon({
           </div>
         )}
 
-        <div className={styles.arrow} />
+        <div className={placeBelow ? styles.arrowTop : styles.arrow} />
       </div>
     </div>
   );

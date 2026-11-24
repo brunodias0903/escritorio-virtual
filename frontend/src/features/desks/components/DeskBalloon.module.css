@@ -8,6 +8,32 @@
   margin-bottom: -10px;
 }
 
+.anchorBelow {
+  transform: translate(-50%, 10px);
+  padding-bottom: 0;
+  padding-top: 10px;
+  margin-bottom: 0;
+  margin-top: -10px;
+}
+
+.arrowTop {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--bg-bar);
+  border-left: 1.5px solid var(--border-bar);
+  border-top: 1.5px solid var(--border-bar);
+  pointer-events: none;
+}
+
+.balloonMine .arrowTop {
+  border-left-color: var(--accent-border-soft);
+  border-top-color: var(--accent-border-soft);
+}
+
 @keyframes macOpen {
   0% {
     opacity: 0;

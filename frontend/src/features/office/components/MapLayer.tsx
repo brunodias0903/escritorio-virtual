@@ -19,13 +19,14 @@ type Props = {
   mapId: MapId;
   /** Mesinhas com dono (por deskKey). As que faltam aqui estão livres. */
   desks: Record<string, DeskInfo>;
+  myEmail?: string;
   /** Avisa qual mesa está com o mouse por cima (ou null ao sair). */
   onHoverDesk?: (deskId: string | null) => void;
 };
 
 const INK = '#202030';
 
-export function MapLayer({ mapId, desks, onHoverDesk }: Props) {
+export function MapLayer({ mapId, desks, myEmail, onHoverDesk }: Props) {
   const map = resolveMap(mapId, Object.values(desks));
   const walls = wallTiles(map);
 
@@ -89,17 +90,22 @@ export function MapLayer({ mapId, desks, onHoverDesk }: Props) {
         />
       ))}
 
-      {map.areas.map((area) => (
-        <AreaFloor
-          key={area.id}
-          area={area}
-          locked={
-            area.desk
-              ? (desks[deskKey(mapId, area.id)]?.config.locked ?? false)
-              : false
-          }
-        />
-      ))}
+      {map.areas.map((area) => {
+        const info = area.desk ? desks[deskKey(mapId, area.id)] : undefined;
+        const ownerKind: 'free' | 'mine' | 'other' = !info?.owner
+          ? 'free'
+          : myEmail && info.owner.email === myEmail
+            ? 'mine'
+            : 'other';
+        return (
+          <AreaFloor
+            key={area.id}
+            area={area}
+            locked={info?.config.locked ?? false}
+            ownerKind={ownerKind}
+          />
+        );
+      })}
 
       {map.doors.map((door) => (
         <DoorMat
@@ -229,10 +235,25 @@ function WallTile({ tx, ty, walls }: { tx: number; ty: number; walls: Walls }) {
 
 // --- Zonas, portas ---------------------------------------------------------
 
-function AreaFloor({ area, locked }: { area: Area; locked: boolean }) {
+function AreaFloor({
+  area,
+  locked,
+  ownerKind = 'free',
+}: {
+  area: Area;
+  locked: boolean;
+  ownerKind?: 'free' | 'mine' | 'other';
+}) {
   if (area.desk) {
-    const color = locked ? '#ff6b81' : '#48d0a8';
-    // Só marca o limite da área da mesinha: uma borda leve em volta dos 3 lugares.
+    const color =
+      ownerKind === 'mine'
+        ? 'var(--accent)'
+        : locked
+          ? '#ff6b81'
+          : ownerKind === 'other'
+            ? 'var(--status-away)'
+            : '#48d0a8';
+    // Marca a área da mesinha: borda com a cor principal do tema para a própria mesa, distinta para outros.
     return (
       <rect
         x={area.x + 1}
@@ -240,10 +261,10 @@ function AreaFloor({ area, locked }: { area: Area; locked: boolean }) {
         width={area.w - 2}
         height={area.h - 2}
         fill={color}
-        fillOpacity={locked ? 0.16 : 0.12}
+        fillOpacity={ownerKind === 'mine' ? 0.18 : locked ? 0.16 : 0.12}
         stroke={color}
-        strokeWidth={2}
-        strokeOpacity={locked ? 0.85 : 0.7}
+        strokeWidth={ownerKind === 'mine' ? 2.5 : 2}
+        strokeOpacity={ownerKind === 'mine' ? 0.95 : locked ? 0.85 : 0.72}
       />
     );
   }
