@@ -1,0 +1,65 @@
+name: Deploy Dev (MR)
+
+# Faz build e deploy automático em ambiente de desenvolvimento/homologação
+# quando uma MR é aberta ou atualizada contra a main (se DEV_VPS_HOST estiver configurada).
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: deploy-dev-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-dev:
+    name: Deploy Dev Preview via SSH
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check dev server secrets
+        id: check
+        env:
+          DEV_VPS_HOST: ${{ secrets.DEV_VPS_HOST }}
+          DEV_VPS_USER: ${{ secrets.DEV_VPS_USER }}
+          DEV_VPS_SSH_KEY: ${{ secrets.DEV_VPS_SSH_KEY }}
+          DEV_VPS_APP_DIR: ${{ secrets.DEV_VPS_APP_DIR }}
+        run: |
+          if [ -z "$DEV_VPS_HOST" ] || [ -z "$DEV_VPS_USER" ] || [ -z "$DEV_VPS_SSH_KEY" ] || [ -z "$DEV_VPS_APP_DIR" ]; then
+            echo "Servidor de dev ainda não vinculado (secrets DEV_VPS_* ausentes). Pulando deploy de dev."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy PR branch on Dev VPS
+        if: steps.check.outputs.ready == 'true'
+        env:
+          DEV_VPS_HOST: ${{ secrets.DEV_VPS_HOST }}
+          DEV_VPS_USER: ${{ secrets.DEV_VPS_USER }}
+          DEV_VPS_PORT: ${{ secrets.DEV_VPS_PORT }}
+          DEV_VPS_SSH_KEY: ${{ secrets.DEV_VPS_SSH_KEY }}
+          DEV_VPS_APP_DIR: ${{ secrets.DEV_VPS_APP_DIR }}
+          BRANCH_REF: ${{ github.head_ref }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEV_VPS_SSH_KEY" > ~/.ssh/id_deploy_dev
+          chmod 600 ~/.ssh/id_deploy_dev
+
+          PORT="${DEV_VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$DEV_VPS_HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/id_deploy_dev -p "$PORT" "$DEV_VPS_USER@$DEV_VPS_HOST" bash -s -- "$DEV_VPS_APP_DIR" "$BRANCH_REF" <<'EOF'
+            set -euo pipefail
+            APP_DIR="$1"
+            BRANCH="$2"
+            cd "$APP_DIR"
+
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+
+            VERSION="dev-$(git rev-parse --short HEAD)" docker compose up -d --build --remove-orphans
+            docker compose ps
+          EOF

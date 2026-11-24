@@ -7,6 +7,8 @@ on:
       - 'v*.*.*'
   pull_request:
     branches: [main]
+  pull_request_review:
+    types: [submitted]
   workflow_dispatch:
 
 concurrency:
@@ -20,9 +22,29 @@ env:
   HUSKY: '0'
 
 jobs:
+  owner-approval:
+    name: Maintainer Approval
+    if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_review') && github.event.pull_request.user.login != 'brunodias0903'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Verify @brunodias0903 approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          approved=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+            --jq '[.[] | select(.user.login == "brunodias0903" and .state == "APPROVED")] | length')
+          if [ "$approved" -lt 1 ]; then
+            echo "::error::Esta MR precisa de aprovação explícita de @brunodias0903 antes do merge."
+            exit 1
+          fi
+
   conventions:
     name: Conventional Commits
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -179,7 +201,6 @@ jobs:
 
   docker-build:
     name: Docker Build Check
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: [root-format, backend, frontend]
     runs-on: ubuntu-latest
     steps:
