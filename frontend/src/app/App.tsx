@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 
+import { MobileInstallPrompt } from '@/features/pwa/MobileInstallPrompt';
 import { useSessionStore } from '@/features/session/model/sessionStore';
 import { LoginPage } from '@/pages/login/LoginPage';
 
@@ -31,11 +32,19 @@ export function App() {
 
   if (!hydrated) return BLANK_SCREEN;
 
-  if (!session) return <LoginPage />;
+  if (!session) {
+    return (
+      <>
+        <LoginPage />
+        <MobileInstallPrompt />
+      </>
+    );
+  }
 
   return (
     <Suspense fallback={BLANK_SCREEN}>
       <OfficePage session={session} />
+      <MobileInstallPrompt />
     </Suspense>
   );
 }

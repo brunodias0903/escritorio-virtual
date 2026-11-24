@@ -10,25 +10,34 @@ describe('describeMediaError', () => {
     );
   });
 
-  it('explica cada tipo de erro do navegador', () => {
-    expect(describeMediaError(named('NotAllowedError'), true)).toContain(
+  it('explica cada tipo de erro do navegador separadamente por mídia', () => {
+    expect(describeMediaError(named('NotAllowedError'), true, 'mic')).toContain(
+      'microfone',
+    );
+    expect(describeMediaError(named('NotAllowedError'), true, 'cam')).toContain(
+      'câmera',
+    );
+    expect(describeMediaError(named('SecurityError'), true, 'mic')).toContain(
       'cadeado',
     );
-    expect(describeMediaError(named('SecurityError'), true)).toContain(
-      'cadeado',
+    expect(describeMediaError(named('NotFoundError'), true, 'mic')).toContain(
+      'Nenhum microfone',
     );
-    expect(describeMediaError(named('NotFoundError'), true)).toContain(
-      'Não encontrei',
+    expect(
+      describeMediaError(named('OverconstrainedError'), true, 'cam'),
+    ).toContain('Nenhuma câmera');
+    expect(
+      describeMediaError(named('NotReadableError'), true, 'cam'),
+    ).toContain('em uso');
+    expect(describeMediaError(named('AbortError'), true, 'screen')).toContain(
+      'cancelado',
     );
-    expect(describeMediaError(named('OverconstrainedError'), true)).toContain(
-      'Não encontrei',
-    );
-    expect(describeMediaError(named('NotReadableError'), true)).toContain(
-      'em uso',
-    );
-    expect(describeMediaError(named('AbortError'), true)).toContain(
-      'cancelada',
-    );
+    expect(
+      describeMediaError(named('UnsupportedScreenShare'), true, 'screen'),
+    ).toContain('Não é possível compartilhar a tela');
+    expect(
+      describeMediaError(named('NotAllowedError'), true, 'audio'),
+    ).toContain('áudio');
   });
 
   it('tem uma mensagem para erros desconhecidos e valores estranhos', () => {

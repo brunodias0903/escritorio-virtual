@@ -1,0 +1,87 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: var(--bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: var(--z-modal);
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border-radius: var(--radius-2xl);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-accent);
+  box-shadow: 0 24px 60px rgba(4, 6, 20, 0.72);
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.desc {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.optionBtn {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-bar);
+  background-color: var(--bg-bar);
+  text-align: left;
+  transition:
+    border-color 0.14s ease,
+    background-color 0.14s ease;
+}
+
+.optionBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background-color: var(--bg-control);
+}
+
+.optionPrimary {
+  border-color: var(--accent-border-soft);
+  background-color: var(--accent-mention-bg);
+}
+
+.optionTitle {
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.optionSub {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.footnote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}

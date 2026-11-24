@@ -7,4 +7,5 @@ export * from './maps';
 export * from './people';
 export * from './protocol';
 export * from './proximity';
+export * from './workspace';
 export * from './world';

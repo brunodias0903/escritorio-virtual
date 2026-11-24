@@ -21,6 +21,9 @@ export type CallTilesProps = {
   width: number;
   /** Tela pequena: quadros menores e o meu vai para o canto de cima. */
   compact: boolean;
+  /** Chave do quadro de câmera ampliado em destaque centralizado na parte inferior (ex.: 'self' ou tile.key). */
+  spotlightKey?: string | null;
+  onSpotlightChange?: (key: string | null) => void;
 };
 
 const SIGNAL_COLORS: Record<SignalQuality, string> = {
@@ -29,6 +32,20 @@ const SIGNAL_COLORS: Record<SignalQuality, string> = {
   poor: '#ff6b81',
   unknown: '#6b72a8',
 };
+
+/** Ordena participantes priorizando tela compartilhada, câmera ligada e quem está falando. */
+function tilePriority(tile: CallTile): number {
+  let score = 0;
+  if (tile.kind === 'screen') score += 100;
+  if (tile.track !== null) score += 40;
+  if (tile.speaking) score += 20;
+  if (!tile.self) score += 10;
+  return score;
+}
+
+function sortTilesForMobile(tiles: CallTile[]): CallTile[] {
+  return [...tiles].sort((a, b) => tilePriority(b) - tilePriority(a));
+}
 
 /** Espaço livre em cima (etiquetas da sala) e embaixo (barra de botões). */
 const FOCUS_TOP = 56;
@@ -162,9 +179,16 @@ function TileButton({
  * - uma tela de outra pessoa pode ser ampliada (como no Meet e no Teams):
  *   ela fica grande à esquerda e as pessoas numa coluna à direita.
  */
-export function CallTiles({ tiles, width, compact }: CallTilesProps) {
+export function CallTiles({
+  tiles,
+  width,
+  compact,
+  spotlightKey = null,
+  onSpotlightChange,
+}: CallTilesProps) {
   const { height: windowHeight } = useWindowSize();
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [mobileGridOpen, setMobileGridOpen] = useState(false);
 
   const mine = tiles.filter((t) => t.self && t.kind === 'camera');
   const myShare = tiles.filter((t) => t.self && t.kind === 'screen');
@@ -173,6 +197,150 @@ export function CallTiles({ tiles, width, compact }: CallTilesProps) {
 
   // Se a tela ampliada parar de ser compartilhada, volta ao normal sozinho.
   const focused = shares.find((t) => t.key === focusKey) ?? null;
+
+  // Câmera ampliada em destaque (própria ou de outra pessoa).
+  const spotlightTile =
+    spotlightKey === 'self'
+      ? (mine[0] ?? null)
+      : spotlightKey
+        ? (tiles.find((t) => t.key === spotlightKey) ?? null)
+        : null;
+
+  const rowOthers =
+    spotlightTile && !spotlightTile.self
+      ? others.filter((t) => t.key !== spotlightTile.key)
+      : others;
+
+  useEffect(() => {
+    if (!spotlightTile || !onSpotlightChange) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onSpotlightChange(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [spotlightTile, onSpotlightChange]);
+
+  // --- Experiência dedicada para Mobile (strip compacto + grid expansível estilo Discord) ---
+  if (compact) {
+    if (tiles.length === 0) return null;
+    const sorted = sortTilesForMobile(tiles);
+    const activeSpot = spotlightTile;
+
+    if (activeSpot) {
+      const spotW = Math.min(480, Math.max(240, width - 24));
+      const spotH = Math.min(
+        Math.round(
+          spotW * (activeSpot.kind === 'screen' ? SCREEN_RATIO : TILE_RATIO),
+        ),
+        Math.max(180, windowHeight - 280),
+      );
+      return (
+        <div className={styles.layer}>
+          <div className={styles.mobileSpotWrap}>
+            <Tile tile={activeSpot} width={spotW} height={spotH}>
+              <div className={styles.tileActions}>
+                <TileButton
+                  big
+                  icon="shrink"
+                  label="Reduzir"
+                  onClick={() => onSpotlightChange?.(null)}
+                />
+              </div>
+            </Tile>
+          </div>
+        </div>
+      );
+    }
+
+    if (mobileGridOpen) {
+      const cols = sorted.length === 1 ? 1 : 2;
+      const cellW = Math.floor(
+        (Math.min(width, 520) - 36 - (cols - 1) * 8) / cols,
+      );
+      const cellH = Math.round(cellW * TILE_RATIO);
+      return (
+        <div className={styles.mobileGridSheet}>
+          <div className={styles.mobileGridHeader}>
+            <span className={styles.mobileGridTitle}>
+              Na chamada ({sorted.length})
+            </span>
+            <button
+              type="button"
+              className={styles.mobileGridClose}
+              onClick={() => setMobileGridOpen(false)}
+            >
+              <Icon name="shrink" size={14} color="#ffffff" />
+              <span>Ver mapa</span>
+            </button>
+          </div>
+          <div className={styles.mobileGrid}>
+            {sorted.map((tile) => {
+              const isScreen = tile.kind === 'screen';
+              const w = isScreen ? Math.min(width - 36, 480) : cellW;
+              const h = isScreen ? Math.round(w * SCREEN_RATIO) : cellH;
+              return (
+                <div
+                  key={tile.key}
+                  className={isScreen ? styles.mobileGridFull : undefined}
+                >
+                  <Tile tile={tile} width={w} height={h}>
+                    {onSpotlightChange ? (
+                      <div className={styles.tileActions}>
+                        <TileButton
+                          icon="expand"
+                          label={`Ampliar ${tile.label}`}
+                          onClick={() => {
+                            setMobileGridOpen(false);
+                            onSpotlightChange(tile.self ? 'self' : tile.key);
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </Tile>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles.layer}>
+        <div className={styles.mobileStrip}>
+          {sorted.map((tile) => {
+            const hasVideo = tile.track !== null;
+            const w = hasVideo ? 94 : 58;
+            const h = hasVideo ? 68 : 58;
+            return (
+              <button
+                key={tile.key}
+                type="button"
+                className={styles.mobileChipBtn}
+                aria-label={`Ampliar ${tile.label}`}
+                onClick={() =>
+                  onSpotlightChange
+                    ? onSpotlightChange(tile.self ? 'self' : tile.key)
+                    : setMobileGridOpen(true)
+                }
+              >
+                <Tile tile={tile} width={w} height={h} />
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            className={styles.mobileExpandBtn}
+            aria-label={`Ver todos na chamada (${sorted.length})`}
+            onClick={() => setMobileGridOpen(true)}
+          >
+            <Icon name="expand" size={14} color="#ffffff" />
+            <span>{sorted.length}</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const selfWidth = compact ? 112 : 200;
   const selfHeight = selfWidth * TILE_RATIO;
@@ -228,11 +396,33 @@ export function CallTiles({ tiles, width, compact }: CallTilesProps) {
     );
   }
 
-  const row = rowLayout(width, others.length, shares.length);
+  const row = rowLayout(width, rowOthers.length, shares.length);
+
+  // Tamanho do quadro em destaque centralizado (acima da barra inferior no mobile).
+  const isLandscapeMobile = compact && windowHeight < 540;
+  const maxSpotW = isLandscapeMobile
+    ? Math.max(200, Math.min(360, width - 456))
+    : Math.min(540, Math.max(260, width - (compact ? 24 : 336)));
+  const maxSpotH = isLandscapeMobile
+    ? Math.max(150, windowHeight - 108)
+    : Math.max(
+        180,
+        windowHeight -
+          (compact
+            ? rowOthers.length + shares.length > 0
+              ? 360
+              : 270
+            : rowOthers.length + shares.length > 0
+              ? 300
+              : 180),
+      );
+  const spotWidth = Math.round(Math.min(maxSpotW, maxSpotH / TILE_RATIO));
+  const spotHeight = Math.round(spotWidth * TILE_RATIO);
+  const canTrueCenter = compact || width >= spotWidth + 620;
 
   return (
     <div className={styles.layer}>
-      {shares.length + others.length > 0 ? (
+      {shares.length + rowOthers.length > 0 ? (
         <div className={`${styles.row} ${compact ? styles.rowCompact : ''}`}>
           {shares.map((tile) => (
             <Tile
@@ -252,28 +442,49 @@ export function CallTiles({ tiles, width, compact }: CallTilesProps) {
               ) : null}
             </Tile>
           ))}
-          {others.map((tile) => (
+          {rowOthers.map((tile) => (
             <Tile
               key={tile.key}
               tile={tile}
               width={row.cameraWidth}
               height={row.height}
-            />
+            >
+              {onSpotlightChange ? (
+                <div className={styles.tileActions}>
+                  <TileButton
+                    icon="expand"
+                    label={`Ampliar câmera de ${tile.label}`}
+                    onClick={() => onSpotlightChange(tile.key)}
+                  />
+                </div>
+              ) : null}
+            </Tile>
           ))}
         </div>
       ) : null}
 
-      {/* A minha câmera e, ao lado dela, a minha tela pequena. */}
-      {mine.length + myShare.length > 0 ? (
+      {spotlightTile ? (
+        <div
+          className={`${styles.spotlight} ${!canTrueCenter ? styles.spotlightOffset : ''}`}
+        >
+          <Tile tile={spotlightTile} width={spotWidth} height={spotHeight}>
+            {onSpotlightChange ? (
+              <div className={styles.tileActions}>
+                <TileButton
+                  big
+                  icon="shrink"
+                  label="Reduzir"
+                  onClick={() => onSpotlightChange(null)}
+                />
+              </div>
+            ) : null}
+          </Tile>
+        </div>
+      ) : null}
+
+      {/* Minha tela compartilhada (a própria câmera agora fica acoplada no cartão inferior esquerdo). */}
+      {myShare.length > 0 ? (
         <div className={compact ? styles.selfCompact : styles.self}>
-          {mine.map((tile) => (
-            <Tile
-              key={tile.key}
-              tile={tile}
-              width={selfWidth}
-              height={selfHeight}
-            />
-          ))}
           {myShare.map((tile) => (
             <Tile
               key={tile.key}

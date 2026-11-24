@@ -1,10 +1,12 @@
-import type { ChatMessage } from '../../shared/domain/index.js';
+import type { AccountTier, ChatMessage } from '../../shared/domain/index.js';
 
 export type ChannelRow = {
   id: string;
   name: string;
   kind: 'public' | 'dm';
   archived: boolean;
+  topic?: string;
+  writeTiers?: AccountTier[];
   createdBy: string | null;
   createdAt: number;
 };
@@ -19,6 +21,10 @@ export interface ChannelRepository {
   /** Cria o canal. Devolve false se o id ou o nome já existe. */
   create(channel: ChannelRow): Promise<boolean>;
   setArchived(id: string, archived: boolean): Promise<boolean>;
+  updateConfig?(
+    id: string,
+    patch: { topic?: string; writeTiers?: AccountTier[]; archived?: boolean },
+  ): Promise<boolean>;
 }
 
 /** Histórico de mensagens do chat. */

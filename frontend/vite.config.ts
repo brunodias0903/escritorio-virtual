@@ -8,6 +8,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@design-system': fileURLToPath(
+        new URL('../design-system/src', import.meta.url),
+      ),
     },
   },
   build: {

@@ -16,7 +16,7 @@
 }
 
 .authLabel {
-  color: #dcd6f7;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
 }
@@ -33,7 +33,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #9389bd;
+  color: var(--text-muted);
   pointer-events: none;
 }
 
@@ -53,21 +53,21 @@
 
 .authInput {
   padding: 12px 14px;
-  border: 1px solid rgba(139, 114, 218, 0.24);
+  border: 1px solid var(--border-bar);
   border-radius: 10px;
-  background-color: #231542;
+  background-color: var(--bg-input);
   font-size: 15px;
 }
 
 .authInput:hover {
-  background-color: #2a1a4e;
-  border-color: rgba(139, 114, 218, 0.42);
+  background-color: var(--bg-input-hover);
+  border-color: var(--border-accent);
 }
 
 .authInput:focus {
-  background-color: #2a1a4e;
-  border-color: #7c5cff;
-  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.22);
+  background-color: var(--bg-input-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-mention-bg);
   outline: none;
 }
 

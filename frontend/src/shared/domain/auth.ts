@@ -115,8 +115,8 @@ const CodeSchema = z
 /** Quem pode criar conta é conferido no servidor (ACCOUNT_DOMAINS e ALLOWED_EMAILS). */
 const AccountEmailSchema = EmailSchema;
 
-/** Para que serve o código: criar conta ou trocar a senha esquecida. */
-export const CODE_PURPOSES = ['register', 'reset'] as const;
+/** Para que serve o código: criar conta, trocar senha esquecida, verificar e-mail ou login 2FA. */
+export const CODE_PURPOSES = ['register', 'reset', 'verify', 'mfa'] as const;
 export type CodePurpose = (typeof CODE_PURPOSES)[number];
 
 export const RequestCodeSchema = z.object({
@@ -124,6 +124,142 @@ export const RequestCodeSchema = z.object({
   purpose: z.enum(CODE_PURPOSES),
 });
 export type RequestCode = z.infer<typeof RequestCodeSchema>;
+
+/** Confirmação de verificação do e-mail da conta já logada. */
+export const VerifyEmailSchema = z.object({
+  code: CodeSchema,
+});
+export type VerifyEmail = z.infer<typeof VerifyEmailSchema>;
+
+export const MFA_METHODS = ['none', 'email', 'totp'] as const;
+export type MfaMethod = (typeof MFA_METHODS)[number];
+
+export const MfaEmailToggleSchema = z.object({
+  enabled: z.boolean(),
+});
+export type MfaEmailToggle = z.infer<typeof MfaEmailToggleSchema>;
+
+/** Ativação de MFA (TOTP) com código de 6 dígitos do app autenticador. */
+export const MfaEnableSchema = z.object({
+  code: CodeSchema,
+});
+export type MfaEnable = z.infer<typeof MfaEnableSchema>;
+
+/** Desativação de MFA: exige senha atual e código TOTP ou código de recuperação. */
+export const MfaDisableSchema = z.object({
+  password: z.string().min(1, 'Informe a senha.').max(PASSWORD_MAX_LENGTH),
+  code: z.string().trim().min(6, 'Informe o código.').max(20),
+});
+export type MfaDisable = z.infer<typeof MfaDisableSchema>;
+
+export const MfaSetupResponseSchema = z.object({
+  secret: z.string(),
+  otpauthUrl: z.string(),
+  qrDataUrl: z.string(),
+});
+export type MfaSetupResponse = z.infer<typeof MfaSetupResponseSchema>;
+
+export const MfaEnableResponseSchema = z.object({
+  mfaEnabled: z.literal(true),
+  recoveryCodes: z.array(z.string()),
+});
+export type MfaEnableResponse = z.infer<typeof MfaEnableResponseSchema>;
+
+const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/** Preferência de tema/cores da interface salva na conta do usuário. */
+export const UiThemeSchema = z.object({
+  presetId: z.enum(['default', 'games', 'fantasy', 'scifi']),
+  colors: z.object({
+    rail: HexColorSchema,
+    surface: HexColorSchema,
+    accent: HexColorSchema,
+    presence: HexColorSchema,
+  }),
+  customized: z.boolean(),
+});
+export type UiTheme = z.infer<typeof UiThemeSchema>;
+
+// --- Inclusão & Acessibilidade (100% opcionais, LGPD Art. 11) -----------------
+
+export const GENDER_IDENTITIES = [
+  'prefer_not_to_say',
+  'cis_man',
+  'cis_woman',
+  'trans_man',
+  'trans_woman',
+  'non_binary',
+  'gender_fluid',
+  'agender',
+  'other',
+] as const;
+export type GenderIdentity = (typeof GENDER_IDENTITIES)[number];
+
+export const GENDER_IDENTITY_LABELS: Record<GenderIdentity, string> = {
+  prefer_not_to_say: 'Prefiro não informar',
+  cis_man: 'Homem cisgênero',
+  cis_woman: 'Mulher cisgênero',
+  trans_man: 'Homem transgênero',
+  trans_woman: 'Mulher transgênero',
+  non_binary: 'Pessoa não-binária',
+  gender_fluid: 'Gênero fluido',
+  agender: 'Agênero',
+  other: 'Outro',
+};
+
+export const PRONOUN_PRESETS = [
+  '',
+  'ele/dele',
+  'ela/dela',
+  'elu/delu',
+  'ele/elu',
+  'ela/elu',
+  'qualquer pronome',
+] as const;
+
+export const ACCESSIBILITY_NEEDS = [
+  'visual',
+  'colorblind',
+  'hearing',
+  'motor',
+  'neurodivergent',
+] as const;
+export type AccessibilityNeed = (typeof ACCESSIBILITY_NEEDS)[number];
+
+export const ACCESSIBILITY_NEED_LABELS: Record<AccessibilityNeed, string> = {
+  visual: 'Deficiência visual / baixa visão',
+  colorblind: 'Daltonismo / dificuldade com cores',
+  hearing: 'Deficiência auditiva / surdez',
+  motor: 'Deficiência motora / mobilidade reduzida',
+  neurodivergent: 'Neurodivergência (TEA, TDAH, dislexia, sensibilidade)',
+};
+
+export const COLORBLIND_MODES = [
+  'none',
+  'protanopia',
+  'deuteranopia',
+  'tritanopia',
+] as const;
+export type ColorblindMode = (typeof COLORBLIND_MODES)[number];
+
+export const AccessibilityPrefsSchema = z.object({
+  highContrast: z.boolean().default(false),
+  reducedMotion: z.boolean().default(false),
+  largeText: z.boolean().default(false),
+  dyslexiaFont: z.boolean().default(false),
+  visualAlerts: z.boolean().default(false),
+  colorblindMode: z.enum(COLORBLIND_MODES).default('none'),
+});
+export type AccessibilityPrefs = z.infer<typeof AccessibilityPrefsSchema>;
+
+export const DEFAULT_ACCESSIBILITY_PREFS: AccessibilityPrefs = {
+  highContrast: false,
+  reducedMotion: false,
+  largeText: false,
+  dyslexiaFont: false,
+  visualAlerts: false,
+  colorblindMode: 'none',
+};
 
 /** Esqueci a senha: e-mail, o código que chegou nele e a senha nova. */
 export const ResetPasswordSchema = z.object({
@@ -133,6 +269,33 @@ export const ResetPasswordSchema = z.object({
 });
 export type ResetPassword = z.infer<typeof ResetPasswordSchema>;
 
+/**
+ * Tiers de conta na V1 (equipe e acesso antecipado).
+ * Na Fase 3 serão combinados com os tiers de assinatura (trial, starter, pro, business, convidado).
+ */
+export const ACCOUNT_TIERS = [
+  'master',
+  'admin',
+  'developer',
+  'designer',
+  'tester',
+] as const;
+export type AccountTier = (typeof ACCOUNT_TIERS)[number];
+
+export const ACCOUNT_TIER_LABELS: Record<AccountTier, string> = {
+  master: 'Master',
+  admin: 'Administrador',
+  developer: 'Desenvolvedor',
+  designer: 'Designer',
+  tester: 'Tester',
+};
+
+/** Preferência de notificações por e-mail (LGPD opt-in). */
+export const EmailPreferencesSchema = z.object({
+  marketingOptIn: z.boolean(),
+});
+export type EmailPreferences = z.infer<typeof EmailPreferencesSchema>;
+
 export const RegisterSchema = z.object({
   fullName: FullNameSchema,
   nickname: NicknameSchema,
@@ -141,8 +304,22 @@ export const RegisterSchema = z.object({
   code: CodeSchema.optional(),
   role: RoleSchema,
   password: PasswordSchema,
+  /** Aceite explícito para receber novidades, patch notes e avisos por e-mail. */
+  emailMarketingOptIn: z.boolean().optional(),
+  /** Declaração de maioridade (18+ / ECA) e aceite dos Termos de Uso e LGPD. */
+  acceptedTerms: z.boolean().optional(),
+  /** Campos inclusivos 100% opcionais (LGPD Art. 11). */
+  genderIdentity: z.enum(GENDER_IDENTITIES).optional(),
+  pronouns: z.string().trim().max(30).optional(),
+  accessibilityNeeds: z.array(z.enum(ACCESSIBILITY_NEEDS)).optional(),
+  accessibilityPrefs: AccessibilityPrefsSchema.optional(),
 });
 export type Register = z.infer<typeof RegisterSchema>;
+
+export const DeleteAccountSchema = z.object({
+  password: z.string().min(1, 'Informe a senha.').max(PASSWORD_MAX_LENGTH),
+});
+export type DeleteAccount = z.infer<typeof DeleteAccountSchema>;
 
 /**
  * Mudar os dados da conta já logado. O e-mail não muda (ele diz a empresa).
@@ -153,6 +330,10 @@ export const UpdateAccountSchema = z
     fullName: FullNameSchema,
     nickname: NicknameSchema,
     role: RoleSchema,
+    genderIdentity: z.enum(GENDER_IDENTITIES).optional(),
+    pronouns: z.string().trim().max(30).optional(),
+    accessibilityNeeds: z.array(z.enum(ACCESSIBILITY_NEEDS)).optional(),
+    accessibilityPrefs: AccessibilityPrefsSchema.optional(),
     currentPassword: z.string().max(PASSWORD_MAX_LENGTH).default(''),
     newPassword: z.union([PasswordSchema, z.literal('')]).default(''),
   })
@@ -176,10 +357,21 @@ export const AccountSchema = z.object({
   nickname: z.string(),
   email: z.string(),
   role: z.string(),
+  tier: z.enum(ACCOUNT_TIERS).default('tester'),
+  emailVerified: z.boolean().default(false),
+  mfaEnabled: z.boolean().default(false),
+  mfaMethod: z.enum(MFA_METHODS).optional(),
+  /** null = ainda não respondeu (conta criada antes dessa opção). */
+  emailMarketingOptIn: z.boolean().nullable().optional(),
+  uiTheme: UiThemeSchema.nullable().optional(),
+  genderIdentity: z.enum(GENDER_IDENTITIES).optional(),
+  pronouns: z.string().optional(),
+  accessibilityNeeds: z.array(z.enum(ACCESSIBILITY_NEEDS)).optional(),
+  accessibilityPrefs: AccessibilityPrefsSchema.nullable().optional(),
 });
 export type Account = z.infer<typeof AccountSchema>;
 
-/** Entra com o nickname OU o e-mail, e a senha. */
+/** Entra com o nickname OU o e-mail, e a senha (mais código MFA se ativado). */
 export const LoginSchema = z.object({
   login: z
     .string()
@@ -187,6 +379,7 @@ export const LoginSchema = z.object({
     .min(1, 'Informe o nickname ou o e-mail.')
     .max(254, 'Muito longo.'),
   password: z.string().min(1, 'Informe a senha.').max(PASSWORD_MAX_LENGTH),
+  mfaCode: z.string().trim().max(20).optional(),
 });
 export type Login = z.infer<typeof LoginSchema>;
 
@@ -201,6 +394,7 @@ export const SessionUserSchema = z.object({
   name: z.string(),
   admin: z.boolean(),
   kind: z.enum(['company', 'third_party']) satisfies z.ZodType<AccountKind>,
+  tier: z.enum(ACCOUNT_TIERS).default('tester'),
   nickname: z.string().default(''),
   role: z.string().default(''),
 });
@@ -219,6 +413,12 @@ export const ERROR_MESSAGES: Record<string, string> = {
   invalid_request: 'Dados inválidos. Confira os campos.',
   invalid_login: 'Nickname, e-mail ou senha incorretos.',
   wrong_password: 'A senha atual está errada.',
+  mfa_required: 'Informe o código de 6 dígitos do seu aplicativo autenticador.',
+  mfa_required_email:
+    'Enviamos um código de 6 dígitos para o seu e-mail. Digite-o para concluir o login.',
+  email_not_verified:
+    'Confirme seu e-mail primeiro antes de ativar o 2FA por e-mail.',
+  invalid_mfa_code: 'Código de autenticação inválido ou expirado.',
   invalid_code: 'Código errado ou vencido. Peça um novo.',
   code_wait: 'Espere um minuto para pedir outro código.',
   mail_failed: 'Não foi possível enviar o e-mail. Tente de novo.',
@@ -231,8 +431,20 @@ export const ERROR_MESSAGES: Record<string, string> = {
   forbidden: 'Você não tem permissão para isso.',
   not_found: 'Não encontrado.',
   rate_limited: 'Calma: você está enviando mensagens rápido demais.',
+  spam_blocked:
+    'Filtro anti-spam ativado: aguarde 1 minuto antes de enviar novas mensagens.',
+  verbal_abuse_warning:
+    'Aviso de conduta: termos ofensivos foram censurados. Reincidências restringem temporariamente seu chat.',
+  hate_speech_blocked:
+    'Mensagem bloqueada por conter discurso de ódio ou discriminação. Reincidências restringem sua conta.',
+  chat_muted:
+    'Seu chat foi restringido temporariamente (5 min) por reincidência de abuso verbal.',
+  terms_required:
+    'É obrigatório confirmar que você tem 18 anos ou mais e aceitar os Termos de Uso e Privacidade.',
   empty: 'Escreva uma mensagem.',
   archived: 'Este canal foi arquivado.',
+  channel_read_only:
+    'Apenas administradores ou tiers autorizados podem enviar mensagens neste canal.',
   invalid_thread: 'Não é possível responder a esta mensagem.',
   invalid_name:
     'Nome inválido. Use letras minúsculas, números e hífen (2 a 30 caracteres).',

@@ -142,7 +142,7 @@ describe('enviar mensagens', () => {
     const long = await service.send(
       ANA,
       'geral',
-      'a'.repeat(CHAT_TEXT_MAX_LENGTH + 20),
+      'ab '.repeat(CHAT_TEXT_MAX_LENGTH),
     );
     expect(long.ok && long.value.message.text).toHaveLength(
       CHAT_TEXT_MAX_LENGTH,

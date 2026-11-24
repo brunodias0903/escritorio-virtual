@@ -38,10 +38,14 @@ export type ConnectionDeps = {
   /** Passa a entregar mensagens do escritório a esta ligação. */
   attach: () => void;
   detach: () => void;
+  /** Reivindica a sessão ativa para o e-mail; devolve true se outro dispositivo foi deslocado. */
+  claimSession?: (email: string) => Promise<boolean>;
+  /** Libera o registro da sessão ativa quando o socket fecha. */
+  releaseSession?: (email: string) => void;
   now?: () => number;
 };
 
-type State = 'new' | 'joining' | 'joined';
+type State = 'new' | 'joining' | 'joined' | 'displaced';
 
 /** Enquanto anda, grava o lugar no máximo a cada este tempo (além de gravar ao sair). */
 export const POSITION_SAVE_MS = 5000;
@@ -80,14 +84,34 @@ export class Connection {
       if (this.state === 'new') await this.join(message.token);
       return;
     }
+    if (message.type === 'takeover') {
+      if (this.state === 'displaced' && this.claims) {
+        await this.activate(this.claims);
+      }
+      return;
+    }
     if (this.state !== 'joined' || !this.claims) return;
     await this.handleJoined(this.claims, message);
   }
 
+  /** Desloca esta conexão porque outro dispositivo assumiu a mesma conta. */
+  async displace(): Promise<void> {
+    if (this.state !== 'joined') return;
+    const { id, office, cluster } = this.deps;
+    this.state = 'displaced';
+    this.deps.detach();
+    await this.savePosition();
+    await cluster.dispatch(id, office.leave(id));
+    await cluster.playerLeft(id);
+    this.deps.send({ type: 'sessionDisplaced', reason: 'other_device' });
+  }
+
   /** A ligação caiu: tira a pessoa do escritório e avisa os outros. */
   async dispose(): Promise<void> {
-    if (this.state === 'new') return;
+    if (this.claims) this.deps.releaseSession?.(this.claims.email);
+    if (this.state !== 'joined') return;
     const { id, office, cluster } = this.deps;
+    this.state = 'new';
     this.deps.detach();
     await this.savePosition();
     await cluster.dispatch(id, office.leave(id));
@@ -165,11 +189,17 @@ export class Connection {
   }
 
   private async join(sessionToken: string): Promise<void> {
-    const { id, office, cluster, auth, chat, profiles } = this.deps;
-    const claims = await auth.authenticate(sessionToken);
+    const claims = await this.deps.auth.authenticate(sessionToken);
     if (!claims) return this.deps.close(4401, 'unauthorized');
-    this.state = 'joining';
     this.claims = claims;
+    await this.activate(claims);
+  }
+
+  private async activate(claims: SessionClaims): Promise<void> {
+    const { id, office, cluster, chat, profiles } = this.deps;
+    this.state = 'joining';
+
+    const hadOther = (await this.deps.claimSession?.(claims.email)) ?? false;
 
     await profiles.touch(claims.email, claims.name, this.now());
     const profile = await profiles.get(claims.email);
@@ -196,6 +226,9 @@ export class Connection {
     this.deps.send({ type: 'desks', desks: await this.deps.desks.list() });
     await cluster.dispatch(id, outgoing);
     await cluster.playerChanged(office.players.get(id)!);
+    if (hadOther) {
+      this.deps.send({ type: 'multiDeviceNotice', activeElsewhere: true });
+    }
     // A pessoa mudou nome ou cargo na conta: a mesa dela mostra os novos para todos.
     const desk = await this.deps.desks.syncOwner({
       email: claims.email,
@@ -239,13 +272,23 @@ export class Connection {
       }
 
       case 'chat': {
+        const account = await this.deps.accounts.byEmail(claims.email);
+        const tier = account?.tier ?? (claims.admin ? 'admin' : 'tester');
         const result = await chat.send(
-          { email: claims.email, name: player.name, color: player.color },
+          {
+            email: claims.email,
+            name: player.name,
+            color: player.color,
+            tier,
+          },
           message.channel,
           message.text,
           message.threadId,
         );
         if (!result.ok) return send({ type: 'chatError', code: result.error });
+        if (result.value.warning) {
+          send({ type: 'chatError', code: result.value.warning });
+        }
         return cluster.dispatch(id, [
           {
             to: 'all',

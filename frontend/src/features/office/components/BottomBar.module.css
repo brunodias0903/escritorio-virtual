@@ -1,14 +1,3 @@
-.wrapper {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  pointer-events: none;
-  z-index: var(--z-bar);
-}
-
 .backdrop {
   position: fixed;
   inset: 0;
@@ -18,207 +7,24 @@
   z-index: var(--z-bar);
 }
 
-.bar {
-  position: relative;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  gap: 8px;
-  background-color: var(--bg-bar);
-  border-top: 1px solid var(--border-bar);
-  pointer-events: auto;
-  z-index: var(--z-bar);
-}
+/* --- Avisos flutuantes no topo central do mapa (livres do cartão inferior esquerdo) --- */
 
-.cluster {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.profile {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px 0 6px;
-  height: 44px;
-  border-radius: var(--radius-xl);
-  background-color: var(--bg-control);
-  transition: filter 0.15s ease;
-}
-
-.profileCompact {
-  padding: 0 5px;
-}
-
-.profile:hover {
-  filter: brightness(1.12);
-}
-
-.profileText {
+.notices {
+  position: absolute;
+  top: 52px;
+  left: 16px;
+  right: 16px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  max-width: 150px;
-  min-width: 0;
-}
-
-.profileName {
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 700;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.statusLine {
-  display: inline-flex;
   align-items: center;
-  gap: 5px;
-}
-
-.statusText {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dotCorner {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  border: 1.5px solid var(--bg-control);
-}
-
-.pill {
-  width: 58px;
-  height: 44px;
-  border-radius: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: filter 0.15s ease;
-}
-
-.pill:hover {
-  filter: brightness(1.12);
-}
-
-.pillOn {
-  background-color: var(--call-on-bg);
-}
-
-.pillOff {
-  background-color: var(--call-off-bg);
-}
-
-.pillIdle {
-  background-color: var(--bg-control);
-}
-
-.pillBusy {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.round {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--bg-control);
-  transition:
-    background-color 0.15s ease,
-    filter 0.15s ease;
-}
-
-.round:hover {
-  filter: brightness(1.12);
-}
-
-.roundActive {
-  background-color: var(--accent-active);
-}
-
-.roundShare {
-  background-color: var(--call-on-bg);
-}
-
-.roundIdle {
-  opacity: 0.7;
-}
-
-.badge {
-  position: absolute;
-  top: -2px;
-  right: -4px;
-  min-width: 18px;
-  padding: 1px 4px;
-  border-radius: 9px;
-  text-align: center;
-  color: var(--text-primary);
-  background-color: var(--status-busy);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.badgeAlert {
-  background-color: var(--warning-badge);
-}
-
-.people {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 12px;
-  border-radius: 22px;
-  background-color: var(--bg-control);
-  transition:
-    background-color 0.15s ease,
-    filter 0.15s ease;
-}
-
-.people:hover {
-  filter: brightness(1.12);
-}
-
-.peopleText {
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.separator {
-  width: 1px;
-  height: 28px;
-  background-color: var(--border-bar);
+  gap: 8px;
+  pointer-events: none;
+  z-index: var(--z-popup);
 }
 
 .hint,
 .hintButton {
-  align-self: center;
-  margin-bottom: 8px;
-  max-width: 420px;
+  max-width: 440px;
   padding: 8px 14px;
   border-radius: var(--radius-lg);
   background-color: var(--bg-bar-glass);
@@ -237,8 +43,6 @@
 }
 
 .busyBar {
-  align-self: center;
-  margin-bottom: 10px;
   display: inline-flex;
   align-items: center;
   gap: 12px;
@@ -262,12 +66,16 @@
   gap: 7px;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, #16a085 0%, #22c5a6 100%);
+  background: linear-gradient(
+    90deg,
+    var(--presence-strong) 0%,
+    var(--status-available) 100%
+  );
   color: #07221d;
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.01em;
-  box-shadow: 0 4px 14px rgba(49, 224, 193, 0.35);
+  box-shadow: 0 4px 14px var(--presence-soft);
   transition:
     filter 0.15s ease,
     transform 0.12s ease;
@@ -289,8 +97,6 @@
 }
 
 .mutedPopup {
-  align-self: center;
-  margin-bottom: 10px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -340,35 +146,461 @@
   color: var(--text-primary);
 }
 
+/* --- Cartão unificado flutuante no canto inferior esquerdo --- */
+
+.dock {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: var(--z-bar);
+  pointer-events: auto;
+}
+
+.card {
+  width: 274px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background-color: var(--bg-bar-glass);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 30px rgba(6, 8, 22, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.camDock {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(10px);
+  transition:
+    max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.camDockOpen {
+  max-height: 170px;
+  opacity: 1;
+  transform: translateY(0);
+  overflow: visible;
+}
+
+.camFrame {
+  position: relative;
+  width: 100%;
+  height: 152px;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  background-color: var(--bg-tile);
+  border-bottom: 1px solid var(--border-bar);
+}
+
+.camVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  background-color: var(--bg-tooltip);
+}
+
+.camPlaceholder {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camTint {
+  position: absolute;
+  inset: 0;
+  opacity: 0.26;
+}
+
+.camDisc {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+}
+
+.camDiscText {
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.camConnectingOverlay {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  background-color: rgba(11, 14, 36, 0.36);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.camSpinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.22);
+  border-top-color: var(--status-available);
+  animation: camSpin 0.8s linear infinite;
+}
+
+@keyframes camSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.camExpandAction {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+}
+
+.camExpandBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(11, 14, 36, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.camExpandBtn:hover {
+  background-color: rgba(11, 14, 36, 0.92);
+}
+
+.camExpandBtn:active {
+  transform: scale(0.94);
+}
+
+.camCallAction {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+}
+
+.callBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition:
+    filter 0.15s ease,
+    transform 0.1s ease;
+}
+
+.callBtn:hover {
+  filter: brightness(1.12);
+}
+
+.callBtn:active {
+  transform: scale(0.94);
+}
+
+.callBtnLeave {
+  background-color: var(--danger);
+}
+
+.callBtnJoin {
+  background-color: var(--presence-strong);
+}
+
+.rejoinDock {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(6px);
+  transition:
+    max-height 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease,
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rejoinDockOpen {
+  max-height: 54px;
+  opacity: 1;
+  transform: translateY(0);
+  overflow: visible;
+}
+
+.rejoinRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-bar);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  background-color: var(--presence-soft);
+}
+
+.rejoinLabel {
+  color: var(--info-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.expandedRow {
+  background-color: var(--accent-mention-bg);
+}
+
+.expandedLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expandedLabel {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.controlsBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
+}
+
+.profileRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px 5px 5px;
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-control);
+  transition: filter 0.15s ease;
+}
+
+.profile:hover {
+  filter: brightness(1.14);
+}
+
+.profileText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.profileName {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.statusText {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.menuTrigger {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-control);
+  flex-shrink: 0;
+}
+
+.menuTrigger:hover {
+  filter: brightness(1.15);
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  padding: 1px 4px;
+  border-radius: 9px;
+  text-align: center;
+  color: var(--text-primary);
+  background-color: var(--status-busy);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.badgeAlert {
+  background-color: var(--warning-badge);
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(6, 36px);
+  justify-content: space-between;
+  align-items: center;
+}
+
+.circleWrap {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hoverRing {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 42px;
+  height: 42px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.hoverRingProgress {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: fillRing 2200ms linear forwards;
+}
+
+@keyframes fillRing {
+  from {
+    stroke-dashoffset: 120;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.15s ease,
+    filter 0.15s ease,
+    transform 0.1s ease;
+}
+
+.circle:hover:not(:disabled) {
+  filter: brightness(1.14);
+}
+
+.circle:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.circleOn {
+  background-color: var(--call-on-bg);
+}
+
+.circleOff {
+  background-color: var(--call-off-bg);
+}
+
+.circleIdle {
+  background-color: var(--bg-control);
+}
+
+.circleActive {
+  background-color: var(--accent-active);
+}
+
+.circleBusy {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.circleDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Popups acima do cartão --- */
+
 .popup {
   position: absolute;
-  bottom: 68px;
+  left: 0;
+  bottom: calc(100% + 10px);
+  min-width: 210px;
   display: flex;
   flex-direction: column;
   padding: 6px;
   border-radius: var(--radius-xl);
   background-color: var(--bg-bar);
   border: 1px solid var(--border-bar);
+  box-shadow: 0 12px 28px rgba(6, 8, 22, 0.55);
   pointer-events: auto;
   z-index: var(--z-popup);
 }
 
-.popupLeft {
-  left: 10px;
-}
-
-.popupEmote {
-  left: 270px;
-}
-
 .emoteTray {
+  min-width: auto;
   flex-direction: row;
   gap: 6px;
   padding: 6px 10px;
 }
 
 .emoteButton {
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1.2;
   padding: 2px 4px;
   border-radius: var(--radius-md);
@@ -405,4 +637,127 @@
   height: 1px;
   background-color: var(--border-bar);
   margin: 4px 0;
+}
+
+@media (max-width: 700px) {
+  .notices {
+    top: calc(env(safe-area-inset-top) + 58px);
+    left: calc(env(safe-area-inset-left) + 12px);
+    right: calc(env(safe-area-inset-right) + 12px);
+  }
+
+  .mutedPopup {
+    flex-wrap: wrap;
+    justify-content: center;
+    border-radius: var(--radius-xl);
+    padding: 8px 12px;
+  }
+
+  .dock {
+    left: calc(env(safe-area-inset-left) + 12px);
+    right: calc(env(safe-area-inset-right) + 12px);
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+  }
+
+  .card {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+
+  .camFrame {
+    height: 112px;
+  }
+
+  .camDockOpen {
+    max-height: 124px;
+  }
+
+  .camDisc {
+    width: 44px;
+    height: 44px;
+  }
+
+  .camDiscText {
+    font-size: 18px;
+  }
+
+  .controlsBody {
+    padding: 9px 10px 10px;
+    gap: 8px;
+  }
+
+  .controls {
+    grid-template-columns: repeat(6, 38px);
+  }
+
+  .circleWrap,
+  .circle {
+    width: 38px;
+    height: 38px;
+  }
+
+  .popup {
+    left: 0;
+    right: 0;
+    min-width: 0;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .notices {
+    top: calc(env(safe-area-inset-top) + 54px);
+    left: calc(env(safe-area-inset-left) + 12px);
+    right: calc(env(safe-area-inset-right) + 12px);
+  }
+
+  .dock {
+    left: calc(env(safe-area-inset-left) + 12px);
+    right: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+  }
+
+  .card {
+    width: 268px;
+    max-width: calc(100vw - 170px);
+    margin: 0;
+  }
+
+  .camFrame {
+    height: 62px;
+  }
+
+  .camDockOpen {
+    max-height: 72px;
+  }
+
+  .camDisc {
+    width: 36px;
+    height: 36px;
+  }
+
+  .camDiscText {
+    font-size: 15px;
+  }
+
+  .controlsBody {
+    padding: 7px 9px 8px;
+    gap: 6px;
+  }
+
+  .controls {
+    grid-template-columns: repeat(6, 36px);
+  }
+
+  .circleWrap,
+  .circle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .popup {
+    left: 0;
+    right: auto;
+    min-width: 210px;
+  }
 }

@@ -268,6 +268,13 @@ describe.each(suites)('repositórios (%s)', (_name, setup) => {
       role: '',
       passwordHash: 'hash',
       createdAt: 5,
+      tier: 'tester' as const,
+      emailVerified: false,
+      emailMarketingOptIn: null,
+      uiTheme: null,
+      mfaEnabled: false,
+      mfaSecretEnc: null,
+      mfaRecoveryHashes: [],
     };
 
     it('cria e acha pelo nickname, sem diferenciar maiúsculas', async () => {
@@ -280,6 +287,16 @@ describe.each(suites)('repositórios (%s)', (_name, setup) => {
       expect((await local.all()).map((a) => a.email)).toEqual([
         'ana@empresa.com',
       ]);
+      expect(await local.markVerified?.('ana@empresa.com')).toBe('ok');
+      expect((await local.byEmail('ana@empresa.com'))?.emailVerified).toBe(
+        true,
+      );
+      expect(
+        await local.setUiTheme?.('ana@empresa.com', '{"presetId":"games"}'),
+      ).toBe('ok');
+      expect((await local.byEmail('ana@empresa.com'))?.uiTheme).toBe(
+        '{"presetId":"games"}',
+      );
     });
 
     it('muda os dados, troca o nickname e não rouba o de outra pessoa', async () => {

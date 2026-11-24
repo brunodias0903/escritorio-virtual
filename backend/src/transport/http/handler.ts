@@ -2,11 +2,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { isOriginAllowed } from '../../config/origin.js';
 import { handleAuthRoutes } from '../../modules/auth/auth.http.js';
 import type { AuthService } from '../../modules/auth/auth.service.js';
+import { handleWorkspaceRoutes } from '../../modules/workspace/workspace.http.js';
+import type { WorkspaceService } from '../../modules/workspace/workspace.service.js';
 
-export const MAX_BODY_BYTES = 8 * 1024;
+export const MAX_BODY_BYTES = 64 * 1024;
 
 export type HttpHandlerOptions = {
   auth: AuthService;
+  workspace?: WorkspaceService;
   allowedOrigins: readonly string[];
   trustProxy: boolean;
   onError?: (error: unknown) => void;
@@ -68,6 +71,7 @@ const sendJson = (res: ServerResponse, status: number, body: unknown): void => {
 /** Cria o handler HTTP principal (CORS, /healthz, parse JSON e rotas da API). */
 export const createHttpHandler = ({
   auth,
+  workspace,
   allowedOrigins,
   trustProxy,
   onError = (error) => console.error('[erro]', error),
@@ -85,7 +89,10 @@ export const createHttpHandler = ({
         'Access-Control-Allow-Headers',
         'content-type, authorization',
       );
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+      res.setHeader(
+        'Access-Control-Allow-Methods',
+        'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      );
     }
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -100,13 +107,17 @@ export const createHttpHandler = ({
     }
 
     try {
-      const response = await handleAuthRoutes(auth, {
+      const apiReq = {
         method: req.method ?? 'GET',
         path,
         authorization: req.headers.authorization,
         body: await readJsonBody(req),
         ip: extractClientIp(req, trustProxy),
-      });
+      };
+      const workspaceRes = workspace
+        ? await handleWorkspaceRoutes(auth, workspace, apiReq)
+        : null;
+      const response = workspaceRes ?? (await handleAuthRoutes(auth, apiReq));
       sendJson(res, response.status, response.body);
     } catch (error) {
       const tooLarge =

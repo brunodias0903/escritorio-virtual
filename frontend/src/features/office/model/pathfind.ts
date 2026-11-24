@@ -10,8 +10,11 @@ import {
   type Point,
 } from '@/shared/domain';
 
-/** Para onde a pessoa quer ir sozinha: uma mesinha de uma sala. */
-export type Destination = { map: MapId; deskId: string };
+/** Para onde a pessoa quer ir sozinha: uma mesinha, uma sala ou um ponto clicado no chão. */
+export type Destination =
+  | { map: MapId; deskId: string }
+  | { map: MapId; areaId: string }
+  | { map: MapId; point: Point };
 
 const key = ({ x, y }: Point) => `${x},${y}`;
 
@@ -102,4 +105,23 @@ export const deskSeats = (
     seats: [middle, middle - TILE, middle + TILE].map((x) => ({ x, y })),
     front: { x: middle, y: y + TILE },
   };
+};
+
+/** Quadradinhos livres dentro de uma sala (ex.: sala de reunião), dos mais centrais para as bordas. */
+export const areaTiles = (map: MapDef, areaId: string): Point[] => {
+  const area = map.areas.find((a) => a.id === areaId && !a.desk);
+  if (!area) return [];
+  const cx = area.x + area.w / 2;
+  const cy = area.y + area.h / 2;
+  const tiles: Point[] = [];
+  const first = tileOf(area);
+  for (let ty = first.ty; ty < first.ty + area.h / TILE; ty++) {
+    for (let tx = first.tx; tx < first.tx + area.w / TILE; tx++) {
+      const p = tileCenter(tx, ty);
+      if (!isBlocked(map, p)) tiles.push(p);
+    }
+  }
+  return tiles.sort(
+    (a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy),
+  );
 };

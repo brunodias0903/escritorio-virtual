@@ -16,7 +16,9 @@
     "jsx": "react-jsx",
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@design-system": ["../design-system/src/index.ts"],
+      "@design-system/*": ["../design-system/src/*"]
     },
 
     "strict": true,
@@ -26,5 +28,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src", "../design-system/src"]
 }

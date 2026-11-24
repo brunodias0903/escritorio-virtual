@@ -8,6 +8,12 @@ const distanceOf = (touches: TouchEvent['touches']): number =>
     { x: touches[1]!.pageX, y: touches[1]!.pageY },
   );
 
+const isInsideScrollableOverlay = (target: EventTarget | null): boolean =>
+  target instanceof Element &&
+  target.closest(
+    '[data-scroll-lock="true"], [role="dialog"], [role="menu"]',
+  ) !== null;
+
 /**
  * Zoom com a roda do mouse e com o gesto de pinça.
  * Anexe `element` à área do mapa e espalhe `touch` nele; `onZoom` recebe o novo zoom.
@@ -30,6 +36,7 @@ export function useZoomGestures(
   useEffect(() => {
     if (!element) return;
     const onWheel = (event: WheelEvent) => {
+      if (isInsideScrollableOverlay(event.target)) return;
       event.preventDefault();
       onZoom(wheelZoom(zoom, event.deltaY));
     };
@@ -38,12 +45,14 @@ export function useZoomGestures(
   }, [element, zoom, onZoom]);
 
   const onTouchStart = (event: TouchEvent<HTMLElement>) => {
+    if (isInsideScrollableOverlay(event.target)) return;
     if (event.touches.length === 2) {
       setPinch({ zoom, distance: distanceOf(event.touches) });
     }
   };
 
   const onTouchMove = (event: TouchEvent<HTMLElement>) => {
+    if (isInsideScrollableOverlay(event.target)) return;
     if (event.touches.length !== 2) return;
     if (!pinch) {
       setPinch({ zoom, distance: distanceOf(event.touches) });

@@ -1,0 +1,192 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(6, 6, 16, 0.78);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: max(22px, calc(env(safe-area-inset-top) + 18px))
+    max(14px, env(safe-area-inset-right))
+    max(20px, calc(env(safe-area-inset-bottom) + 14px))
+    max(14px, env(safe-area-inset-left));
+}
+
+.modal {
+  width: min(640px, 100%);
+  max-height: calc(100dvh - 36px);
+  border-radius: 20px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-bar);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  padding: 16px 20px 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.closeBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.tabBtn {
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+.tabActive {
+  color: var(--text-primary);
+  background: var(--bg-control);
+  border-color: var(--accent-border-soft);
+}
+
+.body {
+  padding: 16px 20px 22px;
+  overflow-y: auto;
+}
+
+.prose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-body);
+}
+
+.prose h3 {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.prose p {
+  margin: 0;
+}
+
+.noticeBox {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(241, 196, 15, 0.14);
+  border: 1px solid rgba(241, 196, 15, 0.38);
+  color: var(--text-primary);
+  font-size: 12.5px;
+}
+
+.dataPane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dataCard,
+.dangerCard {
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dangerCard {
+  border-color: rgba(255, 107, 129, 0.35);
+}
+
+.dataCard h3,
+.dangerCard h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.primaryBtn {
+  align-self: flex-start;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--text-primary);
+  border: 1px solid var(--accent-border-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dangerBtn {
+  align-self: flex-start;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: rgba(255, 107, 129, 0.16);
+  color: #ff9aa8;
+  border: 1px solid rgba(255, 107, 129, 0.4);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.success {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--status-available);
+}
+
+.error {
+  margin: 0;
+  font-size: 12.5px;
+  color: #ff9aa8;
+}

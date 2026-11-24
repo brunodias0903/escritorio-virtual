@@ -20,7 +20,13 @@ import {
   type ServerMessage,
 } from '@/shared/domain';
 
-import { deskSeats, doorTiles, findPath, type Destination } from './pathfind';
+import {
+  areaTiles,
+  deskSeats,
+  doorTiles,
+  findPath,
+  type Destination,
+} from './pathfind';
 
 export type Facing = 'down' | 'up' | 'left' | 'right';
 
@@ -285,6 +291,39 @@ export class OfficeWorld {
 
     if (destination.map !== this.map) {
       const route = findPath(map, me, doorTiles(map, destination.map));
+      if (route) this.route = route;
+      else this.stopAutoWalk();
+      return;
+    }
+
+    if ('point' in destination) {
+      const target = snapToTile(destination.point);
+      const zone = areaAt(map, target);
+      if (zone?.desk) {
+        const inside = callZoneId(map, me) === zone.id;
+        if (this.isLockedFor(this.map, zone.id, me.email)) {
+          this.lockedZone = zone.name;
+          return this.stopAutoWalk();
+        }
+        if (!inside && this.occupants(zone.id, me.id) >= DESK_CAPACITY) {
+          this.fullZone = zone.name;
+          return this.stopAutoWalk();
+        }
+      }
+      const route = findPath(map, me, [target], { allowZone: zone?.id });
+      if (route) this.route = route;
+      else this.stopAutoWalk();
+      return;
+    }
+
+    if ('areaId' in destination) {
+      const others = [...this.players.values()].filter((p) => p.id !== me.id);
+      const taken = (p: Point) =>
+        others.some((o) => o.tx === p.x && o.ty === p.y);
+      const all = areaTiles(map, destination.areaId);
+      const free = all.filter((p) => !taken(p));
+      const targets = free.length > 0 ? free : all;
+      const route = findPath(map, me, targets);
       if (route) this.route = route;
       else this.stopAutoWalk();
       return;

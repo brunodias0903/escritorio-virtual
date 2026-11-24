@@ -3,11 +3,13 @@ import {
   CHANNEL_NAME_PATTERN,
   CHAT_HISTORY_LIMIT,
   CHAT_TEXT_MAX_LENGTH,
+  canWriteInChannel,
   dmChannelId,
   dmMembers,
   emailHandle,
   extractMentionHandles,
   normalizeEmail,
+  type AccountTier,
   type ChannelInfo,
   type ChatMessage,
 } from '../../shared/domain/index.js';
@@ -22,11 +24,17 @@ import type {
   ChatRepository,
   ReadStateRepository,
 } from './chat.repository.js';
+import { ChatModerator } from './moderation.js';
 
 /** Intervalo mínimo entre duas mensagens da mesma pessoa. */
 export const CHAT_MIN_INTERVAL_MS = 300;
 
-type Sender = { email: string; name: string; color: number };
+type Sender = {
+  email: string;
+  name: string;
+  color: number;
+  tier?: AccountTier;
+};
 
 type Deps = {
   channels: ChannelRepository;
@@ -43,6 +51,7 @@ export class ChatService {
   private readonly now: () => number;
   private readonly newId: () => string;
   private readonly lastSentAt = new Map<string, number>();
+  private readonly moderator = new ChatModerator();
 
   constructor(deps: Deps) {
     this.deps = deps;
@@ -80,6 +89,8 @@ export class ChatService {
           name: row.name,
           kind: row.kind,
           archived: row.archived,
+          ...(row.topic ? { topic: row.topic } : {}),
+          ...(row.writeTiers ? { writeTiers: row.writeTiers } : {}),
           members: await this.membersOf(row),
           ...counts,
         };
@@ -105,7 +116,9 @@ export class ChatService {
     channelId: string,
     rawText: string,
     threadId?: string,
-  ): Promise<Result<{ message: ChatMessage; emails?: string[] }>> {
+  ): Promise<
+    Result<{ message: ChatMessage; emails?: string[]; warning?: string }>
+  > {
     const text = rawText.trim().slice(0, CHAT_TEXT_MAX_LENGTH);
     if (!text) return fail('empty');
 
@@ -119,6 +132,13 @@ export class ChatService {
     if (!access.ok) return access;
     const channel = access.value;
     if (channel.archived) return fail('archived');
+    if (
+      channel.kind === 'public' &&
+      sender.tier &&
+      !canWriteInChannel(channel.writeTiers, sender.tier)
+    ) {
+      return fail('channel_read_only');
+    }
 
     if (threadId) {
       const root = await this.deps.chat.byId(threadId);
@@ -126,17 +146,25 @@ export class ChatService {
         return fail('invalid_thread');
       }
     }
+
+    const mod = this.moderator.evaluate(sender.email, text, at);
+    if (!mod.allowed) return fail(mod.code);
+    const cleanText = mod.text;
     this.lastSentAt.set(sender.email, at);
 
     const members = dmMembers(channel.id);
-    const mentions = await this.resolveMentions(text, sender.email, members);
+    const mentions = await this.resolveMentions(
+      cleanText,
+      sender.email,
+      members,
+    );
     const message: ChatMessage = {
       id: this.newId(),
       channel: channelId,
       authorId: sender.email,
       author: sender.name,
       color: sender.color,
-      text,
+      text: cleanText,
       at,
       ...(threadId ? { threadId } : {}),
       mentions,
@@ -144,7 +172,11 @@ export class ChatService {
     };
     await this.deps.chat.save(message);
     await this.deps.reads.set(sender.email, channelId, at);
-    return ok({ message, ...(members ? { emails: [...members] } : {}) });
+    return ok({
+      message,
+      ...(members ? { emails: [...members] } : {}),
+      ...(mod.warning ? { warning: mod.warning } : {}),
+    });
   }
 
   /** A conversa inteira: a mensagem que a abriu e as respostas. */

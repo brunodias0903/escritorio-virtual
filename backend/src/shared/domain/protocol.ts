@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AppearanceSchema, EmoteSchema, StatusSchema } from './appearance.js';
+import { ACCOUNT_TIERS } from './auth.js';
 import { DeskConfigSchema, DeskInfoSchema } from './desks.js';
 import { MapIdSchema } from './maps.js';
 import { PersonSchema } from './people.js';
@@ -62,6 +63,8 @@ export const ChannelInfoSchema = z.object({
   name: z.string(),
   kind: z.enum(['public', 'dm']),
   archived: z.boolean(),
+  topic: z.string().optional(),
+  writeTiers: z.array(z.enum(ACCOUNT_TIERS)).optional(),
   /** Nas conversas diretas, as duas pessoas. */
   members: z.array(z.object({ email: z.string(), name: z.string() })),
   unread: z.number().int().min(0),
@@ -114,6 +117,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('directory') }),
   /** Pede a lista de pessoas: todas que já entraram, com o status de cada uma. */
   z.object({ type: z.literal('people') }),
+  /** Assume o acesso ativo da conta neste dispositivo quando deslocado por outro. */
+  z.object({ type: z.literal('takeover') }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -194,5 +199,15 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('zoneLocked'), zone: z.string() }),
   /** Todas as pessoas que já entraram, com o status de cada uma. */
   z.object({ type: z.literal('people'), people: z.array(PersonSchema) }),
+  /** A conta foi assumida por outro dispositivo: pausa este dispositivo com opção de reassumir. */
+  z.object({
+    type: z.literal('sessionDisplaced'),
+    reason: z.literal('other_device'),
+  }),
+  /** Aviso não bloqueante no novo dispositivo informando que a conta também está aberta em outro. */
+  z.object({
+    type: z.literal('multiDeviceNotice'),
+    activeElsewhere: z.boolean(),
+  }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

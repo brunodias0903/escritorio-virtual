@@ -82,6 +82,11 @@ const world = (media = new MediaService(null)) => {
     newId: () => `m${++counter}`,
   });
 
+  const activeByEmail = new Map<
+    string,
+    { id: string; displace: () => Promise<void> }
+  >();
+
   const connect = (id: string): Client => {
     const client: Client = {
       inbox: [],
@@ -106,6 +111,19 @@ const world = (media = new MediaService(null)) => {
       close: (code, reason) => (client.closed = { code, reason }),
       attach: () => sockets.set(id, client),
       detach: () => sockets.delete(id),
+      claimSession: async (email) => {
+        const prev = activeByEmail.get(email);
+        const hadOther = prev !== undefined && prev.id !== id;
+        if (hadOther) await prev.displace();
+        activeByEmail.set(email, {
+          id,
+          displace: () => client.connection.displace(),
+        });
+        return hadOther;
+      },
+      releaseSession: (email) => {
+        if (activeByEmail.get(email)?.id === id) activeByEmail.delete(email);
+      },
     });
     return client;
   };
@@ -412,9 +430,9 @@ describe('chamada de voz e vídeo', () => {
       apiSecret: 'segredo-de-teste-com-mais-de-32-caracteres-ok',
     });
 
-  const sitAtTable = (w: ReturnType<typeof world>, id: string) => {
+  const sitAtTable = (w: ReturnType<typeof world>, id: string, offset = 0) => {
     const player = w.office.players.get(id)!;
-    player.x = 432;
+    player.x = 432 + offset * 32;
     player.y = 432;
   };
 
@@ -588,5 +606,31 @@ describe('mesinhas adotáveis', () => {
     expect(clients[3]!.ofType('zoneFull')[0]?.zone).toBe('Mesa 7');
     expect(clients[3]!.ofType('correct')).toHaveLength(1);
     expect(w.office.players.get('d')!.y).toBe(464);
+  });
+
+  it('desloca o dispositivo anterior ao logar em outro e permite assumir de volta com takeover', async () => {
+    const w = world();
+    const pc = await w.login('pc', 'ana@empresa.com', 'Ana');
+    expect(w.office.players.has('pc')).toBe(true);
+
+    // Segundo dispositivo com a mesma conta
+    const mobile = await w.login('mobile', 'ana@empresa.com', 'Ana');
+    expect(pc.ofType('sessionDisplaced')).toHaveLength(1);
+    expect(mobile.ofType('multiDeviceNotice')).toEqual([
+      { type: 'multiDeviceNotice', activeElsewhere: true },
+    ]);
+    expect(w.office.players.has('pc')).toBe(false);
+    expect(w.office.players.has('mobile')).toBe(true);
+
+    // Dispositivo anterior clica em "Usar aqui" (takeover)
+    await pc.send({ type: 'takeover' });
+    expect(mobile.ofType('sessionDisplaced')).toHaveLength(1);
+    expect(pc.ofType('multiDeviceNotice')).toHaveLength(1);
+    expect(w.office.players.has('pc')).toBe(true);
+    expect(w.office.players.has('mobile')).toBe(false);
+
+    // Fechar o socket deslocado não derruba o ativo
+    await mobile.connection.dispose();
+    expect(w.office.players.has('pc')).toBe(true);
   });
 });

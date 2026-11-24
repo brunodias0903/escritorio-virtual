@@ -309,8 +309,26 @@ describe('account e updateAccount', () => {
         nickname: 'AnaS',
         email: 'ana.souza@empresa.com',
         role: 'Desenvolvedora',
+        tier: 'tester',
+        emailVerified: true,
+        mfaEnabled: false,
+        emailMarketingOptIn: false,
+        uiTheme: null,
       },
     });
+    expect(
+      await service.updateTheme(claims!, {
+        presetId: 'games',
+        colors: {
+          rail: '#0f091d',
+          surface: '#17102b',
+          accent: '#ff2e93',
+          presence: '#00f5d4',
+        },
+        customized: false,
+      }),
+    ).toEqual({ ok: true, value: { ok: true } });
+    expect((await service.account(claims!)).ok).toBe(true);
     const updated = await service.updateAccount(
       claims!,
       {

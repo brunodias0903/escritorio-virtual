@@ -34,6 +34,22 @@ describe('schemas', () => {
     ).toBe(false);
   });
 
+  it('aceita foto de perfil em data URL válida e recusa formato inválido', () => {
+    const base = defaultAppearance('foto@empresa.com');
+    expect(
+      AppearanceSchema.safeParse({
+        ...base,
+        photo: 'data:image/webp;base64,UklGRh4AAABXRUJQVlA4',
+      }).success,
+    ).toBe(true);
+    expect(
+      AppearanceSchema.safeParse({
+        ...base,
+        photo: 'https://exemplo.com/foto.png',
+      }).success,
+    ).toBe(false);
+  });
+
   it('aceita só status e emotes conhecidos', () => {
     expect(StatusSchema.safeParse('busy').success).toBe(true);
     expect(StatusSchema.safeParse('offline').success).toBe(false);

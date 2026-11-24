@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E1B42" />
+      <stop offset="55%" stop-color="#14132B" />
+      <stop offset="100%" stop-color="#0E0E1F" />
+    </linearGradient>
+    <linearGradient id="cube" x1="60" y1="60" x2="210" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A59DFF" />
+      <stop offset="55%" stop-color="#6C63FF" />
+      <stop offset="100%" stop-color="#4CC9F0" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <circle cx="980" cy="110" r="240" fill="#6C63FF" fill-opacity="0.12" />
+  <circle cx="190" cy="540" r="210" fill="#4CC9F0" fill-opacity="0.09" />
+
+  <g transform="translate(100 185)">
+    <rect width="240" height="240" rx="56" fill="#1C1A3C" stroke="url(#cube)" stroke-opacity="0.45" stroke-width="5" />
+    <path d="M120 50L182 84V156L120 190L58 156V84L120 50Z" fill="#6C63FF" fill-opacity="0.18" stroke="url(#cube)" stroke-width="12" stroke-linejoin="round" />
+    <path d="M58 84L120 118L182 84M120 118V190" stroke="url(#cube)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.72" />
+    <circle cx="120" cy="118" r="14" fill="#4CC9F0" stroke="#1C1A3C" stroke-width="5" />
+  </g>
+
+  <text x="390" y="278" fill="#FFFFFF" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="72" font-weight="800">
+    Escritório Virtual
+  </text>
+  <text x="390" y="344" fill="#B8B6D8" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="32" font-weight="500">
+    Espaço Interativo de Trabalho em Tempo Real
+  </text>
+  <text x="390" y="404" fill="#8B88B3" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24">
+    Mesas personalizáveis • Chamadas por proximidade • Chat e salas
+  </text>
+</svg>

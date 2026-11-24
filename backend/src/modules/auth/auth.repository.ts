@@ -1,3 +1,10 @@
+import type {
+  AccessibilityNeed,
+  AccountTier,
+  GenderIdentity,
+  MfaMethod,
+} from '../../shared/domain/index.js';
+
 /** Conta: entra com o nickname (ou o e-mail) e a senha. */
 export type LocalAccount = {
   /** Como a pessoa digitou (pode usar para entrar). */
@@ -9,12 +16,42 @@ export type LocalAccount = {
   role: string;
   passwordHash: string;
   createdAt: number;
+  /** Tier de acesso (master, admin, developer, designer, tester). */
+  tier?: AccountTier;
+  /** True quando o e-mail já foi confirmado com código. */
+  emailVerified?: boolean;
+  /** null = ainda não respondeu; true = aceita novidades/patch notes; false = só importantes. */
+  emailMarketingOptIn?: boolean | null;
+  /** JSON serializado da preferência de tema da interface. */
+  uiTheme?: string | null;
+  /** True quando a autenticação em 2 etapas (e-mail ou TOTP) está ativa. */
+  mfaEnabled?: boolean;
+  /** Método de MFA ativo ('none' | 'email' | 'totp'). */
+  mfaMethod?: MfaMethod;
+  /** Segredo TOTP criptografado em repouso (AES-256-GCM). */
+  mfaSecretEnc?: string | null;
+  /** Hashes dos códigos de recuperação de uso único restantes. */
+  mfaRecoveryHashes?: string[];
+  /** Identidade de gênero opcional (LGPD Art. 11). */
+  genderIdentity?: GenderIdentity;
+  /** Pronomes opcionais (ex.: ele/dele, ela/dela, elu/delu). */
+  pronouns?: string;
+  /** Necessidades de acessibilidade privadas (nunca exibidas publicamente). */
+  accessibilityNeeds?: AccessibilityNeed[];
+  /** JSON serializado das preferências de acessibilidade (alto contraste, etc.). */
+  accessibilityPrefs?: string | null;
 };
 
 export type AccountChanges = Pick<
   LocalAccount,
   'nickname' | 'fullName' | 'role'
-> & { passwordHash?: string };
+> & {
+  passwordHash?: string;
+  genderIdentity?: GenderIdentity;
+  pronouns?: string;
+  accessibilityNeeds?: AccessibilityNeed[];
+  accessibilityPrefs?: string | null;
+};
 
 export interface LocalAccountRepository {
   /** Pelo nickname, sem diferenciar maiúsculas. */
@@ -32,6 +69,30 @@ export interface LocalAccountRepository {
     email: string,
     changes: AccountChanges,
   ): Promise<'ok' | 'nickname_taken' | 'not_found'>;
+  /** Marca o e-mail da conta como verificado. */
+  markVerified?(email: string): Promise<'ok' | 'not_found'>;
+  /** Salva o tema/cores escolhidos pelo usuário (JSON). */
+  setUiTheme?(
+    email: string,
+    uiTheme: string | null,
+  ): Promise<'ok' | 'not_found'>;
+  /** Salva a preferência de notificações por e-mail (novidades/patch notes vs só importantes). */
+  setEmailMarketingOptIn?(
+    email: string,
+    optIn: boolean,
+  ): Promise<'ok' | 'not_found'>;
+  /** Atualiza o estado de MFA (e-mail ou TOTP) da conta. */
+  setMfa?(
+    email: string,
+    mfa: {
+      enabled: boolean;
+      method?: MfaMethod;
+      secretEnc: string | null;
+      recoveryHashes: string[];
+    },
+  ): Promise<'ok' | 'not_found'>;
+  /** Exclui a conta (LGPD Art. 18, VI). */
+  deleteByEmail?(email: string): Promise<'ok' | 'not_found'>;
 }
 
 /** Código de e-mail guardado (só o hash). */

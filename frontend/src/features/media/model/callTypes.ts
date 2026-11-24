@@ -37,6 +37,8 @@ export type CallStatus =
   | 'connecting'
   | 'on';
 
+export type MediaDeviceKindOption = 'audioinput' | 'audiooutput' | 'videoinput';
+
 export type CallState = {
   status: CallStatus;
   zone: string | null;
@@ -59,6 +61,8 @@ export type CallState = {
   toggleCam: () => void;
   toggleScreen: () => void;
   setAudioOn: (on: boolean) => void;
+  /** Troca o dispositivo ativo de microfone, saída de áudio ou webcam. */
+  switchDevice: (kind: MediaDeviceKindOption, deviceId: string) => void;
   /** Desliga microfone, câmera e compartilhamento de tela (usado ao mudar para Ocupado ou Ausente). */
   silenceLocal: () => void;
   startAudio: () => void;

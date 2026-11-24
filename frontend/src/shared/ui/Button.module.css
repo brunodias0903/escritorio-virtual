@@ -35,13 +35,16 @@
 
 .gradient {
   border-radius: 10px;
-  background: linear-gradient(90deg, #6226d9 0%, #5b6cff 55%, #37a5d9 100%);
-  box-shadow: 0 8px 24px rgba(91, 108, 255, 0.28);
+  background: var(
+    --server-gradient,
+    linear-gradient(90deg, #6226d9 0%, #5b6cff 55%, #37a5d9 100%)
+  );
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .gradient:hover:not(:disabled) {
   filter: brightness(1.08);
-  box-shadow: 0 10px 28px rgba(91, 108, 255, 0.4);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
 }
 
 .gradient:active:not(:disabled) {

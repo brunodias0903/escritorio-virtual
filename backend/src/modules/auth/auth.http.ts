@@ -1,9 +1,16 @@
 import {
+  DeleteAccountSchema,
+  EmailPreferencesSchema,
   LoginSchema,
+  MfaDisableSchema,
+  MfaEmailToggleSchema,
+  MfaEnableSchema,
   RegisterSchema,
   RequestCodeSchema,
   ResetPasswordSchema,
+  UiThemeSchema,
   UpdateAccountSchema,
+  VerifyEmailSchema,
 } from '../../shared/domain/index.js';
 import type { HttpResult } from '../../shared/result.js';
 import type { AuthService } from './auth.service.js';
@@ -79,8 +86,8 @@ export const handleAuthRoutes = async (
       if (method !== 'POST') return error(405, 'method_not_allowed');
       const parsed = LoginSchema.safeParse(body);
       if (!parsed.success) return error(400, 'invalid_request');
-      const { login, password } = parsed.data;
-      return respond(await service.login(login, password, ip), (s) =>
+      const { login, password, mfaCode } = parsed.data;
+      return respond(await service.login(login, password, ip, mfaCode), (s) =>
         json(200, s),
       );
     }
@@ -101,7 +108,125 @@ export const handleAuthRoutes = async (
           (s) => json(200, s),
         );
       }
+      if (method === 'DELETE') {
+        if (!claims) return error(401, 'unauthorized');
+        const parsed = DeleteAccountSchema.safeParse(body);
+        if (!parsed.success) return error(400, 'invalid_request');
+        return respond(
+          await service.deleteAccount(claims, parsed.data.password),
+          (v) => json(200, v),
+        );
+      }
       return error(405, 'method_not_allowed');
+    }
+
+    case '/api/auth/export': {
+      if (method !== 'GET') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      return respond(await service.exportData(claims), (v) => json(200, v));
+    }
+
+    case '/api/auth/verify/start': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      return respond(await service.requestVerifyCode(claims, ip), () =>
+        json(202, { ok: true }),
+      );
+    }
+
+    case '/api/auth/verify/confirm': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      const parsed = VerifyEmailSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await service.confirmVerifyEmail(claims, parsed.data.code, ip),
+        (v) => json(200, v),
+      );
+    }
+
+    case '/api/auth/theme': {
+      if (method !== 'PUT') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      const parsed = UiThemeSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(await service.updateTheme(claims, parsed.data), (v) =>
+        json(200, v),
+      );
+    }
+
+    case '/api/auth/email-preferences': {
+      if (method !== 'PUT') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      const parsed = EmailPreferencesSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await service.updateEmailPreferences(
+          claims,
+          parsed.data.marketingOptIn,
+        ),
+        (v) => json(200, v),
+      );
+    }
+
+    case '/api/auth/mfa/email': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      const parsed = MfaEmailToggleSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await service.setEmailMfa(claims, parsed.data.enabled),
+        (v) => json(200, v),
+      );
+    }
+
+    case '/api/auth/mfa/setup': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      return respond(await service.startMfaSetup(claims), (v) => json(200, v));
+    }
+
+    case '/api/auth/mfa/enable': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      const parsed = MfaEnableSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(await service.enableMfa(claims, parsed.data.code), (v) =>
+        json(200, v),
+      );
+    }
+
+    case '/api/auth/mfa/disable': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      const parsed = MfaDisableSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await service.disableMfa(
+          claims,
+          parsed.data.password,
+          parsed.data.code,
+        ),
+        (v) => json(200, v),
+      );
     }
 
     case '/api/auth/logout': {

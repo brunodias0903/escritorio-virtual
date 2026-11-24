@@ -5,3 +5,7 @@ export { PgDeskRepository } from './desk.repository.js';
 export { PgEmailCodeRepository } from './email-code.repository.js';
 export { PgProfileRepository } from './profile.repository.js';
 export { PgReadStateRepository } from './read-state.repository.js';
+export {
+  PgFeedbackRepository,
+  PgServerSettingsRepository,
+} from './workspace.repository.js';

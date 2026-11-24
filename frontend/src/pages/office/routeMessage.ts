@@ -1,3 +1,4 @@
+import { useAccessibilityStore } from '@/features/accessibility/accessibilityStore';
 import { useChatStore } from '@/features/chat/model/chatStore';
 import { useDeskStore } from '@/features/desks/model/deskStore';
 import type { MediaAccess } from '@/features/media/model/callTypes';
@@ -25,6 +26,7 @@ export function routeServerMessage(
   send: OfficeSend,
   media: MediaHandlers,
   notify: (text: string) => void,
+  onDisplaced?: (displaced: boolean) => void,
 ): void {
   const chat = useChatStore.getState();
   switch (message.type) {
@@ -42,6 +44,12 @@ export function routeServerMessage(
     case 'chat':
       if (chat.receive(message.message) === 'unknown-channel') {
         send({ type: 'channels' });
+      }
+      if (
+        useAccessibilityStore.getState().prefs.visualAlerts &&
+        message.message.authorId !== chat.me
+      ) {
+        notify(`🔔 Nova mensagem de ${message.message.author} no chat.`);
       }
       break;
     case 'history':
@@ -84,6 +92,17 @@ export function routeServerMessage(
       break;
     case 'people':
       usePeopleStore.getState().setPeople(message.people);
+      break;
+    case 'sessionDisplaced':
+      media.set(null);
+      onDisplaced?.(true);
+      break;
+    case 'multiDeviceNotice':
+      if (message.activeElsewhere) {
+        notify(
+          'Sua conta está logada em mais de 1 dispositivo. O acesso pode ser movido a qualquer momento.',
+        );
+      }
       break;
     default:
       world.apply(message);

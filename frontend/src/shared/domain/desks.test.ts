@@ -9,6 +9,7 @@ import {
   RUG_COLORS,
   defaultDeskConfig,
   deskKey,
+  resolveDeskSetup,
 } from './desks';
 
 describe('defaultDeskConfig', () => {
@@ -31,10 +32,12 @@ describe('DeskConfigSchema: computador', () => {
     expect(DeskConfigSchema.parse(old).computer).toBe('desktop');
   });
 
-  it('aceita os 4 tipos e recusa outros', () => {
+  it('aceita os 6 tipos e recusa outros', () => {
     for (const computer of [
       'desktop',
       'dualMonitor',
+      'ultrawide',
+      'tripleMonitor',
       'laptop',
       'laptopMonitor',
     ]) {
@@ -45,6 +48,35 @@ describe('DeskConfigSchema: computador', () => {
     expect(
       DeskConfigSchema.safeParse({ ...old, computer: 'tablet' }).success,
     ).toBe(false);
+  });
+
+  it('resolveDeskSetup converte setups legados e separa máquina de monitor', () => {
+    expect(resolveDeskSetup({ computer: 'laptop' })).toEqual({
+      machine: 'laptop',
+      monitor: 'none',
+    });
+    expect(resolveDeskSetup({ computer: 'laptopMonitor' })).toEqual({
+      machine: 'laptop',
+      monitor: 'single',
+    });
+    expect(resolveDeskSetup({ computer: 'ultrawide' })).toEqual({
+      machine: 'desktop',
+      monitor: 'ultrawide',
+    });
+    expect(
+      resolveDeskSetup({
+        computer: 'desktop',
+        machine: 'desktop',
+        monitor: 'none',
+      }),
+    ).toEqual({ machine: 'desktop', monitor: 'single' });
+    expect(
+      resolveDeskSetup({
+        computer: 'laptopMonitor',
+        machine: 'laptop',
+        monitor: 'triple',
+      }),
+    ).toEqual({ machine: 'laptop', monitor: 'triple' });
   });
 });
 

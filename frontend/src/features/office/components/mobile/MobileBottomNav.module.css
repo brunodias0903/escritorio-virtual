@@ -1,0 +1,255 @@
+.navBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto;
+  padding: 6px env(safe-area-inset-right)
+    max(8px, min(20px, env(safe-area-inset-bottom))) env(safe-area-inset-left);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  background-color: var(--bg-rail);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: calc(var(--z-panel-overlay) + 5);
+}
+
+.navItem {
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-muted);
+  transition: color 0.14s ease;
+}
+
+.navItem:active {
+  transform: scale(0.95);
+}
+
+.navItemActive {
+  color: #ffffff;
+}
+
+.navIconWrap {
+  position: relative;
+  width: 28px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+.statusDot {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-rail);
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background-color: var(--accent);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.badgeAlert {
+  background-color: var(--mention-badge);
+}
+
+/* --- Tela cheia de Chat / Pessoas acima da Bottom Navigation --- */
+
+.pageSheet {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(58px + min(20px, env(safe-area-inset-bottom)));
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-surface-elevated);
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  z-index: var(--z-panel-overlay);
+  animation: sheetIn 160ms ease-out;
+}
+
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sheetHeader {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+  background-color: var(--bg-bar);
+  border-bottom: 1px solid var(--border-bar);
+}
+
+.sheetTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.serverName {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.floorBadge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--info-text);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sheetActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.iconBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-control);
+}
+
+.iconBtnDanger {
+  background-color: rgba(217, 54, 75, 0.18);
+}
+
+.activeCallStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: var(--zone-pill-bg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.callStripInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.callPulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-available);
+  box-shadow: 0 0 8px var(--status-available);
+  flex-shrink: 0;
+}
+
+.callStripText {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.callStripMic {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--call-off-bg);
+  flex-shrink: 0;
+}
+
+.callStripMicOn {
+  background-color: var(--call-on-bg);
+}
+
+.sheetBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- Paisagem mobile: vira rail lateral esquerda para preservar altura --- */
+@media (orientation: landscape) and (max-height: 540px) {
+  .navBar {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: calc(56px + env(safe-area-inset-left));
+    height: 100dvh;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 1fr);
+    border-top: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .pageSheet {
+    top: 0;
+    bottom: 0;
+    left: calc(56px + env(safe-area-inset-left));
+    right: 0;
+    padding-left: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

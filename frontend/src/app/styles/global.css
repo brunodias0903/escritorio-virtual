@@ -12,7 +12,8 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: var(--bg-app);
+  overscroll-behavior: none;
+  background-color: var(--bg-rail);
   color: var(--text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -26,6 +27,22 @@ textarea {
   color: inherit;
 }
 
+button,
+[role='button'] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 button {
   cursor: pointer;
   border: none;
@@ -37,11 +54,23 @@ button:disabled {
   cursor: not-allowed;
 }
 
+button:focus:not(:focus-visible),
+[role='button']:focus:not(:focus-visible) {
+  outline: none;
+}
+
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--accent-link);
   outline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+  input,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Barra de rolagem discreta para listas e chat no tema escuro */
@@ -61,4 +90,49 @@ textarea:focus-visible {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(170, 178, 230, 0.36);
+}
+
+/* --- Recursos de Acessibilidade (WCAG / LBI) -------------------------------- */
+
+:root[data-high-contrast='true'] {
+  --border-subtle: rgba(255, 255, 255, 0.36);
+  --border-bar: rgba(255, 255, 255, 0.52);
+  --text-secondary: #e2e4f0;
+  --text-muted: #cfd3e6;
+}
+
+:root[data-high-contrast='true'] *:focus-visible {
+  outline: 3px solid #ffd43b !important;
+  outline-offset: 2px !important;
+}
+
+:root[data-reduced-motion='true'] *,
+:root[data-reduced-motion='true'] *::before,
+:root[data-reduced-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+:root[data-large-text='true'] {
+  font-size: 118%;
+}
+
+:root[data-dyslexia-font='true'] body {
+  letter-spacing: 0.04em;
+  word-spacing: 0.14em;
+  line-height: 1.6;
+}
+
+:root[data-colorblind='protanopia'] body {
+  filter: contrast(1.08) saturate(1.15) hue-rotate(-12deg);
+}
+
+:root[data-colorblind='deuteranopia'] body {
+  filter: contrast(1.08) saturate(1.15) hue-rotate(14deg);
+}
+
+:root[data-colorblind='tritanopia'] body {
+  filter: contrast(1.08) saturate(1.12) hue-rotate(28deg);
 }

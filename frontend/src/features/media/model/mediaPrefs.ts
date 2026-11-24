@@ -7,9 +7,16 @@ type Prefs = {
   cam: boolean;
   /** Áudio das chamadas mutado (não ouve os outros participantes). */
   deafened: boolean;
+  /** Dispositivos escolhidos pela pessoa (string vazia = padrão do sistema). */
+  audioInputId: string;
+  audioOutputId: string;
+  videoInputId: string;
   setMic: (on: boolean) => void;
   setCam: (on: boolean) => void;
   setDeafened: (on: boolean) => void;
+  setAudioInputId: (id: string) => void;
+  setAudioOutputId: (id: string) => void;
+  setVideoInputId: (id: string) => void;
   /** Saiu de uma chamada: desliga câmera, mas mantém o microfone como estava. */
   resetVideo: () => void;
   /** Desliga microfone e câmera (ex.: status Ocupado ou Ausente). */
@@ -25,9 +32,15 @@ export const useMediaPrefs = create<Prefs>((set) => ({
   mic: false,
   cam: false,
   deafened: false,
+  audioInputId: '',
+  audioOutputId: '',
+  videoInputId: '',
   setMic: (mic) => set({ mic }),
   setCam: (cam) => set({ cam }),
   setDeafened: (deafened) => set({ deafened }),
+  setAudioInputId: (audioInputId) => set({ audioInputId }),
+  setAudioOutputId: (audioOutputId) => set({ audioOutputId }),
+  setVideoInputId: (videoInputId) => set({ videoInputId }),
   resetVideo: () => set({ cam: false }),
   reset: () => set({ mic: false, cam: false }),
 }));

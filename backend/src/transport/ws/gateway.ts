@@ -16,7 +16,7 @@ import type { Cluster } from '../../modules/realtime/cluster.js';
 import { Connection } from '../../modules/realtime/connection.js';
 import type { ServerMessage } from '../../shared/domain/index.js';
 
-const MAX_WS_PAYLOAD_BYTES = 4096;
+const MAX_WS_PAYLOAD_BYTES = 65_536;
 const JOIN_TIMEOUT_MS = 5_000;
 
 export type WsGatewayDeps = {
@@ -41,6 +41,10 @@ const send = (socket: WebSocket, message: ServerMessage): void => {
  */
 export class WsGateway {
   private readonly sockets = new Map<string, WebSocket>();
+  private readonly activeByEmail = new Map<
+    string,
+    { id: string; displace: () => Promise<void> }
+  >();
   private readonly deps: WsGatewayDeps;
   private readonly onError: (error: unknown) => void;
   private wss: WebSocketServer | null = null;
@@ -92,6 +96,23 @@ export class WsGateway {
         close: (code, reason) => socket.close(code, reason),
         attach: () => this.sockets.set(id, socket),
         detach: () => this.sockets.delete(id),
+        claimSession: async (email) => {
+          const prev = this.activeByEmail.get(email);
+          const hadOther = prev !== undefined && prev.id !== id;
+          if (hadOther) {
+            await prev.displace();
+          }
+          this.activeByEmail.set(email, {
+            id,
+            displace: () => connection.displace(),
+          });
+          return hadOther;
+        },
+        releaseSession: (email) => {
+          if (this.activeByEmail.get(email)?.id === id) {
+            this.activeByEmail.delete(email);
+          }
+        },
       });
 
       // Quem não se identifica logo é desconectado.

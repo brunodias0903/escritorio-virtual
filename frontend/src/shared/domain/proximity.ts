@@ -25,7 +25,7 @@ type Someone = Point & { id: string };
 
 /**
  * A chamada em que a pessoa deve estar:
- * - numa zona (mesa ou sala), a chamada da zona;
+ * - numa zona (mesa ou sala), a chamada da zona (mesmo sozinha);
  * - na estrada, a conversa com quem está perto. Vale em corrente: se A está
  *   perto de B e B perto de C, os três conversam juntos;
  * - sozinha na estrada, nenhuma (null).

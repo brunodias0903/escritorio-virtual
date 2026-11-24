@@ -14,13 +14,22 @@ export type RunningServer = {
 
 /** Sobe o servidor HTTP + WebSocket, liga os timers de presença e prepara o encerramento limpo. */
 export const startServer = (container: AppContainer): RunningServer => {
-  const { config, auth, media, office, cluster, wsGateway, instanceId } =
-    container;
+  const {
+    config,
+    auth,
+    media,
+    office,
+    workspace,
+    cluster,
+    wsGateway,
+    instanceId,
+  } = container;
   const logError = (error: unknown) => console.error('[erro]', error);
 
   const httpServer = createServer(
     createHttpHandler({
       auth,
+      workspace,
       allowedOrigins: config.allowedOrigins,
       trustProxy: config.trustProxy,
       onError: logError,

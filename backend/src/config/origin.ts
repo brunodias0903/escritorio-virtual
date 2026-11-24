@@ -2,7 +2,7 @@
 export const parseAllowedOrigins = (raw: string | undefined): string[] =>
   (raw ?? '')
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
 /**

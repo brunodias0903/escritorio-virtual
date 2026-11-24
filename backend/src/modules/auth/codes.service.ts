@@ -13,11 +13,15 @@ export const CODE_MAX_ATTEMPTS = 5;
 const SUBJECTS: Record<CodePurpose, string> = {
   register: `Seu código para criar a conta no ${APP_NAME}`,
   reset: `Seu código para trocar a senha do ${APP_NAME}`,
+  verify: `Seu código para verificar seu e-mail no ${APP_NAME}`,
+  mfa: `Seu código de acesso (2FA) no ${APP_NAME}`,
 };
 
 const ACTIONS: Record<CodePurpose, string> = {
   register: 'criar a sua conta',
   reset: 'trocar a sua senha',
+  verify: 'verificar o seu e-mail',
+  mfa: 'confirmar seu login (2FA)',
 };
 
 type Deps = {

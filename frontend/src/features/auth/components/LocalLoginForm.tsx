@@ -21,6 +21,8 @@ type Props = {
 export function LocalLoginForm({ onRegister, onForgot }: Props) {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
+  const [mfaMode, setMfaMode] = useState<'none' | 'totp' | 'email'>('none');
+  const [mfaCode, setMfaCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -28,12 +30,35 @@ export function LocalLoginForm({ onRegister, onForgot }: Props) {
     event.preventDefault();
     const validation = validateLogin({ login, password });
     if (!validation.ok) return setError(validation.message);
+    if (mfaMode !== 'none' && mfaCode.trim().length < 6) {
+      return setError(
+        mfaMode === 'email'
+          ? 'Digite o código de 6 dígitos enviado para o seu e-mail.'
+          : 'Digite o código de 6 dígitos do autenticador (ou um código de recuperação).',
+      );
+    }
     setError('');
     setBusy(true);
-    const result = await authApi.login(validation.data);
+    const result = await authApi.login({
+      ...validation.data,
+      ...(mfaMode !== 'none' ? { mfaCode: mfaCode.trim() } : {}),
+    });
     setBusy(false);
-    if (result.ok) beginSession(result.data);
-    else setError(errorMessage(result.error));
+    if (result.ok) {
+      beginSession(result.data);
+      return;
+    }
+    if (result.error === 'mfa_required') {
+      setMfaMode('totp');
+      setError('');
+      return;
+    }
+    if (result.error === 'mfa_required_email') {
+      setMfaMode('email');
+      setError('');
+      return;
+    }
+    setError(errorMessage(result.error));
   };
 
   return (
@@ -67,6 +92,23 @@ export function LocalLoginForm({ onRegister, onForgot }: Props) {
         variant="auth"
         fullWidth
       />
+
+      {mfaMode !== 'none' ? (
+        <Field
+          label={
+            mfaMode === 'email'
+              ? 'Código de 6 dígitos enviado no seu e-mail'
+              : 'Código de autenticação (2FA)'
+          }
+          value={mfaCode}
+          onChange={setMfaCode}
+          autoComplete="one-time-code"
+          placeholder={mfaMode === 'email' ? '000000' : '000000 ou XXXX-XXXX'}
+          leadingIcon={<LockIcon />}
+          variant="auth"
+          fullWidth
+        />
+      ) : null}
 
       {onForgot ? (
         <div className={styles.inlineAction}>

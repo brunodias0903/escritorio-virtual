@@ -9,6 +9,7 @@ const session: Session = {
     name: 'Ana',
     admin: false,
     kind: 'company',
+    tier: 'tester',
     nickname: 'ana',
     role: '',
   },

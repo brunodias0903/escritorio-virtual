@@ -1,18 +1,27 @@
-import { defaultAppearance } from '@/shared/domain';
+import {
+  AVATAR_ACCESSORIES,
+  HAIR_STYLE_COUNT,
+  defaultAppearance,
+} from '@/shared/domain';
 import { describe, expect, it } from 'vitest';
 
 import { SPRITE_H, SPRITE_W, buildSprite, spriteRows } from './sprite';
 
 const appearance = defaultAppearance('ana');
 const FACINGS = ['down', 'up', 'left', 'right'] as const;
-const STYLES = [0, 1, 2, 3];
+const STYLES = Array.from({ length: HAIR_STYLE_COUNT }, (_, i) => i);
 
 describe('sprite', () => {
-  it('toda pose tem 16 x 24, em qualquer direção, quadro e cabelo', () => {
+  it('toda pose tem 16 x 24, em qualquer direção, quadro, cabelo e acessório', () => {
     for (const facing of FACINGS) {
       for (const frame of [0, 1, 2] as const) {
         for (const style of STYLES) {
           const rows = spriteRows({ ...appearance, style }, facing, frame);
+          expect(rows).toHaveLength(SPRITE_H);
+          for (const row of rows) expect(row).toHaveLength(SPRITE_W);
+        }
+        for (const accessory of AVATAR_ACCESSORIES) {
+          const rows = spriteRows({ ...appearance, accessory }, facing, frame);
           expect(rows).toHaveLength(SPRITE_H);
           for (const row of rows) expect(row).toHaveLength(SPRITE_W);
         }

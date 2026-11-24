@@ -7,3 +7,7 @@ export { MemoryProfileRepository } from './profile.repository.js';
 export { MemoryRateLimiter } from './rate-limiter.js';
 export { MemoryReadStateRepository } from './read-state.repository.js';
 export { MemoryRevocations } from './revocations.js';
+export {
+  MemoryFeedbackRepository,
+  MemoryServerSettingsRepository,
+} from './workspace.repository.js';

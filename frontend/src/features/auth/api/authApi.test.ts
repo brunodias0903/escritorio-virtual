@@ -8,6 +8,7 @@ const session = {
     name: 'Ana',
     admin: false,
     kind: 'company',
+    tier: 'tester',
     nickname: 'ana',
     role: '',
   },
@@ -135,6 +136,9 @@ describe('authApi', () => {
       nickname: 'anas',
       email: 'ana@empresa.com',
       role: 'Dev',
+      tier: 'tester' as const,
+      emailVerified: false,
+      mfaEnabled: false,
     };
     const read = fakeFetch(200, account);
     expect(await read.api.account('tok')).toEqual({ ok: true, data: account });

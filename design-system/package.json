@@ -1,0 +1,11 @@
+{
+  "name": "@voffice/design-system",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Design System compartilhado (tokens, temas e utilitários de cor) para Web (React) e Mobile (React Native).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./web": "./src/web/applyCssVariables.ts"
+  }
+}

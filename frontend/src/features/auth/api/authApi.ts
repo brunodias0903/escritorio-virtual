@@ -2,6 +2,8 @@ import {
   AccountSchema,
   ApiErrorSchema,
   AuthOptionsSchema,
+  MfaEnableResponseSchema,
+  MfaSetupResponseSchema,
   SessionSchema,
   type Account,
   type AuthOptions,
@@ -10,6 +12,7 @@ import {
   type RequestCode,
   type ResetPassword,
   type Session,
+  type UiTheme,
   type UpdateAccount,
 } from '@/shared/domain';
 import { z } from 'zod';
@@ -22,6 +25,8 @@ type Options = {
 };
 
 const OkSchema = z.object({ ok: z.literal(true) });
+const VerifyConfirmSchema = z.object({ emailVerified: z.literal(true) });
+const EmailPrefsResultSchema = z.object({ emailMarketingOptIn: z.boolean() });
 
 /** Cliente da API de autenticação. Devolve sempre um resultado, nunca lança. */
 export const createAuthApi = ({ baseUrl, fetchImpl = fetch }: Options) => {
@@ -101,6 +106,86 @@ export const createAuthApi = ({ baseUrl, fetchImpl = fetch }: Options) => {
       call('/api/auth/account', SessionSchema, {
         method: 'PUT',
         body: input,
+        token,
+      }),
+
+    /** Envia código de 6 números para verificar o e-mail da conta já logada. */
+    startVerifyEmail: (token: string) =>
+      call('/api/auth/verify/start', OkSchema, { token }),
+
+    /** Confirma o código de 6 números e marca o e-mail como verificado. */
+    confirmVerifyEmail: (token: string, code: string) =>
+      call('/api/auth/verify/confirm', VerifyConfirmSchema, {
+        body: { code },
+        token,
+      }),
+
+    /** Salva a preferência de tema/cores na conta do usuário. */
+    updateTheme: (token: string, theme: UiTheme) =>
+      call('/api/auth/theme', OkSchema, {
+        method: 'PUT',
+        body: theme,
+        token,
+      }),
+
+    /** Salva preferência de notificações por e-mail (novidades/patch notes vs só importantes). */
+    updateEmailPreferences: (token: string, marketingOptIn: boolean) =>
+      call('/api/auth/email-preferences', EmailPrefsResultSchema, {
+        method: 'PUT',
+        body: { marketingOptIn },
+        token,
+      }),
+
+    /** Ativa ou desativa o 2FA por código enviado via e-mail. */
+    setEmailMfa: (token: string, enabled: boolean) =>
+      call(
+        '/api/auth/mfa/email',
+        z.object({
+          mfaEnabled: z.boolean(),
+          mfaMethod: z.enum(['none', 'email']),
+        }),
+        { body: { enabled }, token },
+      ),
+
+    /** Inicia configuração de MFA (TOTP): devolve segredo e QR Code offline. */
+    setupMfa: (token: string) =>
+      call('/api/auth/mfa/setup', MfaSetupResponseSchema, { token }),
+
+    /** Confirma o código de 6 dígitos do app autenticador, ativa MFA e devolve códigos de recuperação. */
+    enableMfa: (token: string, code: string) =>
+      call('/api/auth/mfa/enable', MfaEnableResponseSchema, {
+        body: { code },
+        token,
+      }),
+
+    /** Desativa MFA exigindo senha atual e código do autenticador (ou recuperação). */
+    disableMfa: (token: string, password: string, code: string) =>
+      call(
+        '/api/auth/mfa/disable',
+        z.object({ mfaEnabled: z.literal(false) }),
+        {
+          body: { password, code },
+          token,
+        },
+      ),
+
+    /** Exporta os dados pessoais da conta do titular (LGPD Art. 18, II e V). */
+    exportData: (token: string) =>
+      call(
+        '/api/auth/export',
+        z.object({
+          exportedAt: z.string(),
+          legalBasis: z.string(),
+          account: AccountSchema,
+        }),
+        { method: 'GET', token },
+      ),
+
+    /** Exclui definitivamente a conta mediante confirmação de senha (LGPD Art. 18, VI). */
+    deleteAccount: (token: string, password: string) =>
+      call('/api/auth/account', z.object({ deleted: z.literal(true) }), {
+        method: 'DELETE',
+        body: { password },
         token,
       }),
 

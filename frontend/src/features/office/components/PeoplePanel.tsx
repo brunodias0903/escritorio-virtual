@@ -21,6 +21,8 @@ type Props = {
   /** Abre a conversa direta com a pessoa (pelo e-mail). */
   onMessage: (email: string) => void;
   onClose: () => void;
+  /** Embutido na sidebar esquerda: oculta o cabeçalho duplicado. */
+  embedded?: boolean;
 };
 
 function Action({
@@ -132,20 +134,23 @@ export function PeoplePanel({
   onGoToDesk,
   onMessage,
   onClose,
+  embedded = false,
 }: Props) {
   return (
     <aside className={styles.panel} aria-label="Lista de pessoas">
-      <div className={styles.header}>
-        <h2 className={styles.title}>Pessoas · {online} online</h2>
-        <button
-          type="button"
-          aria-label="Fechar a lista de pessoas"
-          onClick={onClose}
-          className={styles.close}
-        >
-          ✕
-        </button>
-      </div>
+      {!embedded ? (
+        <div className={styles.header}>
+          <h2 className={styles.title}>Pessoas · {online} online</h2>
+          <button
+            type="button"
+            aria-label="Fechar a lista de pessoas"
+            onClick={onClose}
+            className={styles.close}
+          >
+            ✕
+          </button>
+        </div>
+      ) : null}
       <div className={styles.search}>
         <Icon name="search" size={16} color="#8888aa" />
         <input

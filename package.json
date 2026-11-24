@@ -13,6 +13,7 @@
     "env:init": "node scripts/setup-env.mjs",
     "up": "docker compose up -d --build",
     "down": "docker compose down",
+    "cloudflared": "cloudflared tunnel --url http://localhost:5080",
     "ps": "docker compose ps",
     "logs": "docker compose logs -f",
     "install:all": "pnpm install && pnpm --dir backend install --frozen-lockfile && pnpm --dir frontend install --frozen-lockfile",
@@ -27,10 +28,10 @@
     "quality": "prettier --check . && pnpm --dir backend quality && pnpm --dir frontend quality"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.1",
-    "@commitlint/config-conventional": "^21.2.0",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "husky": "^9.1.7",
-    "lint-staged": "^17.3.0",
-    "prettier": "^3.9.6"
+    "lint-staged": "^17.6.2",
+    "prettier": "^3.10.1"
   }
 }

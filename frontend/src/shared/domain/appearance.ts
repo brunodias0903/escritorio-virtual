@@ -7,6 +7,8 @@ export const SKIN_TONES = [
   '#b57a4a',
   '#8a5530',
   '#5e3a22',
+  '#ffe8d6',
+  '#422716',
 ] as const;
 
 export const HAIR_COLORS = [
@@ -18,6 +20,10 @@ export const HAIR_COLORS = [
   '#8e8e93',
   '#3b5bdb',
   '#f06292',
+  '#eceff4',
+  '#20c997',
+  '#845ef7',
+  '#15aabf',
 ] as const;
 
 export const SHIRT_COLORS = [
@@ -29,10 +35,71 @@ export const SHIRT_COLORS = [
   '#3498db',
   '#9b59b6',
   '#34495e',
+  '#1f2438',
+  '#ecf0f1',
+  '#ff6b81',
+  '#5b6cff',
 ] as const;
 
-/** Estilos de cabelo: 0 curto, 1 longo, 2 topete, 3 careca. */
-export const HAIR_STYLE_COUNT = 4;
+export const PANTS_COLORS = [
+  '#3c4c84',
+  '#232736',
+  '#4e5468',
+  '#a68a64',
+  '#3b5e47',
+  '#6b2d3c',
+  '#273c75',
+  '#cfd4e0',
+] as const;
+
+/** Estilos de cabelo: 0 curto, 1 longo, 2 topete, 3 careca, 4 moicano, 5 cacheado, 6 franja, 7 coque. */
+export const HAIR_STYLE_COUNT = 8;
+
+export const HAIR_STYLE_LABELS = [
+  'Curto',
+  'Longo',
+  'Topete',
+  'Careca',
+  'Moicano',
+  'Cacheado',
+  'Franja',
+  'Coque',
+] as const;
+
+export const AVATAR_BODY_STYLES = ['masculine', 'feminine', 'neutral'] as const;
+export type AvatarBodyStyle = (typeof AVATAR_BODY_STYLES)[number];
+
+export const AVATAR_BODY_STYLE_LABELS: Record<AvatarBodyStyle, string> = {
+  masculine: 'Masculino',
+  feminine: 'Feminino',
+  neutral: 'Neutro',
+};
+
+export const AVATAR_ACCESSORIES = [
+  'none',
+  'glasses',
+  'sunglasses',
+  'headphones',
+  'cap',
+  'beanie',
+  'beard',
+] as const;
+export type AvatarAccessory = (typeof AVATAR_ACCESSORIES)[number];
+
+export const AVATAR_ACCESSORY_LABELS: Record<AvatarAccessory, string> = {
+  none: 'Nenhum',
+  glasses: 'Óculos',
+  sunglasses: 'Óculos escuros',
+  headphones: 'Fone de ouvido',
+  cap: 'Boné',
+  beanie: 'Touca',
+  beard: 'Barba',
+};
+
+/** Tamanho máximo da foto de perfil em data URL (128x128 comprimida). */
+export const PROFILE_PHOTO_MAX_LENGTH = 40_000;
+
+const DATA_IMAGE_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 
 export const AppearanceSchema = z.object({
   skin: z
@@ -55,6 +122,21 @@ export const AppearanceSchema = z.object({
     .int()
     .min(0)
     .max(SHIRT_COLORS.length - 1),
+  pants: z
+    .number()
+    .int()
+    .min(0)
+    .max(PANTS_COLORS.length - 1)
+    .optional(),
+  accessory: z.enum(AVATAR_ACCESSORIES).optional(),
+  bodyStyle: z.enum(AVATAR_BODY_STYLES).optional(),
+  /** Foto de perfil personalizada (data URL comprimida), ou null para usar só o pixel art. */
+  photo: z
+    .string()
+    .max(PROFILE_PHOTO_MAX_LENGTH)
+    .regex(DATA_IMAGE_RE, 'Formato de imagem inválido.')
+    .nullable()
+    .optional(),
 });
 export type Appearance = z.infer<typeof AppearanceSchema>;
 
@@ -76,6 +158,9 @@ export const defaultAppearance = (seed: string): Appearance => {
     hair: (h >>> 3) % HAIR_COLORS.length,
     style: (h >>> 7) % HAIR_STYLE_COUNT,
     shirt: (h >>> 11) % SHIRT_COLORS.length,
+    pants: (h >>> 15) % PANTS_COLORS.length,
+    accessory: 'none',
+    photo: null,
   };
 };
 

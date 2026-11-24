@@ -13,7 +13,39 @@
   flex-direction: column;
   align-items: center;
   pointer-events: none;
-  z-index: var(--z-tooltip);
+  z-index: calc(var(--z-modal) + 10);
+}
+
+.topStart {
+  left: 0;
+  transform: none;
+  align-items: flex-start;
+}
+
+.topStart .arrow {
+  margin-left: 13px;
+}
+
+.topEnd {
+  left: auto;
+  right: 0;
+  transform: none;
+  align-items: flex-end;
+}
+
+.topEnd .arrow {
+  margin-right: 13px;
+}
+
+.right {
+  bottom: auto;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  margin-bottom: 0;
+  margin-left: 10px;
+  flex-direction: row;
+  z-index: calc(var(--z-modal) + 10);
 }
 
 .bubble {
@@ -22,6 +54,7 @@
   background-color: var(--bg-tooltip);
   border: 1px solid var(--border-accent);
   white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
 
 .text {
@@ -38,4 +71,15 @@
   border-right: 1px solid var(--border-accent);
   border-bottom: 1px solid var(--border-accent);
   transform: rotate(45deg);
+}
+
+.arrowLeft {
+  width: 10px;
+  height: 10px;
+  margin-right: -6px;
+  background-color: var(--bg-tooltip);
+  border-left: 1px solid var(--border-accent);
+  border-bottom: 1px solid var(--border-accent);
+  transform: rotate(45deg);
+  flex-shrink: 0;
 }

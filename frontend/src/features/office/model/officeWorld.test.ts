@@ -405,4 +405,16 @@ describe('OfficeWorld: ir andando até a mesa', () => {
     expect(world.me()).toMatchObject({ x: 464, y: 464 });
     expect(world.lockedZone).toBe('Mesa 7');
   });
+
+  it('ir para uma sala (ex.: sala de reunião) caminha automaticamente até lá dentro', () => {
+    const world = started();
+    world.goTo({ map: 'lobby', areaId: 'sala-reuniao' });
+    run(world, 6);
+    const me = world.me()!;
+    expect(me.x).toBeGreaterThanOrEqual(32);
+    expect(me.x).toBeLessThan(11 * 32);
+    expect(me.y).toBeGreaterThanOrEqual(2 * 32);
+    expect(me.y).toBeLessThan(8 * 32);
+    expect(world.autoWalking).toBe(false);
+  });
 });

@@ -1,5 +1,6 @@
 :root {
   /* Fundos e superfícies */
+  --bg-rail: #0d102c;
   --bg-app: #1b1b2f;
   --bg-surface: #1f1f36;
   --bg-surface-elevated: #161a3d;
@@ -44,9 +45,13 @@
   --accent-disabled: #3a3f73;
   --accent-link: #9aa4ff;
   --accent-mention-bg: rgba(91, 108, 255, 0.2);
+  --accent-border-soft: rgba(91, 108, 255, 0.65);
 
   /* Semânticas e status */
   --status-available: #31e0c1;
+  --presence-soft: rgba(49, 224, 193, 0.16);
+  --presence-border: rgba(49, 224, 193, 0.45);
+  --presence-strong: #16a085;
   --status-busy: #ff6b81;
   --status-away: #f1c40f;
   --status-offline: #6b72a8;

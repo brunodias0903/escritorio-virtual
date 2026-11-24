@@ -14,6 +14,7 @@ import { resolveMediaUrl } from '@/shared/lib/mediaUrl';
 import type {
   CallState,
   CallTile,
+  MediaDeviceKindOption,
   SignalQuality,
   UseCallOptions,
 } from '../model/callTypes';
@@ -189,7 +190,14 @@ export function useCall({
       .on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication) => {
         if (track.kind === Track.Kind.Audio) {
           const element = track.attach();
-          element.muted = useMediaPrefs.getState().deafened;
+          const prefs = useMediaPrefs.getState();
+          element.muted = prefs.deafened;
+          const sink = element as HTMLMediaElement & {
+            setSinkId?: (id: string) => Promise<void>;
+          };
+          if (prefs.audioOutputId && typeof sink.setSinkId === 'function') {
+            void sink.setSinkId(prefs.audioOutputId).catch(() => {});
+          }
           document.body.appendChild(element);
           audioElements.set(publication.trackSid, element);
         }
@@ -214,16 +222,39 @@ export function useCall({
         // Cada um por conta própria, para uma câmera negada não derrubar o microfone.
         if (!lockedByBusyRef.current) {
           const prefs = useMediaPrefs.getState();
-          for (const [wanted, enable] of [
-            [prefs.mic, () => next.localParticipant.setMicrophoneEnabled(true)],
-            [prefs.cam, () => next.localParticipant.setCameraEnabled(true)],
+          for (const [wanted, kind, enable] of [
+            [
+              prefs.mic,
+              'mic' as const,
+              () =>
+                next.localParticipant.setMicrophoneEnabled(
+                  true,
+                  prefs.audioInputId
+                    ? { deviceId: prefs.audioInputId }
+                    : undefined,
+                ),
+            ],
+            [
+              prefs.cam,
+              'cam' as const,
+              () =>
+                next.localParticipant.setCameraEnabled(
+                  true,
+                  prefs.videoInputId
+                    ? { deviceId: prefs.videoInputId }
+                    : undefined,
+                ),
+            ],
           ] as const) {
             if (!wanted || !alive) continue;
             try {
               await enable();
             } catch (reason) {
-              if (alive)
-                setError(describeMediaError(reason, window.isSecureContext));
+              if (alive) {
+                setError(
+                  describeMediaError(reason, window.isSecureContext, kind),
+                );
+              }
             }
           }
         }
@@ -299,6 +330,29 @@ export function useCall({
     setAudioOn(useMediaPrefs.getState().deafened);
   };
 
+  const switchDevice = (kind: MediaDeviceKindOption, deviceId: string) => {
+    const prefs = useMediaPrefs.getState();
+    if (kind === 'audioinput') prefs.setAudioInputId(deviceId);
+    if (kind === 'audiooutput') prefs.setAudioOutputId(deviceId);
+    if (kind === 'videoinput') prefs.setVideoInputId(deviceId);
+
+    if (kind === 'audiooutput') {
+      for (const element of audioElementsRef.current.values()) {
+        const sink = element as HTMLMediaElement & {
+          setSinkId?: (id: string) => Promise<void>;
+        };
+        if (typeof sink.setSinkId === 'function') {
+          void sink.setSinkId(deviceId).catch(() => {});
+        }
+      }
+    }
+
+    const activeRoom = room.current;
+    if (activeRoom && deviceId) {
+      void activeRoom.switchActiveDevice(kind, deviceId).catch(() => {});
+    }
+  };
+
   const toggle = (what: 'mic' | 'cam' | 'screen') => {
     if (lockedByBusyRef.current) return;
     const local = room.current?.localParticipant;
@@ -308,22 +362,49 @@ export function useCall({
         setError('');
         // O navegador só toca o som depois de um clique: este clique libera.
         await room.current?.startAudio();
+        const prefs = useMediaPrefs.getState();
         if (what === 'mic') {
           const on = !local.isMicrophoneEnabled;
-          useMediaPrefs.getState().setMic(on);
-          await local.setMicrophoneEnabled(on);
+          prefs.setMic(on);
+          await local.setMicrophoneEnabled(
+            on,
+            on && prefs.audioInputId
+              ? { deviceId: prefs.audioInputId }
+              : undefined,
+          );
         }
         if (what === 'cam') {
           const on = !local.isCameraEnabled;
-          useMediaPrefs.getState().setCam(on);
-          await local.setCameraEnabled(on);
+          prefs.setCam(on);
+          await local.setCameraEnabled(
+            on,
+            on && prefs.videoInputId
+              ? { deviceId: prefs.videoInputId }
+              : undefined,
+          );
         }
         if (what === 'screen') {
-          await local.setScreenShareEnabled(!local.isScreenShareEnabled);
+          const wantOn = !local.isScreenShareEnabled;
+          if (
+            wantOn &&
+            typeof navigator.mediaDevices?.getDisplayMedia !== 'function'
+          ) {
+            setError(
+              describeMediaError(
+                { name: 'UnsupportedScreenShare' },
+                window.isSecureContext,
+                'screen',
+              ),
+            );
+            return;
+          }
+          await local.setScreenShareEnabled(wantOn);
         }
         publish.current();
       } catch (reason) {
-        setError(describeMediaError(reason, window.isSecureContext));
+        if (what === 'mic') useMediaPrefs.getState().setMic(false);
+        if (what === 'cam') useMediaPrefs.getState().setCam(false);
+        setError(describeMediaError(reason, window.isSecureContext, what));
       }
     })();
   };
@@ -354,6 +435,7 @@ export function useCall({
     toggleCam: () => toggle('cam'),
     toggleScreen: () => toggle('screen'),
     setAudioOn,
+    switchDevice,
     silenceLocal,
     startAudio: () => void room.current?.startAudio(),
   };

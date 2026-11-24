@@ -124,8 +124,8 @@ services:
 
   web:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       target: web
       args:
         VERSION: ${VERSION:-local}

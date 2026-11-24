@@ -69,6 +69,16 @@
   padding: 0 2px;
 }
 
+.link {
+  color: var(--accent-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  filter: brightness(1.15);
+}
+
 .replies {
   color: var(--accent-link);
   font-size: 12px;

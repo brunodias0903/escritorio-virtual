@@ -2,7 +2,7 @@ import type { ChatMessage } from '@/shared/domain';
 import { toHexColor } from '@/shared/lib/color';
 import { formatTime } from '@/shared/lib/formatTime';
 
-import { splitMentions } from '../model/mentions';
+import { parseMessageParts } from '../model/richText';
 import styles from './MessageRow.module.css';
 
 type Props = {
@@ -42,14 +42,26 @@ export function MessageRow({ message, showHeader, me, onOpenThread }: Props) {
           </div>
         ) : null}
         <p className={styles.text}>
-          {splitMentions(message.text).map((part, index) => (
-            <span
-              key={index}
-              className={part.mention ? styles.mention : undefined}
-            >
-              {part.text}
-            </span>
-          ))}
+          {parseMessageParts(message.text).map((part, index) =>
+            part.kind === 'link' ? (
+              <a
+                key={index}
+                href={part.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.link}
+              >
+                {part.text}
+              </a>
+            ) : (
+              <span
+                key={index}
+                className={part.kind === 'mention' ? styles.mention : undefined}
+              >
+                {part.text}
+              </span>
+            ),
+          )}
         </p>
         {onOpenThread ? (
           <button

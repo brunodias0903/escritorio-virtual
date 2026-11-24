@@ -4,6 +4,7 @@ import { authApi } from '@/app/api';
 import { LocalLoginForm } from '@/features/auth/components/LocalLoginForm';
 import { LocalRegisterForm } from '@/features/auth/components/LocalRegisterForm';
 import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm';
+import { LegalModal } from '@/features/legal/LegalModal';
 import { APP_NAME, type AuthOptions } from '@/shared/domain';
 
 import styles from './LoginPage.module.css';
@@ -215,6 +216,7 @@ function CosmicArtwork() {
 /** Entrar (nickname ou e-mail, e senha) ou criar conta. */
 export function LoginPage() {
   const [view, setView] = useState<View>('login');
+  const [legalOpen, setLegalOpen] = useState(false);
   // O servidor diz o que está ligado. Até responder: sem código e sem dica de domínio.
   const [options, setOptions] = useState<AuthOptions>({
     emailCodes: false,
@@ -269,8 +271,35 @@ export function LoginPage() {
               onForgot={emailCodes ? () => setView('reset') : undefined}
             />
           )}
+          <div
+            style={{
+              marginTop: 14,
+              paddingTop: 12,
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              fontSize: 11.5,
+              color: 'rgba(255,255,255,0.62)',
+              textAlign: 'center',
+              lineHeight: 1.45,
+            }}
+          >
+            🔞 Uso profissional exclusivo para maiores de 18 anos (ECA) ·{' '}
+            <button
+              type="button"
+              onClick={() => setLegalOpen(true)}
+              style={{
+                color: '#a59dff',
+                textDecoration: 'underline',
+                fontSize: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              Termos de Uso & Privacidade (LGPD)
+            </button>
+          </div>
         </div>
       </section>
+
+      {legalOpen ? <LegalModal onClose={() => setLegalOpen(false)} /> : null}
     </main>
   );
 }

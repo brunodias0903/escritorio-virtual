@@ -1,12 +1,15 @@
 import {
+  CHAIR_COLORS,
   DESK_COLORS,
   FREE_DESK_CONFIG,
   RUG_COLORS,
   TILE,
-  type DeskComputer,
+  resolveDeskSetup,
   type DeskConfig,
   type DeskDef,
   type DeskItem,
+  type DeskMachine,
+  type DeskMonitor,
 } from '@/shared/domain';
 
 const INK = '#202030';
@@ -14,12 +17,13 @@ const INK = '#202030';
 /** Tamanho (em pixels do mapa) da área de cada enfeite sobre a mesa. */
 const CELL = 12;
 
-/** Lugares dos enfeites no tampo: esquerda, direita e frente. */
+/** Lugares dos enfeites no tampo: 4 cantos (esquerda/direita atrás e na frente). */
 const slotOf = (desk: DeskDef, index: number) => {
   const slots = [
     { x: desk.x + 4, y: desk.y + 3 },
     { x: desk.x + desk.w - CELL - 4, y: desk.y + 3 },
     { x: desk.x + desk.w - CELL - 4, y: desk.y + desk.h - CELL - 3 },
+    { x: desk.x + 4, y: desk.y + desk.h - CELL - 3 },
   ];
   return slots[index] ?? slots[0]!;
 };
@@ -110,6 +114,65 @@ function Item({ item, x, y }: { item: DeskItem; x: number; y: number }) {
           {r(3, 9, 6, 2, '#8d6e0a')}
         </g>
       );
+    case 'cat':
+      return (
+        <g>
+          {r(2, 5, 8, 6, '#f4a261')}
+          {r(2, 3, 2, 2, '#f4a261')}
+          {r(8, 3, 2, 2, '#f4a261')}
+          {r(4, 7, 1, 1, '#1b1b24')}
+          {r(7, 7, 1, 1, '#1b1b24')}
+          {r(5, 8, 2, 1, '#e76f51')}
+          {r(10, 6, 2, 4, '#e07a5f')}
+        </g>
+      );
+    case 'mic':
+      return (
+        <g>
+          {r(4, 1, 4, 5, '#3a3d5c')}
+          {r(5, 2, 2, 3, '#31e0c1')}
+          {r(5, 6, 2, 4, '#7b83bd')}
+          {r(3, 10, 6, 2, '#28202c')}
+        </g>
+      );
+    case 'controller':
+      return (
+        <g>
+          {r(1, 4, 10, 5, '#2b2d42')}
+          {r(2, 8, 3, 2, '#2b2d42')}
+          {r(7, 8, 3, 2, '#2b2d42')}
+          {r(3, 5, 2, 2, '#edf2f4')}
+          {r(8, 5, 1, 1, '#31e0c1')}
+          {r(9, 6, 1, 1, '#ff6b81')}
+        </g>
+      );
+    case 'globe':
+      return (
+        <g>
+          {r(3, 1, 6, 6, '#3498db')}
+          {r(4, 2, 3, 2, '#2ecc71')}
+          {r(6, 4, 2, 2, '#2ecc71')}
+          {r(5, 7, 2, 3, '#b5833a')}
+          {r(3, 10, 6, 2, '#8b5a2b')}
+        </g>
+      );
+    case 'coffee':
+      return (
+        <g>
+          {r(3, 2, 6, 2, '#e63946')}
+          {r(4, 4, 4, 7, '#f1faee')}
+          {r(4, 6, 4, 2, '#a8763e')}
+        </g>
+      );
+    case 'frame':
+      return (
+        <g>
+          {r(2, 2, 8, 9, '#d4a373')}
+          {r(3, 3, 6, 7, '#a8dadc')}
+          {r(4, 6, 4, 4, '#457b9d')}
+          {r(5, 4, 2, 2, '#ffd166')}
+        </g>
+      );
   }
 }
 
@@ -144,51 +207,108 @@ function Laptop({ x, y, w }: { x: number; y: number; w: number }) {
   );
 }
 
-/** O computador escolhido, centrado em `cx` no tampo da mesa. */
+/** Gabinete de PC em cima da mesa (vidro lateral + LED sutil). */
+function Tower({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={8} height={17} fill={INK} />
+      <rect x={x + 1} y={y + 1} width={6} height={15} fill="#2b2f46" />
+      <rect x={x + 2} y={y + 3} width={3} height={9} fill="#181b2e" />
+      <rect x={x + 3} y={y + 4} width={1} height={7} fill="#31e0c1" />
+      <rect x={x + 5} y={y + 2} width={1} height={1} fill="#5b6cff" />
+      <rect x={x + 2} y={y + 13} width={4} height={1} fill="#464c6e" />
+    </g>
+  );
+}
+
+/** Monitores sempre centralizados em `cx`. */
+function Monitors({
+  monitor,
+  cx,
+  top,
+}: {
+  monitor: DeskMonitor;
+  cx: number;
+  top: number;
+}) {
+  switch (monitor) {
+    case 'single':
+      return <Monitor x={cx - 10} y={top + 2} w={20} />;
+    case 'dual':
+      return (
+        <g>
+          <Monitor x={cx - 18} y={top + 2} w={17} />
+          <Monitor x={cx + 1} y={top + 2} w={17} />
+        </g>
+      );
+    case 'ultrawide':
+      return <Monitor x={cx - 17} y={top + 2} w={34} />;
+    case 'triple':
+      return (
+        <g>
+          <Monitor x={cx - 21} y={top + 3} w={13} />
+          <Monitor x={cx - 7} y={top + 1} w={14} />
+          <Monitor x={cx + 8} y={top + 3} w={13} />
+        </g>
+      );
+    default:
+      return null;
+  }
+}
+
+/** O computador escolhido (desktop com gabinete ou notebook centralizado à frente dos monitores). */
 function Computer({
-  kind,
+  machine,
+  monitor,
   cx,
   top,
   bottom,
 }: {
-  kind: DeskComputer;
+  machine: DeskMachine;
+  monitor: DeskMonitor;
   cx: number;
   top: number;
   bottom: number;
 }) {
+  const rgb = monitor === 'ultrawide';
   const keyboard = (
     <g>
-      <rect x={cx - 9} y={bottom - 11} width={18} height={5} fill={INK} />
-      <rect x={cx - 8} y={bottom - 10} width={16} height={3} fill={KEYS} />
-      <rect x={cx + 11} y={bottom - 11} width={3} height={4} fill={INK} />
+      <rect x={cx - 9} y={bottom - 10} width={18} height={5} fill={INK} />
+      <rect
+        x={cx - 8}
+        y={bottom - 9}
+        width={16}
+        height={rgb ? 2 : 3}
+        fill={KEYS}
+      />
+      {rgb ? (
+        <rect x={cx - 8} y={bottom - 7} width={16} height={1} fill="#31e0c1" />
+      ) : null}
+      <rect x={cx + 11} y={bottom - 10} width={3} height={4} fill={INK} />
     </g>
   );
-  switch (kind) {
-    case 'dualMonitor':
-      return (
-        <g>
-          <Monitor x={cx - 18} y={top + 3} w={17} />
-          <Monitor x={cx + 1} y={top + 3} w={17} />
-          {keyboard}
-        </g>
-      );
-    case 'laptop':
-      return <Laptop x={cx - 10} y={top + 8} w={20} />;
-    case 'laptopMonitor':
-      return (
-        <g>
-          <Monitor x={cx - 19} y={top + 3} w={18} />
-          <Laptop x={cx + 3} y={top + 10} w={14} />
-        </g>
-      );
-    default:
-      return (
-        <g>
-          <Monitor x={cx - 10} y={top + 3} w={20} />
-          {keyboard}
-        </g>
-      );
+
+  if (machine === 'desktop') {
+    return (
+      <g>
+        <Monitors monitor={monitor} cx={cx} top={top} />
+        {keyboard}
+        <Tower x={cx + 22} y={top + 4} />
+      </g>
+    );
   }
+
+  // Notebook centralizado; quando há monitores, eles ficam logo atrás dele.
+  if (monitor === 'none') {
+    return <Laptop x={cx - 10} y={top + 8} w={20} />;
+  }
+
+  return (
+    <g>
+      <Monitors monitor={monitor} cx={cx} top={top} />
+      <Laptop x={cx - 8} y={top + 12} w={16} />
+    </g>
+  );
 }
 
 type Props = {
@@ -214,6 +334,7 @@ export function DeskArt({
   onHoverChange,
 }: Props) {
   const look = config ?? FREE_DESK_CONFIG;
+  const setup = resolveDeskSetup(look);
   const { x, y, w, h } = desk;
   const top = DESK_COLORS[look.color];
   const ownerLine = owner
@@ -246,18 +367,47 @@ export function DeskArt({
             y={y + h}
             width={w}
             height={TILE}
-            fill={RUG_COLORS[look.rug]}
+            fill={RUG_COLORS[look.rug] ?? RUG_COLORS[0]}
           />
-          <rect
-            x={x + 2}
-            y={y + h + 2}
-            width={w - 4}
-            height={TILE - 4}
-            fill="none"
-            stroke="#ffffff"
-            strokeWidth={2}
-            opacity={0.4}
-          />
+          {look.rugPattern === 'striped' ? (
+            <>
+              <rect
+                x={x + 6}
+                y={y + h}
+                width={6}
+                height={TILE}
+                fill="#ffffff"
+                opacity={0.14}
+              />
+              <rect
+                x={x + w / 2 - 3}
+                y={y + h}
+                width={6}
+                height={TILE}
+                fill="#ffffff"
+                opacity={0.14}
+              />
+              <rect
+                x={x + w - 12}
+                y={y + h}
+                width={6}
+                height={TILE}
+                fill="#ffffff"
+                opacity={0.14}
+              />
+            </>
+          ) : look.rugPattern !== 'solid' ? (
+            <rect
+              x={x + 2}
+              y={y + h + 2}
+              width={w - 4}
+              height={TILE - 4}
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth={2}
+              opacity={0.4}
+            />
+          ) : null}
         </g>
       ) : null}
 
@@ -268,14 +418,15 @@ export function DeskArt({
         y={y + h + 6}
         width={14}
         height={14}
-        fill="#4a4e80"
+        fill={CHAIR_COLORS[look.chair ?? 0] ?? CHAIR_COLORS[0]}
       />
       <rect
         x={x + w / 2 - 7}
         y={y + h + 6}
         width={14}
         height={4}
-        fill="#6a6ea8"
+        fill="#ffffff"
+        opacity={0.22}
       />
       {/* Tampo, com contorno escuro */}
       <rect x={x - 2} y={y - 2} width={w + 4} height={h + 4} fill={INK} />
@@ -290,8 +441,14 @@ export function DeskArt({
         opacity={0.22}
       />
 
-      {/* O computador da mesa, no meio (a mesa é individual) */}
-      <Computer kind={look.computer} cx={x + w / 2} top={y} bottom={y + h} />
+      {/* O computador da mesa, no meio (desktop com gabinete ou notebook + monitores) */}
+      <Computer
+        machine={setup.machine}
+        monitor={setup.monitor}
+        cx={x + w / 2}
+        top={y}
+        bottom={y + h}
+      />
 
       {look.items.map((item, index) => {
         const slot = slotOf(desk, index);

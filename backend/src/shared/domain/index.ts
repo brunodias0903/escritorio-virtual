@@ -7,4 +7,5 @@ export * from './maps.js';
 export * from './people.js';
 export * from './protocol.js';
 export * from './proximity.js';
+export * from './workspace.js';
 export * from './world.js';

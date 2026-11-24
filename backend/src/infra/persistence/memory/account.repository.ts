@@ -33,6 +33,16 @@ export class MemoryLocalAccountRepository implements LocalAccountRepository {
       fullName: changes.fullName,
       role: changes.role,
       passwordHash: changes.passwordHash ?? current.passwordHash,
+      ...(changes.genderIdentity !== undefined
+        ? { genderIdentity: changes.genderIdentity }
+        : {}),
+      ...(changes.pronouns !== undefined ? { pronouns: changes.pronouns } : {}),
+      ...(changes.accessibilityNeeds !== undefined
+        ? { accessibilityNeeds: [...changes.accessibilityNeeds] }
+        : {}),
+      ...(changes.accessibilityPrefs !== undefined
+        ? { accessibilityPrefs: changes.accessibilityPrefs }
+        : {}),
     });
     return 'ok' as const;
   }
@@ -44,6 +54,64 @@ export class MemoryLocalAccountRepository implements LocalAccountRepository {
       return 'email_taken' as const;
     }
     this.accounts.set(key, account);
+    return 'ok' as const;
+  }
+
+  async markVerified(email: string) {
+    const current = await this.byEmail(email);
+    if (!current) return 'not_found' as const;
+    this.accounts.set(nicknameKey(current.nickname), {
+      ...current,
+      emailVerified: true,
+    });
+    return 'ok' as const;
+  }
+
+  async setUiTheme(email: string, uiTheme: string | null) {
+    const current = await this.byEmail(email);
+    if (!current) return 'not_found' as const;
+    this.accounts.set(nicknameKey(current.nickname), {
+      ...current,
+      uiTheme,
+    });
+    return 'ok' as const;
+  }
+
+  async setEmailMarketingOptIn(email: string, optIn: boolean) {
+    const current = await this.byEmail(email);
+    if (!current) return 'not_found' as const;
+    this.accounts.set(nicknameKey(current.nickname), {
+      ...current,
+      emailMarketingOptIn: optIn,
+    });
+    return 'ok' as const;
+  }
+
+  async setMfa(
+    email: string,
+    mfa: {
+      enabled: boolean;
+      method?: 'none' | 'email' | 'totp';
+      secretEnc: string | null;
+      recoveryHashes: string[];
+    },
+  ) {
+    const current = await this.byEmail(email);
+    if (!current) return 'not_found' as const;
+    this.accounts.set(nicknameKey(current.nickname), {
+      ...current,
+      mfaEnabled: mfa.enabled,
+      ...(mfa.method !== undefined ? { mfaMethod: mfa.method } : {}),
+      mfaSecretEnc: mfa.secretEnc,
+      mfaRecoveryHashes: [...mfa.recoveryHashes],
+    });
+    return 'ok' as const;
+  }
+
+  async deleteByEmail(email: string) {
+    const current = await this.byEmail(email);
+    if (!current) return 'not_found' as const;
+    this.accounts.delete(nicknameKey(current.nickname));
     return 'ok' as const;
   }
 }

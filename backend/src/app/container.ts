@@ -9,20 +9,24 @@ import {
   MemoryChatRepository,
   MemoryDeskRepository,
   MemoryEmailCodeRepository,
+  MemoryFeedbackRepository,
   MemoryLocalAccountRepository,
   MemoryProfileRepository,
   MemoryRateLimiter,
   MemoryReadStateRepository,
   MemoryRevocations,
+  MemoryServerSettingsRepository,
 } from '../infra/persistence/memory/index.js';
 import {
   PgChannelRepository,
   PgChatRepository,
   PgDeskRepository,
   PgEmailCodeRepository,
+  PgFeedbackRepository,
   PgLocalAccountRepository,
   PgProfileRepository,
   PgReadStateRepository,
+  PgServerSettingsRepository,
 } from '../infra/persistence/postgres/index.js';
 import {
   MemoryBus,
@@ -54,6 +58,11 @@ import { OfficeService } from '../modules/office/office.service.js';
 import type { ProfileRepository } from '../modules/office/profile.repository.js';
 import type { Bus, Presence } from '../modules/realtime/cluster.ports.js';
 import { Cluster } from '../modules/realtime/cluster.js';
+import type {
+  FeedbackRepository,
+  ServerSettingsRepository,
+} from '../modules/workspace/workspace.repository.js';
+import { WorkspaceService } from '../modules/workspace/workspace.service.js';
 import { WsGateway } from '../transport/ws/gateway.js';
 
 const MIGRATIONS_DIR = fileURLToPath(
@@ -71,6 +80,7 @@ export type AppContainer = {
   desks: DeskService;
   media: MediaService;
   office: OfficeService;
+  workspace: WorkspaceService;
   cluster: Cluster;
   wsGateway: WsGateway;
   close: () => Promise<void>;
@@ -95,6 +105,9 @@ export const createContainer = async (
   let deskRepo: DeskRepository = new MemoryDeskRepository();
   let accounts: LocalAccountRepository = new MemoryLocalAccountRepository();
   let emailCodes: EmailCodeRepository = new MemoryEmailCodeRepository();
+  let serverSettings: ServerSettingsRepository =
+    new MemoryServerSettingsRepository();
+  let feedbackRepo: FeedbackRepository = new MemoryFeedbackRepository();
 
   if (config.databaseUrl) {
     const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
@@ -121,6 +134,8 @@ export const createContainer = async (
     deskRepo = new PgDeskRepository(pool);
     accounts = new PgLocalAccountRepository(pool);
     emailCodes = new PgEmailCodeRepository(pool);
+    serverSettings = new PgServerSettingsRepository(pool);
+    feedbackRepo = new PgFeedbackRepository(pool);
   }
 
   let loginLimiter: RateLimit = new MemoryRateLimiter(
@@ -154,6 +169,15 @@ export const createContainer = async (
 
   const instanceId = randomUUID();
 
+  const mailer = config.smtp
+    ? new SmtpMailer(config.smtp)
+    : new ConsoleMailer();
+  const codeService = new CodeService({
+    codes: emailCodes,
+    mailer,
+    secret: config.sessionSecret,
+  });
+
   const auth = new AuthService({
     accounts,
     secret: config.sessionSecret,
@@ -161,15 +185,8 @@ export const createContainer = async (
     access: config.access,
     loginLimiter,
     revocations,
-    codes: config.emailCodes
-      ? new CodeService({
-          codes: emailCodes,
-          mailer: config.smtp
-            ? new SmtpMailer(config.smtp)
-            : new ConsoleMailer(),
-          secret: config.sessionSecret,
-        })
-      : null,
+    codes: config.emailCodes ? codeService : null,
+    verifyCodes: codeService,
   });
 
   const chat = new ChatService({
@@ -205,6 +222,18 @@ export const createContainer = async (
   office.replaceRemote(await cluster.remotePlayers());
   office.syncDesks(await desks.list());
 
+  const workspace = new WorkspaceService({
+    settings: serverSettings,
+    feedback: feedbackRepo,
+    channels,
+    accounts,
+    onChannelsChanged: () => {
+      void cluster.dispatch(instanceId, [
+        { to: 'all', message: { type: 'channelsChanged' } },
+      ]);
+    },
+  });
+
   return {
     instanceId,
     config,
@@ -213,6 +242,7 @@ export const createContainer = async (
     desks,
     media,
     office,
+    workspace,
     cluster,
     wsGateway,
     close: async () => {

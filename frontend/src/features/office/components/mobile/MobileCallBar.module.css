@@ -1,0 +1,304 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: calc(var(--z-bar) + 2);
+}
+
+/* --- Avisos flutuantes discretos acima da barra de chamada (livres do joystick à direita) --- */
+.notices {
+  position: absolute;
+  bottom: calc(58px + min(20px, env(safe-area-inset-bottom)) + 66px);
+  left: calc(env(safe-area-inset-left) + 12px);
+  right: calc(env(safe-area-inset-right) + 136px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+  z-index: var(--z-popup);
+}
+
+.toast,
+.toastAction {
+  max-width: 340px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background-color: var(--bg-bar-glass);
+  border: 1px solid var(--border-bar);
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.toastError {
+  border-color: var(--status-busy);
+  color: #ffd5dc;
+}
+
+.mutedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-bar-glass);
+  border: 1px solid rgba(255, 138, 155, 0.45);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: auto;
+}
+
+.unmuteBtn {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--call-on-bg);
+  color: var(--call-on-icon);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.closeTiny {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.busyPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-bar-glass);
+  border: 1px solid rgba(255, 107, 129, 0.55);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: auto;
+}
+
+.onlineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-available);
+}
+
+/* --- PiP flutuante da própria câmera --- */
+.selfPip {
+  position: absolute;
+  top: max(60px, calc(env(safe-area-inset-top) + 56px));
+  left: calc(env(safe-area-inset-left) + 10px);
+  width: 86px;
+  height: 114px;
+  border-radius: 14px;
+  overflow: hidden;
+  background-color: var(--bg-tile);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.48);
+  z-index: var(--z-bar);
+  pointer-events: auto;
+}
+
+.pipVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+}
+
+.pipFallback {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pipTint {
+  position: absolute;
+  inset: 0;
+  opacity: 0.28;
+}
+
+.pipAvatar {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+.pipExpandBadge {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(8, 10, 28, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+/* --- Pílula de ações acima da Bottom Navigation --- */
+.dock {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(58px + min(20px, env(safe-area-inset-bottom)) + 10px);
+  z-index: calc(var(--z-bar) + 3);
+  pointer-events: auto;
+  max-width: calc(100vw - 16px);
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background-color: var(--bg-bar-glass);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 26px rgba(6, 8, 22, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.btnWrap {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.holdRing {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--status-available);
+  animation: holdPulse 500ms linear forwards;
+  pointer-events: none;
+}
+
+@keyframes holdPulse {
+  from {
+    transform: scale(0.86);
+    opacity: 0.4;
+  }
+  to {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+.circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.1s ease;
+}
+
+.circle:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.circleOn {
+  background-color: var(--call-on-bg);
+}
+
+.circleOff {
+  background-color: var(--call-off-bg);
+}
+
+.circleIdle {
+  background-color: var(--bg-control);
+}
+
+.circleActive {
+  background-color: var(--accent-active);
+}
+
+.circleJoin {
+  background-color: var(--presence-strong);
+}
+
+.circleLeave {
+  background-color: var(--danger);
+}
+
+.circleBusy {
+  opacity: 0.5;
+}
+
+.circleDisabled {
+  opacity: 0.4;
+}
+
+.emoteTray {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 8px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-bar);
+  border: 1px solid var(--border-bar);
+  box-shadow: 0 12px 24px rgba(6, 8, 22, 0.55);
+}
+
+.emoteBtn {
+  font-size: 22px;
+  line-height: 1.2;
+  padding: 2px 4px;
+}
+
+/* --- Paisagem mobile: avisos e pílula ancorados à esquerda (ao lado da rail) --- */
+@media (orientation: landscape) and (max-height: 540px) {
+  .notices {
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 64px);
+    left: calc(56px + env(safe-area-inset-left) + 10px);
+    right: calc(env(safe-area-inset-right) + 130px);
+    align-items: flex-start;
+  }
+
+  .selfPip {
+    top: calc(env(safe-area-inset-top) + 44px);
+    left: calc(56px + env(safe-area-inset-left) + 10px);
+    width: 112px;
+    height: 70px;
+  }
+
+  .dock {
+    left: calc(56px + env(safe-area-inset-left) + 10px);
+    transform: none;
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+    max-width: calc(100vw - 180px);
+  }
+}
