@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MemoryChannelRepository,
+  MemoryDeskRepository,
   MemoryEmailCodeRepository,
   MemoryFeedbackRepository,
   MemoryLocalAccountRepository,
@@ -15,6 +16,7 @@ import {
 import type { SqlClient } from '../../infra/database/sql-client.js';
 import { parseAccountAccess } from '../../shared/domain/index.js';
 import { AuthService } from '../auth/auth.service.js';
+import { DeskService } from '../desks/desks.service.js';
 import { handleWorkspaceRoutes } from './workspace.http.js';
 import { WorkspaceService } from './workspace.service.js';
 
@@ -64,17 +66,21 @@ const createHarness = async () => {
   const devAccount = await accounts.byEmail('dev@setter.app');
   if (devAccount) devAccount.tier = 'developer';
 
+  const desks = new DeskService(new MemoryDeskRepository());
   const workspace = new WorkspaceService({
     settings,
     feedback,
     channels,
     accounts,
+    desks,
+    adminEmails: ['master@setter.app'],
     onChannelsChanged: () => {},
   });
 
   return {
     auth,
     workspace,
+    desks,
     masterToken: masterReg.value.token,
     devToken: devReg.value.token,
     emailCodes: new MemoryEmailCodeRepository(),
@@ -234,6 +240,166 @@ describe('handleWorkspaceRoutes', () => {
     expect(commentFb?.status).toBe(201);
   });
 
+  it('cobre rotas HTTP de moderação (/api/server/accounts, moderate e delete desk)', async () => {
+    const { auth, workspace, desks, masterToken, devToken } =
+      await createHarness();
+
+    await desks.adopt(
+      { email: 'dev@setter.app', name: 'Ana Dev' },
+      { map: 'lobby', x: 430, y: 160 },
+      'mesa-1',
+    );
+
+    // Dev não acessa lista de contas
+    const denied = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'GET',
+      path: '/api/server/accounts',
+      authorization: `Bearer ${devToken}`,
+      body: undefined,
+      ip: '127.0.0.1',
+    });
+    expect(denied?.status).toBe(403);
+
+    // Master lista contas
+    const listed = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'GET',
+      path: '/api/server/accounts',
+      authorization: `Bearer ${masterToken}`,
+      body: undefined,
+      ip: '127.0.0.1',
+    });
+    expect(listed?.status).toBe(200);
+
+    // Master altera cargo principal + secundários via HTTP
+    const setRoles = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'PUT',
+      path: '/api/server/accounts/dev%40setter.app/roles',
+      authorization: `Bearer ${masterToken}`,
+      body: {
+        tier: 'developer',
+        secondaryTiers: ['designer', 'tester'],
+        role: 'Staff Engineer',
+      },
+      ip: '127.0.0.1',
+    });
+    expect(setRoles?.status).toBe(200);
+    expect(setRoles?.body).toMatchObject({
+      account: {
+        email: 'dev@setter.app',
+        tier: 'developer',
+        secondaryTiers: ['designer', 'tester'],
+        role: 'Staff Engineer',
+      },
+    });
+
+    // Valida 405, 401 e 400 nas rotas de contas/moderação
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'POST',
+          path: '/api/server/accounts',
+          authorization: undefined,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(405);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'GET',
+          path: '/api/server/accounts',
+          authorization: undefined,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(401);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'GET',
+          path: '/api/server/accounts/dev%40setter.app/roles',
+          authorization: undefined,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(405);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'PUT',
+          path: '/api/server/accounts/dev%40setter.app/roles',
+          authorization: `Bearer ${masterToken}`,
+          body: { tier: 'invalido' },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(400);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'GET',
+          path: '/api/server/accounts/dev%40setter.app/moderate',
+          authorization: undefined,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(405);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'POST',
+          path: '/api/server/accounts/dev%40setter.app/moderate',
+          authorization: `Bearer ${masterToken}`,
+          body: { action: 'invalida' },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(400);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'GET',
+          path: '/api/server/accounts/dev%40setter.app/desk',
+          authorization: undefined,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(405);
+
+    // Master remove mesa diretamente via HTTP
+    const delDesk = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'DELETE',
+      path: '/api/server/accounts/dev%40setter.app/desk',
+      authorization: `Bearer ${masterToken}`,
+      body: undefined,
+      ip: '127.0.0.1',
+    });
+    expect(delDesk?.status).toBe(200);
+    expect(await desks.list()).toEqual([]);
+
+    // Master bane conta (e token antigo deixa de autenticar)
+    await desks.adopt(
+      { email: 'dev@setter.app', name: 'Ana Dev' },
+      { map: 'lobby', x: 430, y: 160 },
+      'mesa-1',
+    );
+    const banned = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'POST',
+      path: '/api/server/accounts/dev%40setter.app/moderate',
+      authorization: `Bearer ${masterToken}`,
+      body: { action: 'ban', reason: 'Teste' },
+      ip: '127.0.0.1',
+    });
+    expect(banned?.status).toBe(200);
+    expect(await desks.list()).toEqual([]);
+    expect(await auth.authenticate(devToken)).toBeNull();
+  });
+
   it('exercita PgServerSettingsRepository e PgFeedbackRepository com SqlClient mock', async () => {
     const queries: string[] = [];
     const fakeDb: SqlClient = {
@@ -322,5 +488,126 @@ describe('handleWorkspaceRoutes', () => {
       createdAt: 201,
     });
     expect(queries.length).toBeGreaterThan(5);
+  });
+
+  it('reordena canais e atualiza permissões de visualização, escrita e exceções por e-mail', async () => {
+    const { auth, workspace, masterToken, devToken } = await createHarness();
+
+    // Criar canal restrito com visibilidade + escrita + exceções
+    const created = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'POST',
+      path: '/api/server/channels',
+      authorization: `Bearer ${masterToken}`,
+      body: {
+        name: 'diretoria',
+        topic: 'Assuntos internos',
+        viewTiers: ['admin', 'developer'],
+        writeTiers: ['admin', 'tester'], // tester não está em viewTiers -> filtrado
+        allowedEmails: ['Convidado@Setter.App'],
+        blockedEmails: ['Bloqueado@Setter.App'],
+      },
+      ip: '127.0.0.1',
+    });
+    expect(created?.status).toBe(201);
+    const ch = (
+      created?.body as {
+        channel: {
+          viewTiers: string[];
+          writeTiers: string[];
+          allowedEmails: string[];
+          blockedEmails: string[];
+        };
+      }
+    ).channel;
+    expect(ch.viewTiers).toEqual(['master', 'admin', 'developer']);
+    expect(ch.writeTiers).toEqual(['master', 'admin']);
+    expect(ch.allowedEmails).toEqual(['convidado@setter.app']);
+    expect(ch.blockedEmails).toEqual(['bloqueado@setter.app']);
+
+    // Atualizar permissões do canal
+    const updated = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'PUT',
+      path: '/api/server/channels/diretoria',
+      authorization: `Bearer ${masterToken}`,
+      body: {
+        viewTiers: ['admin'],
+        writeTiers: ['admin', 'developer'],
+        allowedEmails: ['x@setter.app', 'bloqueado@setter.app'],
+        blockedEmails: ['bloqueado@setter.app'],
+      },
+      ip: '127.0.0.1',
+    });
+    expect(updated?.status).toBe(200);
+    const updatedCh = (
+      updated?.body as {
+        channel: {
+          viewTiers: string[];
+          writeTiers: string[];
+          allowedEmails: string[];
+        };
+      }
+    ).channel;
+    expect(updatedCh.viewTiers).toEqual(['master', 'admin']);
+    expect(updatedCh.writeTiers).toEqual(['master', 'admin']);
+    expect(updatedCh.allowedEmails).toEqual(['x@setter.app']);
+
+    // Reordenar canais: validação de método, auth, permissão e payload
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'GET',
+          path: '/api/server/channels/reorder',
+          authorization: `Bearer ${masterToken}`,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(405);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'PUT',
+          path: '/api/server/channels/reorder',
+          authorization: undefined,
+          body: { channelIds: ['projetos', 'geral'] },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(401);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'PUT',
+          path: '/api/server/channels/reorder',
+          authorization: `Bearer ${masterToken}`,
+          body: { channelIds: [] },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(400);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'PUT',
+          path: '/api/server/channels/reorder',
+          authorization: `Bearer ${devToken}`,
+          body: { channelIds: ['projetos', 'geral'] },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(403);
+
+    const reordered = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'PUT',
+      path: '/api/server/channels/reorder',
+      authorization: `Bearer ${masterToken}`,
+      body: { channelIds: ['diretoria', 'projetos', 'geral', 'aleatorio'] },
+      ip: '127.0.0.1',
+    });
+    expect(reordered?.status).toBe(200);
+    const ids = (
+      reordered?.body as { channels: Array<{ id: string }> }
+    ).channels.map((c) => c.id);
+    expect(ids).toEqual(['diretoria', 'projetos', 'geral', 'aleatorio']);
   });
 });

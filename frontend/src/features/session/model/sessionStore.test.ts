@@ -10,6 +10,7 @@ const session: Session = {
     admin: false,
     kind: 'company',
     tier: 'tester',
+    secondaryTiers: [],
     nickname: 'ana',
     role: '',
   },
@@ -20,11 +21,21 @@ describe('useSessionStore', () => {
     useSessionStore.setState({ session: null, hydrated: false }),
   );
 
-  it('guarda a sessão ao entrar', () => {
+  it('guarda a sessão ao entrar e atualiza cargos com patchUser', () => {
     useSessionStore.getState().signIn(session);
     expect(useSessionStore.getState()).toMatchObject({
       session,
       hydrated: true,
+    });
+    useSessionStore.getState().patchUser({
+      tier: 'developer',
+      secondaryTiers: ['admin'],
+      admin: true,
+    });
+    expect(useSessionStore.getState().session?.user).toMatchObject({
+      tier: 'developer',
+      secondaryTiers: ['admin'],
+      admin: true,
     });
   });
 

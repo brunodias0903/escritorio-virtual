@@ -11,10 +11,7 @@ import {
   canPlaceDesk,
   deskKey,
   getMap,
-  isBlocked,
   resolveMap,
-  tileCenter,
-  type Point,
 } from '@/shared/domain';
 
 import { computeViewBox, type Size } from '../model/camera';
@@ -37,8 +34,6 @@ type Props = {
   speakingIds?: readonly string[];
   /** Chamado ao clicar no popup centralizado de uma sala em chamada (ex.: Sala de reunião). */
   onGoToArea?: (areaId: string) => void;
-  /** Chamado ao clicar em um ponto livre do chão para andar até lá. */
-  onWalkToPoint?: (point: Point) => void;
   myEmail: string;
   iHaveDesk: boolean;
   isAdmin: boolean;
@@ -61,7 +56,6 @@ export function OfficeMap({
   onPlaceDesk,
   speakingIds = [],
   onGoToArea,
-  onWalkToPoint,
   myEmail,
   iHaveDesk,
   isAdmin,
@@ -83,8 +77,6 @@ export function OfficeMap({
     col: number;
     row: number;
   } | null>(null);
-  const [walkPulse, setWalkPulse] = useState<Point | null>(null);
-  const walkPulseTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -93,9 +85,6 @@ export function OfficeMap({
       }
       if (closeTimerRef.current !== null) {
         window.clearTimeout(closeTimerRef.current);
-      }
-      if (walkPulseTimerRef.current !== null) {
-        window.clearTimeout(walkPulseTimerRef.current);
       }
     };
   }, []);
@@ -224,34 +213,11 @@ export function OfficeMap({
   };
 
   const handleClick = (event: MouseEvent<SVGSVGElement>) => {
-    if (movingDeskId && onPlaceDesk) {
-      const target = tileFromPointer(event);
-      if (!target || !isPlacementValid(target.col, target.row)) return;
-      onPlaceDesk(target.col, target.row);
-      setGhostTile(null);
-      return;
-    }
-    if (!onWalkToPoint) return;
-    const svg = svgRef.current;
-    const ctm = svg?.getScreenCTM();
-    if (!svg || !ctm) return;
-    const point = svg.createSVGPoint();
-    point.x = event.clientX;
-    point.y = event.clientY;
-    const mapped = point.matrixTransform(ctm.inverse());
-    const tx = Math.floor(mapped.x / TILE);
-    const ty = Math.floor(mapped.y / TILE);
-    const center = tileCenter(tx, ty);
-    if (isBlocked(map, center)) return;
-    onWalkToPoint(center);
-    setWalkPulse(center);
-    if (walkPulseTimerRef.current !== null) {
-      window.clearTimeout(walkPulseTimerRef.current);
-    }
-    walkPulseTimerRef.current = window.setTimeout(() => {
-      walkPulseTimerRef.current = null;
-      setWalkPulse(null);
-    }, 650);
+    if (!movingDeskId || !onPlaceDesk) return;
+    const target = tileFromPointer(event);
+    if (!target || !isPlacementValid(target.col, target.row)) return;
+    onPlaceDesk(target.col, target.row);
+    setGhostTile(null);
   };
 
   return (
@@ -282,24 +248,6 @@ export function OfficeMap({
           desks={desks}
           onHoverDesk={movingDeskId ? undefined : handleMapHoverDesk}
         />
-        {walkPulse ? (
-          <g style={{ pointerEvents: 'none' }}>
-            <circle
-              cx={walkPulse.x}
-              cy={walkPulse.y}
-              r={10}
-              fill="var(--accent-mention-bg)"
-              stroke="var(--accent)"
-              strokeWidth={1.8}
-            />
-            <circle
-              cx={walkPulse.x}
-              cy={walkPulse.y}
-              r={3}
-              fill="var(--accent)"
-            />
-          </g>
-        ) : null}
         {[...snapshot.players]
           .sort((a, b) => a.y - b.y)
           .map((player) => (

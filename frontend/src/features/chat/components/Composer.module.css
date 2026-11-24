@@ -13,11 +13,12 @@
   display: flex;
   flex-direction: column;
   padding: 6px 0;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-accent);
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg), var(--shadow-inner);
   z-index: var(--z-popup);
+  animation: dsPopoverIn var(--motion-normal) var(--ease-emphasized);
 }
 
 .mentionsTitle {
@@ -94,12 +95,23 @@
 .input {
   flex: 1;
   min-width: 0;
-  padding: 10px;
-  border: 1px solid transparent;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background-color: var(--bg-input);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--text-md);
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.input:focus {
+  background-color: var(--bg-input-hover);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+  outline: none;
 }
 
 .input::placeholder {
@@ -107,15 +119,21 @@
 }
 
 .send {
-  padding: 0 14px;
+  padding: 0 15px;
   border-radius: var(--radius-md);
   background-color: var(--accent);
   color: var(--text-primary);
-  font-weight: 600;
-  font-size: 14px;
-  transition: background-color 0.15s ease;
+  font-weight: var(--font-semibold);
+  font-size: var(--text-base);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
 }
 
 .send:hover {
   background-color: var(--accent-hover);
+}
+
+.send:active {
+  transform: scale(0.96);
 }

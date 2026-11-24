@@ -193,6 +193,15 @@ describe('devolver', () => {
       error: 'invalid_desk',
     });
   });
+
+  it('releaseByOwner remove a mesa do dono automaticamente ou devolve null', async () => {
+    expect(await service.releaseByOwner(ANA.email)).toBeNull();
+    await service.adopt(ANA, AT_DESK_1, 'mesa-1');
+    expect(await service.releaseByOwner(ANA.email)).toEqual(
+      freeDesk('lobby', 'mesa-1'),
+    );
+    expect(await service.list()).toEqual([]);
+  });
 });
 
 describe('mover mesa', () => {

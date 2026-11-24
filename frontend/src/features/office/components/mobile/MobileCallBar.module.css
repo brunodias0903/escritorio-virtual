@@ -69,25 +69,30 @@
   font-size: 11px;
 }
 
-.busyPill {
+.goOnlinePillBtn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
   border-radius: var(--radius-pill);
-  background-color: var(--bg-bar-glass);
-  border: 1px solid rgba(255, 107, 129, 0.55);
-  color: var(--text-primary);
+  background: linear-gradient(
+    90deg,
+    var(--presence-strong) 0%,
+    var(--status-available) 100%
+  );
+  color: #07221d;
   font-size: 12px;
-  font-weight: 700;
-  pointer-events: auto;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .onlineDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: var(--status-available);
+  background-color: #07221d;
 }
 
 /* --- PiP flutuante da própria câmera --- */

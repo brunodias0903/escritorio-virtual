@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AppearanceSchema, StatusSchema } from './appearance';
+import { ACCOUNT_TIERS } from './auth';
 import { MapIdSchema } from './maps';
 
 /** Status na lista de pessoas: os três do escritório e "offline". */
@@ -14,6 +15,10 @@ export const PersonSchema = z.object({
   name: z.string(),
   nickname: z.string(),
   role: z.string(),
+  /** Cargo principal no servidor (estilo Discord). */
+  tier: z.enum(ACCOUNT_TIERS).optional(),
+  /** Cargos secundários no servidor. */
+  secondaryTiers: z.array(z.enum(ACCOUNT_TIERS)).optional(),
   status: PersonStatusSchema,
   appearance: AppearanceSchema.nullable(),
   /** Sala onde está, se estiver online. */

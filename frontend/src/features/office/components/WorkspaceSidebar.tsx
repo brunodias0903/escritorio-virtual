@@ -1,3 +1,4 @@
+import { SIZES } from '@design-system';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 
 import { SlackChatView } from '@/features/chat/components/SlackChatView';
@@ -5,6 +6,7 @@ import type { OfficeSend } from '@/pages/office/routeMessage';
 import {
   canManageServer,
   defaultAppearance,
+  effectiveTiersOf,
   type Appearance,
   type DeskInfo,
   type Session,
@@ -19,11 +21,11 @@ import { FaceAvatar } from './FaceAvatar';
 import { PeoplePanel } from './PeoplePanel';
 import styles from './WorkspaceSidebar.module.css';
 
-export type SidebarTab = 'chat' | 'people';
+export type SidebarTab = 'channels' | 'dms' | 'people';
 
-const MIN_WIDTH = 280;
-const MAX_WIDTH = 520;
-const DEFAULT_WIDTH = 340;
+const MIN_WIDTH = SIZES.sidebarMin;
+const MAX_WIDTH = SIZES.sidebarMax;
+const DEFAULT_WIDTH = SIZES.sidebarDefault;
 
 const STATUS_COLORS: Record<Status, string> = {
   available: 'var(--status-available)',
@@ -36,8 +38,6 @@ type Props = {
   serverName: string;
   /** Ícone/foto customizada do servidor (opcional). */
   serverIcon?: string | null;
-  /** Nome do andar/sala atual no mapa. */
-  floorName: string;
   session: Session;
   status: Status;
   appearance: Appearance | undefined;
@@ -45,8 +45,10 @@ type Props = {
   wide: boolean;
   open: boolean;
   tab: SidebarTab;
-  unread: number;
-  mentions: number;
+  channelUnread: number;
+  channelMentions: number;
+  dmUnread: number;
+  dmMentions: number;
   online: number;
   peopleMe: PersonRow | null;
   peopleOthers: PersonRow[];
@@ -72,6 +74,7 @@ function RailButton({
   danger = false,
   badge,
   badgeAlert = false,
+  rotated = false,
   onClick,
 }: {
   icon: IconName;
@@ -80,6 +83,7 @@ function RailButton({
   danger?: boolean;
   badge?: string;
   badgeAlert?: boolean;
+  rotated?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -91,11 +95,15 @@ function RailButton({
         onClick={onClick}
         className={`${styles.railBtn} ${active ? styles.railBtnActive : ''} ${danger ? styles.railBtnDanger : ''}`}
       >
-        <Icon
-          name={icon}
-          size={20}
-          color={danger ? '#ff9aa8' : active ? '#ffffff' : 'var(--text-icon)'}
-        />
+        <span
+          className={`${styles.railIconWrap} ${rotated ? styles.railIconRotated : ''}`}
+        >
+          <Icon
+            name={icon}
+            size={20}
+            color={danger ? '#ff9aa8' : active ? '#ffffff' : 'var(--text-icon)'}
+          />
+        </span>
         {badge ? (
           <span
             className={`${styles.badge} ${badgeAlert ? styles.badgeAlert : ''}`}
@@ -110,21 +118,23 @@ function RailButton({
 
 /**
  * Sidebar esquerda inspirada no Slack + Discord:
- * - Rail fixa com servidor + Chat + Pessoas no topo, e Temas + Perfil (avatar) + Recolher + Sair na base;
- * - Painel expansível e redimensionável, com modo amplo em 2 colunas para o chat no desktop.
+ * - Ícone do servidor abre a aba de canais do servidor;
+ * - Botão de mensagens abre exclusivamente as Mensagens diretas (DMs);
+ * - Painel expansível e redimensionável com animações fluidas de abertura, recolhimento e 2 colunas.
  */
 export function WorkspaceSidebar({
   serverName,
   serverIcon,
-  floorName,
   session,
   status,
   appearance,
   wide,
   open,
   tab,
-  unread,
-  mentions,
+  channelUnread,
+  channelMentions,
+  dmUnread,
+  dmMentions,
   online,
   peopleMe,
   peopleOthers,
@@ -143,22 +153,30 @@ export function WorkspaceSidebar({
   send,
 }: Props) {
   const { t } = useI18n();
+  const userTiers = effectiveTiersOf(
+    session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
+    session.user.secondaryTiers,
+  );
   const canConfigureServer =
-    Boolean(onOpenServerSettings) &&
-    canManageServer(
-      session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
-    );
-  const [width, setWidth] = useState(DEFAULT_WIDTH);
+    Boolean(onOpenServerSettings) && canManageServer(userTiers);
+  const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [resizing, setResizing] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
   const dragging = useRef(false);
 
-  const isWideChat = wide && open && tab === 'chat' && chatExpanded;
+  const isChatTab = tab === 'channels' || tab === 'dms';
+  const isWideChat = wide && open && isChatTab && chatExpanded;
+  const targetWidth = isWideChat
+    ? 'min(860px, calc(100vw - 96px))'
+    : `${width}px`;
 
   useEffect(() => {
     const onMove = (event: globalThis.PointerEvent) => {
       if (!dragging.current) return;
-      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, event.clientX - 60));
+      const next = Math.min(
+        MAX_WIDTH,
+        Math.max(MIN_WIDTH, event.clientX - SIZES.railWidth),
+      );
       setWidth(next);
     };
     const onUp = () => {
@@ -192,39 +210,62 @@ export function WorkspaceSidebar({
     document.body.style.cursor = 'col-resize';
   };
 
-  const chatBadge =
-    mentions > 0 ? `@${mentions}` : unread > 0 ? String(unread) : undefined;
+  const channelsBadge =
+    channelMentions > 0
+      ? `@${channelMentions}`
+      : channelUnread > 0
+        ? String(channelUnread)
+        : undefined;
+  const dmBadge =
+    dmMentions > 0
+      ? `@${dmMentions}`
+      : dmUnread > 0
+        ? String(dmUnread)
+        : undefined;
 
   const myAppearance = appearance ?? defaultAppearance(session.user.email);
+  const channelsActive = open && tab === 'channels';
+  const headerLabel =
+    tab === 'dms'
+      ? 'Mensagens diretas'
+      : tab === 'people'
+        ? 'Pessoas'
+        : serverName;
 
   const rail = (
     <nav className={styles.rail} aria-label="Servidores e navegação">
-      {/* Topo: servidor e abas de comunicação */}
+      {/* Topo: servidor (canais), mensagens diretas e pessoas */}
       <div className={styles.railGroup}>
-        <Tip label={`${serverName} · Servidor atual`} placement="right">
+        <Tip label={`${serverName} · Canais do servidor`} placement="right">
           <button
             type="button"
-            aria-label={`Servidor ${serverName}`}
-            className={styles.serverBadge}
-            onClick={onToggleOpen}
+            aria-label={`${serverName} — Canais do servidor`}
+            aria-pressed={channelsActive}
+            className={`${styles.serverBadge} ${channelsActive ? styles.serverBadgeOpen : ''}`}
+            onClick={() => onSelectTab('channels')}
           >
-            <span className={styles.serverPill} aria-hidden="true" />
+            <span
+              className={`${styles.serverPill} ${channelsActive ? styles.serverPillActive : ''}`}
+              aria-hidden="true"
+            />
             {serverIcon ? (
               <img
                 src={serverIcon}
                 alt={serverName}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  borderRadius: 'inherit',
-                }}
+                className={styles.serverIconImg}
               />
             ) : (
               <span className={styles.serverLetter}>
                 {serverName.charAt(0).toUpperCase()}
               </span>
             )}
+            {channelsBadge ? (
+              <span
+                className={`${styles.badge} ${channelMentions > 0 ? styles.badgeAlert : ''}`}
+              >
+                {channelsBadge}
+              </span>
+            ) : null}
           </button>
         </Tip>
 
@@ -249,11 +290,11 @@ export function WorkspaceSidebar({
 
         <RailButton
           icon="chat"
-          label="Canais e mensagens"
-          active={open && tab === 'chat'}
-          badge={chatBadge}
-          badgeAlert={mentions > 0}
-          onClick={() => onSelectTab('chat')}
+          label="Mensagens diretas"
+          active={open && tab === 'dms'}
+          badge={dmBadge}
+          badgeAlert={dmMentions > 0}
+          onClick={() => onSelectTab('dms')}
         />
         <RailButton
           icon="people"
@@ -262,6 +303,14 @@ export function WorkspaceSidebar({
           badge={online > 0 ? String(online) : undefined}
           onClick={() => onSelectTab('people')}
         />
+        {canConfigureServer && onOpenServerSettings ? (
+          <RailButton
+            icon="settings"
+            label={t('sidebar.serverSettings')}
+            active={false}
+            onClick={onOpenServerSettings}
+          />
+        ) : null}
       </div>
 
       {/* Rodapé: perfil com avatar, recolher barra e sair */}
@@ -285,9 +334,10 @@ export function WorkspaceSidebar({
         <div className={styles.railDivider} />
 
         <RailButton
-          icon={open ? 'chevronLeft' : 'chevronRight'}
+          icon="chevronRight"
           label={open ? 'Recolher barra lateral' : 'Expandir barra lateral'}
           active={false}
+          rotated={open}
           onClick={onToggleOpen}
         />
         <RailButton
@@ -301,99 +351,105 @@ export function WorkspaceSidebar({
     </nav>
   );
 
-  const drawerStyle = wide
-    ? { width: isWideChat ? 'min(860px, calc(100vw - 96px))' : width }
-    : undefined;
+  const drawerStyle = wide ? { width: open ? targetWidth : 0 } : undefined;
 
-  const drawer = open ? (
+  const drawer = (
     <aside
-      className={`${styles.drawer} ${resizing ? styles.drawerResizing : ''} ${wide ? '' : styles.drawerMobile}`}
+      className={`${styles.drawer} ${open ? styles.drawerOpen : styles.drawerClosed} ${resizing ? styles.drawerResizing : ''} ${wide ? '' : styles.drawerMobile}`}
       style={drawerStyle}
-      aria-label={`Painel ${serverName}`}
+      aria-label={`Painel ${headerLabel}`}
+      aria-hidden={!open}
+      inert={!open || undefined}
     >
-      <header className={styles.header}>
-        <div className={styles.headerTitle}>
-          <span className={styles.workspaceName}>{serverName}</span>
-          <span className={styles.floorTag}>{floorName}</span>
-        </div>
-        <div className={styles.headerActions}>
-          {canConfigureServer ? (
-            <Tip label={t('sidebar.serverSettings')} placement="top-end">
-              <button
-                type="button"
-                className={styles.headerBtn}
-                aria-label={t('sidebar.serverSettings')}
-                onClick={onOpenServerSettings}
+      <div
+        className={`${styles.drawerInner} ${open ? styles.drawerInnerOpen : styles.drawerInnerClosed}`}
+        style={wide ? { width: targetWidth } : undefined}
+      >
+        <header className={styles.header}>
+          <div className={styles.headerTitle}>
+            <span className={styles.workspaceName}>{headerLabel}</span>
+          </div>
+          <div className={styles.headerActions}>
+            {canConfigureServer ? (
+              <Tip label={t('sidebar.serverSettings')} placement="top-end">
+                <button
+                  type="button"
+                  className={styles.headerBtn}
+                  aria-label={t('sidebar.serverSettings')}
+                  onClick={onOpenServerSettings}
+                >
+                  <Icon name="settings" size={16} color="var(--text-icon)" />
+                </button>
+              </Tip>
+            ) : null}
+            {wide && isChatTab ? (
+              <Tip
+                label={
+                  chatExpanded
+                    ? 'Reduzir visualização do chat'
+                    : 'Expandir chat (2 colunas)'
+                }
+                placement="top-end"
               >
-                <Icon name="settings" size={16} color="var(--text-icon)" />
-              </button>
-            </Tip>
-          ) : null}
-          {wide && tab === 'chat' ? (
+                <button
+                  type="button"
+                  className={`${styles.headerBtn} ${chatExpanded ? styles.headerBtnActive : ''}`}
+                  aria-label={chatExpanded ? 'Reduzir chat' : 'Expandir chat'}
+                  aria-pressed={chatExpanded}
+                  onClick={() => setChatExpanded((prev) => !prev)}
+                >
+                  <Icon
+                    name={chatExpanded ? 'shrink' : 'expand'}
+                    size={15}
+                    color="#ffffff"
+                  />
+                </button>
+              </Tip>
+            ) : null}
             <Tip
-              label={
-                chatExpanded
-                  ? 'Reduzir visualização do chat'
-                  : 'Expandir chat (2 colunas)'
-              }
+              label={wide ? 'Recolher barra lateral' : 'Fechar painel'}
               placement="top-end"
             >
               <button
                 type="button"
-                className={`${styles.headerBtn} ${chatExpanded ? styles.headerBtnActive : ''}`}
-                aria-label={chatExpanded ? 'Reduzir chat' : 'Expandir chat'}
-                aria-pressed={chatExpanded}
-                onClick={() => setChatExpanded((prev) => !prev)}
+                className={styles.headerBtn}
+                aria-label={wide ? 'Recolher barra lateral' : 'Fechar painel'}
+                onClick={onClose}
               >
-                <Icon
-                  name={chatExpanded ? 'shrink' : 'expand'}
-                  size={15}
-                  color="#ffffff"
-                />
+                <Icon name="chevronLeft" size={17} color="var(--text-icon)" />
               </button>
             </Tip>
-          ) : null}
-          <Tip
-            label={wide ? 'Recolher barra lateral' : 'Fechar painel'}
-            placement="top-end"
-          >
-            <button
-              type="button"
-              className={styles.headerBtn}
-              aria-label={wide ? 'Recolher barra lateral' : 'Fechar painel'}
-              onClick={onClose}
-            >
-              <Icon name="chevronLeft" size={17} color="var(--text-icon)" />
-            </button>
-          </Tip>
-        </div>
-      </header>
+          </div>
+        </header>
 
-      <div className={styles.body}>
-        {tab === 'chat' ? (
-          <SlackChatView
-            send={send}
-            expanded={isWideChat}
-            userTier={
-              session.user.tier ?? (session.user.admin ? 'admin' : 'tester')
-            }
-          />
-        ) : (
-          <PeoplePanel
-            me={peopleMe}
-            others={peopleOthers}
-            online={online}
-            query={peopleQuery}
-            onQuery={onPeopleQuery}
-            onGoToDesk={onGoToDesk}
-            onMessage={onOpenDm}
-            onClose={onClose}
-            embedded
-          />
-        )}
+        <div key={tab} className={styles.body}>
+          {isChatTab ? (
+            <SlackChatView
+              send={send}
+              section={tab === 'dms' ? 'dms' : 'channels'}
+              expanded={isWideChat}
+              userTier={userTiers[0] ?? 'tester'}
+              userTiers={userTiers}
+              token={session.token}
+              onNotify={onNotify}
+            />
+          ) : (
+            <PeoplePanel
+              me={peopleMe}
+              others={peopleOthers}
+              online={online}
+              query={peopleQuery}
+              onQuery={onPeopleQuery}
+              onGoToDesk={onGoToDesk}
+              onMessage={onOpenDm}
+              onClose={onClose}
+              embedded
+            />
+          )}
+        </div>
       </div>
 
-      {wide && !isWideChat ? (
+      {wide && open && !isWideChat ? (
         <div
           role="separator"
           aria-orientation="vertical"
@@ -403,13 +459,18 @@ export function WorkspaceSidebar({
         />
       ) : null}
     </aside>
-  ) : null;
+  );
 
   if (!wide) {
-    if (!open) return null;
     return (
-      <div className={styles.mobileBackdrop}>
-        <div className={styles.mobileOverlay}>
+      <div
+        className={`${styles.mobileBackdrop} ${open ? styles.mobileBackdropOpen : styles.mobileBackdropClosed}`}
+        aria-hidden={!open}
+        inert={!open || undefined}
+      >
+        <div
+          className={`${styles.mobileOverlay} ${open ? styles.mobileOverlayOpen : styles.mobileOverlayClosed}`}
+        >
           {rail}
           {drawer}
         </div>

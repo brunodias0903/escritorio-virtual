@@ -2,8 +2,13 @@ import {
   ClientMessageSchema,
   callKey,
   callRoomName,
+  canManageDesks,
+  canManageServer,
+  canViewChannel,
   defaultAppearance,
+  effectiveTiersOf,
   sortPeople,
+  type AccountTier,
   type ClientMessage,
   type DeskInfo,
   type Person,
@@ -106,6 +111,34 @@ export class Connection {
     this.deps.send({ type: 'sessionDisplaced', reason: 'other_device' });
   }
 
+  /** Desconecta imediatamente por ação de moderação (ban, kick, restrição ou remoção). */
+  async kick(
+    action: 'banned' | 'kicked' | 'restricted' | 'removed',
+    reason?: string,
+  ): Promise<void> {
+    const claims = this.claims;
+    if (claims) {
+      await this.deps.auth.logout(claims);
+      this.deps.releaseSession?.(claims.email);
+    }
+    if (this.state === 'joined') {
+      const { id, office, cluster } = this.deps;
+      this.state = 'new';
+      this.deps.detach();
+      await cluster.dispatch(id, office.leave(id));
+      await cluster.playerLeft(id);
+    } else {
+      this.state = 'new';
+      this.deps.detach();
+    }
+    this.deps.send({
+      type: 'accountModerated',
+      action,
+      ...(reason ? { reason } : {}),
+    });
+    this.deps.close(4403, action);
+  }
+
   /** A ligação caiu: tira a pessoa do escritório e avisa os outros. */
   async dispose(): Promise<void> {
     if (this.claims) this.deps.releaseSession?.(this.claims.email);
@@ -126,7 +159,9 @@ export class Connection {
         .filter((p) => p.email)
         .map((p) => [p.email!, p]),
     );
-    const accounts = await this.deps.accounts.all();
+    const accounts = (await this.deps.accounts.all()).filter(
+      (a) => !a.bannedAt,
+    );
     const people: Person[] = accounts.map((a) => {
       const player = online.get(a.email);
       return {
@@ -134,6 +169,10 @@ export class Connection {
         name: a.fullName,
         nickname: a.nickname,
         role: a.role,
+        ...(a.tier ? { tier: a.tier } : {}),
+        ...(a.secondaryTiers?.length
+          ? { secondaryTiers: a.secondaryTiers }
+          : {}),
         status: player?.status ?? 'offline',
         appearance: player?.appearance ?? null,
         map: player?.map ?? null,
@@ -163,6 +202,12 @@ export class Connection {
       }),
     );
     return sortPeople(people);
+  }
+
+  private async effectiveTiers(claims: SessionClaims): Promise<AccountTier[]> {
+    const account = await this.deps.accounts.byEmail(claims.email);
+    const primary = account?.tier ?? (claims.admin ? 'admin' : 'tester');
+    return effectiveTiersOf(primary, account?.secondaryTiers);
   }
 
   /** Grava onde a pessoa está, para ela voltar ao mesmo lugar ao entrar de novo. */
@@ -215,13 +260,14 @@ export class Connection {
     );
     this.state = 'joined';
 
+    const tiers = await this.effectiveTiers(claims);
     this.deps.send({
       type: 'channels',
-      channels: await chat.channelsFor(claims.email),
+      channels: await chat.channelsFor(claims.email, tiers),
     });
     this.deps.send({
       type: 'history',
-      messages: await chat.history(claims.email),
+      messages: await chat.history(claims.email, tiers),
     });
     this.deps.send({ type: 'desks', desks: await this.deps.desks.list() });
     await cluster.dispatch(id, outgoing);
@@ -272,34 +318,74 @@ export class Connection {
       }
 
       case 'chat': {
-        const account = await this.deps.accounts.byEmail(claims.email);
-        const tier = account?.tier ?? (claims.admin ? 'admin' : 'tester');
+        const tiers = await this.effectiveTiers(claims);
         const result = await chat.send(
           {
             email: claims.email,
             name: player.name,
             color: player.color,
-            tier,
+            tier: tiers[0] ?? 'tester',
+            tiers,
           },
           message.channel,
           message.text,
           message.threadId,
         );
-        if (!result.ok) return send({ type: 'chatError', code: result.error });
+        if (!result.ok) {
+          // Restrição automática no chat (mute por abuso/ódio): remove a mesa do usuário.
+          if (result.error === 'chat_muted') {
+            const freed = await this.deps.desks.releaseByOwner(claims.email);
+            if (freed) {
+              this.deps.office.setDeskLock(freed);
+              await cluster.dispatch(id, [
+                { to: 'all', message: { type: 'desk', desk: freed } },
+              ]);
+            }
+          }
+          return send({ type: 'chatError', code: result.error });
+        }
         if (result.value.warning) {
           send({ type: 'chatError', code: result.value.warning });
+        }
+        let recipients = result.value.emails;
+        if (!recipients && result.value.restrictedAccess) {
+          const accessRule = result.value.restrictedAccess;
+          const onlineEmails = [
+            ...new Set(
+              office
+                .everyone()
+                .map((p) => p.email)
+                .filter((e): e is string => Boolean(e)),
+            ),
+          ];
+          const allowed: string[] = [];
+          await Promise.all(
+            onlineEmails.map(async (email) => {
+              const acc = await this.deps.accounts.byEmail(email);
+              const accTiers = effectiveTiersOf(
+                acc?.tier ?? 'tester',
+                acc?.secondaryTiers,
+              );
+              if (canViewChannel(accessRule, accTiers, email)) {
+                allowed.push(email);
+              }
+            }),
+          );
+          if (!allowed.includes(claims.email)) allowed.push(claims.email);
+          recipients = allowed;
         }
         return cluster.dispatch(id, [
           {
             to: 'all',
             message: { type: 'chat', message: result.value.message },
-            ...(result.value.emails ? { emails: result.value.emails } : {}),
+            ...(recipients ? { emails: recipients } : {}),
           },
         ]);
       }
 
       case 'thread': {
-        const result = await chat.thread(claims.email, message.threadId);
+        const tiers = await this.effectiveTiers(claims);
+        const result = await chat.thread(claims.email, message.threadId, tiers);
         if (!result.ok) return send({ type: 'chatError', code: result.error });
         return send({
           type: 'thread',
@@ -308,15 +394,19 @@ export class Connection {
         });
       }
 
-      case 'markRead':
-        await chat.markRead(claims.email, message.channel);
+      case 'markRead': {
+        const tiers = await this.effectiveTiers(claims);
+        await chat.markRead(claims.email, message.channel, tiers);
         return;
+      }
 
-      case 'channels':
+      case 'channels': {
+        const tiers = await this.effectiveTiers(claims);
         return send({
           type: 'channels',
-          channels: await chat.channelsFor(claims.email),
+          channels: await chat.channelsFor(claims.email, tiers),
         });
+      }
 
       case 'createChannel': {
         const result = await chat.createChannel(claims.email, message.name);
@@ -328,10 +418,11 @@ export class Connection {
       }
 
       case 'archiveChannel': {
+        const tiers = await this.effectiveTiers(claims);
         const result = await chat.archiveChannel(
           claims.email,
           message.id,
-          claims.admin,
+          claims.admin || canManageServer(tiers),
         );
         if (!result.ok) return send({ type: 'chatError', code: result.error });
         return cluster.dispatch(id, [
@@ -359,8 +450,9 @@ export class Connection {
       }
 
       case 'deskRelease': {
+        const tiers = await this.effectiveTiers(claims);
         const result = await this.deps.desks.release(
-          { email: claims.email, admin: claims.admin },
+          { email: claims.email, admin: claims.admin || canManageDesks(tiers) },
           player.map,
           message.deskId,
         );
@@ -404,6 +496,8 @@ export class Connection {
       }
 
       case 'media': {
+        // No modo Ocupado o usuário não entra em chamadas.
+        if (player.status === 'busy') return send({ type: 'mediaNone' });
         // Cada zona (mesa ou sala de reunião) tem a sua chamada.
         // Na estrada, só conversa quem está perto; sozinho, nenhuma.
         const zone = callKey(

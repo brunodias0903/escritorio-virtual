@@ -78,8 +78,6 @@ function HoverRing() {
 type Props = {
   me: { name: string; status: Status; appearance: Appearance } | undefined;
   call: CallState;
-  /** Tela pequena: ajustes compactos. */
-  compact: boolean;
   /** Mostra botão para abrir a sidebar em telas estreitas (tablet/mobile). */
   showMenuButton?: boolean;
   unread?: number;
@@ -112,7 +110,6 @@ type Props = {
 export function BottomBar({
   me,
   call,
-  compact,
   showMenuButton = false,
   unread = 0,
   mentions = 0,
@@ -375,7 +372,7 @@ export function BottomBar({
         />
       ) : null}
 
-      {/* Avisos flutuantes centralizados (Ficar online, mic mutado, som bloqueado, erros) */}
+      {/* Avisos flutuantes centralizados (mic mutado, som bloqueado, erros) */}
       <div className={styles.notices}>
         {hint ? (
           <div className={styles.hint} role="status">
@@ -421,23 +418,6 @@ export function BottomBar({
               onClick={() => setDismissedCallSession(call.sessionId)}
             >
               ✕
-            </button>
-          </div>
-        ) : null}
-        {busy ? (
-          <div className={styles.busyBar} role="status">
-            {!compact ? (
-              <span className={styles.busyText}>
-                Modo Ocupado · som, microfone, câmera e tela pausados
-              </span>
-            ) : null}
-            <button
-              type="button"
-              className={styles.goOnlineButton}
-              onClick={() => onStatus('available')}
-            >
-              <span className={styles.goOnlineDot} />
-              <span>Ficar online</span>
             </button>
           </div>
         ) : null}
@@ -551,10 +531,10 @@ export function BottomBar({
         ) : null}
 
         <div className={styles.card}>
-          {/* Bloco acoplado da própria webcam: expande quando em chamada ativa e não está em destaque central */}
+          {/* Bloco acoplado da própria webcam: expande quando em chamada ativa, online e não está em destaque central */}
           <div
-            className={`${styles.camDock} ${inCallZone && !optedOut && !selfCamExpanded ? styles.camDockOpen : ''}`}
-            aria-hidden={!inCallZone || optedOut || selfCamExpanded}
+            className={`${styles.camDock} ${!busy && inCallZone && !optedOut && !selfCamExpanded ? styles.camDockOpen : ''}`}
+            aria-hidden={busy || !inCallZone || optedOut || selfCamExpanded}
           >
             <div className={styles.camFrame}>
               {selfTrack && !selfCamExpanded ? (
@@ -626,8 +606,8 @@ export function BottomBar({
 
           {/* Linha compacta quando a própria câmera está ampliada no destaque central */}
           <div
-            className={`${styles.rejoinDock} ${inCallZone && !optedOut && selfCamExpanded ? styles.rejoinDockOpen : ''}`}
-            aria-hidden={!inCallZone || optedOut || !selfCamExpanded}
+            className={`${styles.rejoinDock} ${!busy && inCallZone && !optedOut && selfCamExpanded ? styles.rejoinDockOpen : ''}`}
+            aria-hidden={busy || !inCallZone || optedOut || !selfCamExpanded}
           >
             <div className={`${styles.rejoinRow} ${styles.expandedRow}`}>
               <div className={styles.expandedLeft}>
@@ -662,8 +642,8 @@ export function BottomBar({
 
           {/* Linha compacta quando saiu da chamada mas segue na mesma mesa/sala */}
           <div
-            className={`${styles.rejoinDock} ${inCallZone && optedOut ? styles.rejoinDockOpen : ''}`}
-            aria-hidden={!inCallZone || !optedOut}
+            className={`${styles.rejoinDock} ${!busy && inCallZone && optedOut ? styles.rejoinDockOpen : ''}`}
+            aria-hidden={busy || !inCallZone || !optedOut}
           >
             <div className={styles.rejoinRow}>
               <span className={styles.rejoinLabel}>Entrar na chamada</span>
@@ -678,6 +658,23 @@ export function BottomBar({
                 </button>
               </Tip>
             </div>
+          </div>
+
+          {/* Linha compacta acoplada no modo Ocupado: 1 clique para ficar online (substitui o bloco de chamada) */}
+          <div
+            className={`${styles.rejoinDock} ${busy ? styles.rejoinDockOpen : ''}`}
+            aria-hidden={!busy}
+          >
+            <button
+              type="button"
+              className={`${styles.rejoinRow} ${styles.busyDockRow}`}
+              onClick={() => onStatus('available')}
+            >
+              <span className={styles.busyDockLabel}>Ficar online</span>
+              <span className={styles.busyDockPill} aria-hidden="true">
+                <span className={styles.goOnlineDot} />
+              </span>
+            </button>
           </div>
 
           {/* Topo dos controles: avatar, nome e status */}

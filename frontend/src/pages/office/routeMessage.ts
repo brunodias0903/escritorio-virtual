@@ -6,6 +6,7 @@ import type { OfficeWorld } from '@/features/office/model/officeWorld';
 import { usePeopleStore } from '@/features/office/model/peopleStore';
 import {
   errorMessage,
+  type AccountTier,
   type ClientMessage,
   type ServerMessage,
 } from '@/shared/domain';
@@ -27,6 +28,16 @@ export function routeServerMessage(
   media: MediaHandlers,
   notify: (text: string) => void,
   onDisplaced?: (displaced: boolean) => void,
+  onModerated?: (
+    action: 'banned' | 'kicked' | 'restricted' | 'removed',
+    reason?: string,
+  ) => void,
+  onAccountUpdated?: (update: {
+    tier: AccountTier;
+    secondaryTiers: AccountTier[];
+    admin: boolean;
+    role: string;
+  }) => void,
 ): void {
   const chat = useChatStore.getState();
   switch (message.type) {
@@ -103,6 +114,20 @@ export function routeServerMessage(
           'Sua conta está logada em mais de 1 dispositivo. O acesso pode ser movido a qualquer momento.',
         );
       }
+      break;
+    case 'accountModerated':
+      media.set(null);
+      onModerated?.(message.action, message.reason);
+      break;
+    case 'accountUpdated':
+      onAccountUpdated?.({
+        tier: message.tier,
+        secondaryTiers: message.secondaryTiers,
+        admin: message.admin,
+        role: message.role,
+      });
+      send({ type: 'channels' });
+      notify('Seus cargos e acessos neste servidor foram atualizados.');
       break;
     default:
       world.apply(message);

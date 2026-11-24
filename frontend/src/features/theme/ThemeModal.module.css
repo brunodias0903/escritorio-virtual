@@ -6,9 +6,10 @@
   justify-content: center;
   padding: 28px 20px;
   background-color: var(--bg-overlay);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
   z-index: var(--z-modal);
+  animation: dsBackdropIn var(--motion-fast) var(--ease-standard);
 }
 
 .card {
@@ -17,11 +18,12 @@
   max-height: calc(100vh - 56px);
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-2xl);
-  background-color: var(--bg-surface);
+  border-radius: var(--radius-3xl);
+  background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-bar);
-  box-shadow: 0 24px 60px rgba(4, 6, 20, 0.72);
+  box-shadow: var(--shadow-xl), var(--shadow-inner);
   overflow: hidden;
+  animation: dsDialogIn var(--motion-normal) var(--ease-emphasized);
 }
 
 .header {
@@ -30,7 +32,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 16px 22px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 
@@ -43,29 +45,40 @@
 .title {
   margin: 0;
   color: var(--text-primary);
-  font-size: 17px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
 }
 
 .subtitle {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .closeBtn {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background-color: var(--bg-control);
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-md);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
 }
 
 .closeBtn:hover {
-  background-color: rgba(255, 255, 255, 0.09);
+  background-color: var(--bg-control-hover);
   color: var(--text-primary);
+}
+
+.closeBtn:active {
+  transform: scale(0.93);
 }
 
 .body {
@@ -187,8 +200,8 @@
 
 .colorHex {
   color: var(--text-muted);
-  font-size: 11px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
   text-transform: uppercase;
 }
 

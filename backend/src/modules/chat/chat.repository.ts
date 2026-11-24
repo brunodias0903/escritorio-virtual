@@ -5,8 +5,12 @@ export type ChannelRow = {
   name: string;
   kind: 'public' | 'dm';
   archived: boolean;
+  position?: number;
   topic?: string;
+  viewTiers?: AccountTier[];
   writeTiers?: AccountTier[];
+  allowedEmails?: string[];
+  blockedEmails?: string[];
   createdBy: string | null;
   createdAt: number;
 };
@@ -23,8 +27,16 @@ export interface ChannelRepository {
   setArchived(id: string, archived: boolean): Promise<boolean>;
   updateConfig?(
     id: string,
-    patch: { topic?: string; writeTiers?: AccountTier[]; archived?: boolean },
+    patch: {
+      topic?: string;
+      viewTiers?: AccountTier[];
+      writeTiers?: AccountTier[];
+      allowedEmails?: string[];
+      blockedEmails?: string[];
+      archived?: boolean;
+    },
   ): Promise<boolean>;
+  reorder?(orderedIds: string[]): Promise<void>;
 }
 
 /** Histórico de mensagens do chat. */

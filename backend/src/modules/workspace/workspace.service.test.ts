@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   MemoryChannelRepository,
+  MemoryDeskRepository,
   MemoryFeedbackRepository,
   MemoryLocalAccountRepository,
   MemoryServerSettingsRepository,
 } from '../../infra/persistence/memory/index.js';
-import type { AccountTier } from '../../shared/domain/index.js';
+import type { AccountTier, DeskInfo } from '../../shared/domain/index.js';
 import type { SessionClaims } from '../auth/token.js';
+import { DeskService } from '../desks/desks.service.js';
 import { WorkspaceService } from './workspace.service.js';
 
 const makeClaims = (email: string, admin = false): SessionClaims => ({
@@ -45,13 +47,34 @@ const setup = async () => {
   const channels = new MemoryChannelRepository();
   const settings = new MemoryServerSettingsRepository();
   const feedback = new MemoryFeedbackRepository();
+  const desks = new DeskService(new MemoryDeskRepository());
+  const onDeskChanged = vi.fn<(desk: DeskInfo) => void>();
+  const onUserModerated = vi.fn();
+  const onAccountRolesChanged = vi.fn();
   const service = new WorkspaceService({
     settings,
     feedback,
     channels,
     accounts,
+    desks,
+    adminEmails: ['master@setter.app', 'admin@setter.app'],
+    getOnlinePlayers: () => [
+      { email: 'dev@setter.app', status: 'available', map: 'lobby' },
+    ],
+    onDeskChanged,
+    onUserModerated,
+    onAccountRolesChanged,
+    now: () => 1_000_000,
   });
-  return { service, channels };
+  return {
+    service,
+    channels,
+    accounts,
+    desks,
+    onDeskChanged,
+    onUserModerated,
+    onAccountRolesChanged,
+  };
 };
 
 describe('WorkspaceService', () => {
@@ -184,5 +207,299 @@ describe('WorkspaceService', () => {
       { topic: 'x' },
     );
     expect(notFoundCh.ok).toBe(false);
+  });
+
+  it('permite que apenas master modere contas e remove automaticamente a mesa em ban, kick, restrição e remoção', async () => {
+    const { service, accounts, desks, onDeskChanged, onUserModerated } =
+      await setup();
+    const master = makeClaims('master@setter.app', true);
+    const admin = makeClaims('admin@setter.app', true);
+    const atDesk1 = { map: 'lobby' as const, x: 430, y: 160 };
+
+    // Admin pode listar membros no painel, mas não pode banir; developer não lista
+    expect((await service.listAccounts(admin)).ok).toBe(true);
+    expect((await service.listAccounts(makeClaims('dev@setter.app'))).ok).toBe(
+      false,
+    );
+    expect(
+      (
+        await service.moderateAccount(admin, 'tester@setter.app', {
+          action: 'ban',
+        })
+      ).ok,
+    ).toBe(false);
+
+    // Master não pode moderar a si mesmo
+    expect(
+      await service.moderateAccount(master, 'master@setter.app', {
+        action: 'ban',
+      }),
+    ).toMatchObject({ ok: false, status: 400, error: 'cannot_moderate_self' });
+
+    // Tester adota uma mesa
+    await desks.adopt(
+      { email: 'tester@setter.app', name: 'tester User' },
+      atDesk1,
+      'mesa-1',
+    );
+    const listed = await service.listAccounts(master);
+    expect(listed.ok).toBe(true);
+    if (listed.ok) {
+      const testerRow = listed.value.find(
+        (a) => a.email === 'tester@setter.app',
+      );
+      expect(testerRow?.desk?.deskId).toBe('mesa-1');
+    }
+
+    // 1. Kick libera a mesa automaticamente e desconecta
+    const kicked = await service.moderateAccount(master, 'tester@setter.app', {
+      action: 'kick',
+      reason: 'Pausa',
+    });
+    expect(kicked).toMatchObject({
+      ok: true,
+      value: { action: 'kick', deskReleased: true },
+    });
+    expect(await desks.list()).toEqual([]);
+    expect(onDeskChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ deskId: 'mesa-1', owner: null }),
+    );
+    expect(onUserModerated).toHaveBeenCalledWith(
+      'tester@setter.app',
+      'kicked',
+      'Pausa',
+    );
+
+    // 2. Restringir libera a mesa e grava restrictedUntil
+    await desks.adopt(
+      { email: 'tester@setter.app', name: 'tester User' },
+      atDesk1,
+      'mesa-1',
+    );
+    const restricted = await service.moderateAccount(
+      master,
+      'tester@setter.app',
+      { action: 'restrict', durationMinutes: 30, reason: 'Conduta' },
+    );
+    expect(restricted).toMatchObject({
+      ok: true,
+      value: {
+        action: 'restrict',
+        deskReleased: true,
+        account: {
+          restrictedUntil: 1_000_000 + 30 * 60_000,
+          restrictionReason: 'Conduta',
+          desk: null,
+        },
+      },
+    });
+    expect(await desks.list()).toEqual([]);
+
+    // Remover restrição
+    const unrestricted = await service.moderateAccount(
+      master,
+      'tester@setter.app',
+      { action: 'unrestrict' },
+    );
+    expect(unrestricted).toMatchObject({
+      ok: true,
+      value: { account: { restrictedUntil: null, restrictionReason: '' } },
+    });
+
+    // 3. Banir libera a mesa e grava bannedAt; desbanir limpa
+    await desks.adopt(
+      { email: 'tester@setter.app', name: 'tester User' },
+      atDesk1,
+      'mesa-1',
+    );
+    const banned = await service.moderateAccount(master, 'tester@setter.app', {
+      action: 'ban',
+      reason: 'Violação grave',
+    });
+    expect(banned).toMatchObject({
+      ok: true,
+      value: {
+        action: 'ban',
+        deskReleased: true,
+        account: {
+          bannedAt: 1_000_000,
+          banReason: 'Violação grave',
+          desk: null,
+        },
+      },
+    });
+    expect(await desks.list()).toEqual([]);
+    expect(onUserModerated).toHaveBeenCalledWith(
+      'tester@setter.app',
+      'banned',
+      'Violação grave',
+    );
+
+    const unbanned = await service.moderateAccount(
+      master,
+      'tester@setter.app',
+      {
+        action: 'unban',
+      },
+    );
+    expect(unbanned).toMatchObject({
+      ok: true,
+      value: { account: { bannedAt: null, banReason: '' } },
+    });
+
+    // 4. Remover conta exclui e libera a mesa
+    await desks.adopt(
+      { email: 'designer@setter.app', name: 'designer User' },
+      atDesk1,
+      'mesa-1',
+    );
+    const removed = await service.moderateAccount(
+      master,
+      'designer@setter.app',
+      { action: 'remove' },
+    );
+    expect(removed).toMatchObject({
+      ok: true,
+      value: { action: 'remove', deskReleased: true, account: null },
+    });
+    expect(await accounts.byEmail('designer@setter.app')).toBeUndefined();
+    expect(await desks.list()).toEqual([]);
+
+    // 5. Remoção explícita de mesa por master/admin
+    await desks.adopt(
+      { email: 'dev@setter.app', name: 'dev User' },
+      atDesk1,
+      'mesa-1',
+    );
+    const released = await service.releaseUserDeskAsAdmin(
+      admin,
+      'dev@setter.app',
+    );
+    expect(released).toMatchObject({
+      ok: true,
+      value: { desk: { deskId: 'mesa-1', owner: null } },
+    });
+    expect(
+      await service.releaseUserDeskAsAdmin(
+        makeClaims('dev@setter.app'),
+        'dev@setter.app',
+      ),
+    ).toMatchObject({ ok: false, status: 403 });
+  });
+
+  it('permite cargo principal + cargos secundários (estilo Discord) com hierarquia Master > Admin', async () => {
+    const { service, desks, onAccountRolesChanged, onDeskChanged } =
+      await setup();
+    const master = makeClaims('master@setter.app', true);
+    const admin = makeClaims('admin@setter.app', true);
+    const dev = makeClaims('dev@setter.app');
+
+    // Lista inclui presença online (dev online no lobby aparece primeiro)
+    const listed = await service.listAccounts(admin);
+    expect(listed.ok).toBe(true);
+    if (listed.ok) {
+      expect(listed.value[0]).toMatchObject({
+        email: 'dev@setter.app',
+        online: true,
+        status: 'available',
+        map: 'lobby',
+      });
+    }
+
+    // Adota mesa para verificar sincronia de cargo exibido
+    await desks.adopt(
+      { email: 'dev@setter.app', name: 'developer User' },
+      { map: 'lobby', x: 430, y: 160 },
+      'mesa-1',
+    );
+
+    // Master dá cargo principal 'developer' + secundários ['admin', 'designer'] (deduplicando principal)
+    const promoted = await service.updateAccountRoles(
+      master,
+      'dev@setter.app',
+      {
+        tier: 'developer',
+        secondaryTiers: ['developer', 'admin', 'designer', 'admin'],
+        role: 'Tech Lead',
+      },
+    );
+    expect(promoted).toMatchObject({
+      ok: true,
+      value: {
+        email: 'dev@setter.app',
+        tier: 'developer',
+        secondaryTiers: ['admin', 'designer'],
+        role: 'Tech Lead',
+      },
+    });
+    expect(onAccountRolesChanged).toHaveBeenCalledWith('dev@setter.app', {
+      tier: 'developer',
+      secondaryTiers: ['admin', 'designer'],
+      admin: true,
+      role: 'Tech Lead',
+    });
+    expect(onDeskChanged).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deskId: 'mesa-1',
+        owner: expect.objectContaining({ role: 'Tech Lead' }),
+      }),
+    );
+
+    // Com 'admin' como cargo secundário, dev agora pode listar membros e gerenciar cargos de tester
+    expect((await service.listAccounts(dev)).ok).toBe(true);
+    const devEditsTester = await service.updateAccountRoles(
+      dev,
+      'tester@setter.app',
+      {
+        tier: 'tester',
+        secondaryTiers: ['designer'],
+        role: 'QA & UX',
+      },
+    );
+    expect(devEditsTester).toMatchObject({
+      ok: true,
+      value: {
+        tier: 'tester',
+        secondaryTiers: ['designer'],
+        role: 'QA & UX',
+      },
+    });
+
+    // Hierarquia: admin não pode atribuir 'admin', nem editar outro admin ou master, nem a si mesmo
+    expect(
+      await service.updateAccountRoles(admin, 'tester@setter.app', {
+        tier: 'tester',
+        secondaryTiers: ['admin'],
+      }),
+    ).toMatchObject({ ok: false, status: 403, error: 'cannot_assign_admin' });
+
+    expect(
+      await service.updateAccountRoles(admin, 'dev@setter.app', {
+        tier: 'tester',
+        secondaryTiers: [],
+      }),
+    ).toMatchObject({
+      ok: false,
+      status: 403,
+      error: 'cannot_manage_higher_role',
+    });
+
+    expect(
+      await service.updateAccountRoles(master, 'tester@setter.app', {
+        tier: 'master',
+        secondaryTiers: [],
+      }),
+    ).toMatchObject({ ok: false, status: 403, error: 'cannot_assign_master' });
+
+    expect(
+      await service.updateAccountRoles(master, 'master@setter.app', {
+        tier: 'admin',
+        secondaryTiers: [],
+      }),
+    ).toMatchObject({
+      ok: false,
+      status: 400,
+      error: 'cannot_edit_own_roles',
+    });
   });
 });

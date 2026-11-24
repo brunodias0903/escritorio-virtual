@@ -51,8 +51,8 @@ export function WelcomeGuide() {
             🧭
           </span>
           <span>
-            <b>Clique no chão</b> ou use <b>WASD / setas</b> para andar até uma
-            mesa ou sala.
+            Use <b>WASD / setas</b> (ou o direcional no celular) para andar até
+            uma mesa ou sala.
           </span>
         </li>
         <li className={styles.item}>

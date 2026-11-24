@@ -1,5 +1,5 @@
 import { useSessionStore } from '@/features/session/model/sessionStore';
-import type { Session } from '@/shared/domain';
+import type { Session, SessionUser } from '@/shared/domain';
 
 import { authApi } from './api';
 import { sessionStorage } from './sessionBackend';
@@ -10,9 +10,19 @@ export const beginSession = (session: Session): void => {
   useSessionStore.getState().signIn(session);
 };
 
+/** Atualiza dados da sessão ativa (ex.: cargos alterados no painel admin) sem desconectar. */
+export const patchSessionUser = (patch: Partial<SessionUser>): void => {
+  useSessionStore.getState().patchUser(patch);
+  const next = useSessionStore.getState().session;
+  if (next) void sessionStorage.save(next);
+};
+
 /** Sai: encerra a sessão no servidor, apaga a guardada e volta ao login. */
-export const endSession = async (token: string): Promise<void> => {
-  useSessionStore.getState().signOut();
+export const endSession = async (
+  token: string,
+  notice?: string,
+): Promise<void> => {
+  useSessionStore.getState().signOut(notice);
   await Promise.all([authApi.logout(token), sessionStorage.clear()]);
 };
 

@@ -4,25 +4,30 @@
   --bg-app: #1b1b2f;
   --bg-surface: #1f1f36;
   --bg-surface-elevated: #161a3d;
+  --bg-surface-glass: rgba(22, 26, 61, 0.9);
   --bg-bar: #12163a;
-  --bg-bar-glass: rgba(18, 22, 58, 0.95);
+  --bg-bar-glass: rgba(18, 22, 58, 0.94);
   --bg-control: #1d2250;
+  --bg-control-hover: #242a60;
   --bg-input: #2a2a45;
   --bg-input-hover: #313152;
-  --bg-overlay: rgba(0, 0, 0, 0.6);
-  --bg-pill: rgba(8, 10, 28, 0.62);
-  --bg-pill-dark: rgba(8, 10, 28, 0.7);
+  --bg-overlay: rgba(4, 6, 18, 0.68);
+  --bg-pill: rgba(8, 10, 28, 0.68);
+  --bg-pill-dark: rgba(8, 10, 28, 0.8);
   --bg-tooltip: #0b0e24;
-  --bg-zoom: rgba(14, 17, 42, 0.9);
+  --bg-zoom: rgba(14, 17, 42, 0.92);
   --bg-focus: rgba(11, 14, 36, 0.94);
   --bg-tile: #20244d;
   --bg-avatar-face: #2a3070;
   --bg-desk-preview: #8a6a45;
+  --bg-hover-overlay: rgba(255, 255, 255, 0.07);
+  --bg-active-overlay: rgba(255, 255, 255, 0.12);
 
   /* Bordas */
   --border-subtle: #33334f;
   --border-bar: #2b3166;
   --border-accent: #3a4180;
+  --border-glass: rgba(255, 255, 255, 0.11);
   --border-tile: rgba(8, 10, 28, 0.55);
 
   /* Textos */
@@ -44,14 +49,16 @@
   --accent-chip: #3a3d7a;
   --accent-disabled: #3a3f73;
   --accent-link: #9aa4ff;
-  --accent-mention-bg: rgba(91, 108, 255, 0.2);
+  --accent-mention-bg: rgba(91, 108, 255, 0.22);
   --accent-border-soft: rgba(91, 108, 255, 0.65);
+  --accent-glow: rgba(91, 108, 255, 0.32);
 
   /* Semânticas e status */
   --status-available: #31e0c1;
   --presence-soft: rgba(49, 224, 193, 0.16);
   --presence-border: rgba(49, 224, 193, 0.45);
   --presence-strong: #16a085;
+  --presence-glow: rgba(49, 224, 193, 0.28);
   --status-busy: #ff6b81;
   --status-away: #f1c40f;
   --status-offline: #6b72a8;
@@ -63,24 +70,93 @@
   --zone-pill-bg: rgba(20, 88, 79, 0.85);
 
   --danger: #d9364b;
+  --danger-bg: rgba(255, 107, 129, 0.15);
+  --danger-border: rgba(255, 107, 129, 0.38);
   --danger-banner: rgba(120, 32, 48, 0.92);
   --danger-muted: rgba(214, 48, 73, 0.85);
   --danger-text: #ff9aa8;
+  --warning-bg: rgba(241, 196, 15, 0.14);
+  --warning-border: rgba(241, 196, 15, 0.36);
   --warning-badge: #f39c12;
   --mention-badge: #e67e22;
   --mention-row-bg: rgba(241, 196, 15, 0.12);
   --info-text: #9af5e6;
 
-  /* Tipografia e raios */
+  /* Elevação e sombras */
+  --shadow-xs: 0 2px 6px rgba(4, 6, 20, 0.24);
+  --shadow-sm: 0 4px 14px rgba(4, 6, 20, 0.32);
+  --shadow-md: 0 10px 26px rgba(4, 6, 20, 0.44);
+  --shadow-lg: 0 16px 40px rgba(4, 6, 20, 0.56);
+  --shadow-xl: 0 24px 64px rgba(2, 4, 16, 0.68);
+  --shadow-focus: 0 0 0 3px rgba(91, 108, 255, 0.32);
+  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+  /* Tipografia (DM Sans como padrão do Design System) */
   --font-sans:
-    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+    'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    sans-serif;
+  --font-display:
+    'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  --font-mono:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace;
+
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 28px;
+  --text-4xl: 36px;
+
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  --leading-none: 1;
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.48;
+  --leading-relaxed: 1.6;
+
+  --tracking-tighter: -0.03em;
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.06em;
+
+  /* Movimento e curvas */
+  --motion-instant: 90ms;
+  --motion-fast: 150ms;
+  --motion-normal: 220ms;
+  --motion-smooth: 280ms;
+  --motion-slow: 360ms;
+
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+
+  /* Raios e blur */
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 14px;
   --radius-2xl: 16px;
+  --radius-3xl: 20px;
   --radius-pill: 999px;
+
+  --blur-sm: 6px;
+  --blur-md: 12px;
+  --blur-lg: 18px;
 
   /* Camadas (z-index) */
   --z-hud: 10;

@@ -77,6 +77,9 @@ export function AccountModal({
   const [nickname, setNickname] = useState(session.user.nickname);
   const [role, setRole] = useState(session.user.role);
   const [tier, setTier] = useState<AccountTier>(session.user.tier ?? 'tester');
+  const [secondaryTiers, setSecondaryTiers] = useState<AccountTier[]>(
+    session.user.secondaryTiers ?? [],
+  );
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [mfaMethod, setMfaMethod] = useState<MfaMethod>('none');
   const [marketingOptIn, setMarketingOptIn] = useState<boolean | null>(null);
@@ -114,6 +117,7 @@ export function AccountModal({
       setNickname(res.data.nickname);
       setRole(res.data.role);
       setTier(res.data.tier);
+      setSecondaryTiers(res.data.secondaryTiers ?? []);
       setEmailVerified(res.data.emailVerified);
       setMfaMethod(
         res.data.mfaEnabled ? (res.data.mfaMethod ?? 'totp') : 'none',
@@ -244,6 +248,9 @@ export function AccountModal({
               <p className={styles.subtitle}>
                 {email} · {tier === 'master' ? '👑 ' : ''}
                 {ACCOUNT_TIER_LABELS[tier]}
+                {secondaryTiers.length > 0
+                  ? ` + ${secondaryTiers.map((s) => ACCOUNT_TIER_LABELS[s]).join(', ')}`
+                  : ''}
               </p>
             </div>
           </div>

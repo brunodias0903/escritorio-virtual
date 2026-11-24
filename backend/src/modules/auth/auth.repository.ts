@@ -16,8 +16,10 @@ export type LocalAccount = {
   role: string;
   passwordHash: string;
   createdAt: number;
-  /** Tier de acesso (master, admin, developer, designer, tester). */
+  /** Cargo principal de acesso (master, admin, developer, designer, tester). */
   tier?: AccountTier;
+  /** Cargos secundários (somam permissões e badges, estilo Discord). */
+  secondaryTiers?: AccountTier[];
   /** True quando o e-mail já foi confirmado com código. */
   emailVerified?: boolean;
   /** null = ainda não respondeu; true = aceita novidades/patch notes; false = só importantes. */
@@ -40,6 +42,21 @@ export type LocalAccount = {
   accessibilityNeeds?: AccessibilityNeed[];
   /** JSON serializado das preferências de acessibilidade (alto contraste, etc.). */
   accessibilityPrefs?: string | null;
+  /** Timestamp (ms) em que a conta foi banida permanentemente (null = ativa). */
+  bannedAt?: number | null;
+  /** Motivo do banimento informado pela conta master. */
+  banReason?: string;
+  /** Timestamp (ms) até quando a conta está restringida/suspensa (null = sem restrição). */
+  restrictedUntil?: number | null;
+  /** Motivo da restrição temporária. */
+  restrictionReason?: string;
+};
+
+export type AccountModerationPatch = {
+  bannedAt?: number | null;
+  banReason?: string;
+  restrictedUntil?: number | null;
+  restrictionReason?: string;
 };
 
 export type AccountChanges = Pick<
@@ -91,7 +108,21 @@ export interface LocalAccountRepository {
       recoveryHashes: string[];
     },
   ): Promise<'ok' | 'not_found'>;
-  /** Exclui a conta (LGPD Art. 18, VI). */
+  /** Atualiza cargo principal, cargos secundários e opcionalmente a função exibida. */
+  setRoles?(
+    email: string,
+    roles: {
+      tier: AccountTier;
+      secondaryTiers: AccountTier[];
+      role?: string;
+    },
+  ): Promise<'ok' | 'not_found'>;
+  /** Atualiza banimento ou restrição temporária da conta. */
+  setModeration?(
+    email: string,
+    moderation: AccountModerationPatch,
+  ): Promise<'ok' | 'not_found'>;
+  /** Exclui a conta (LGPD Art. 18, VI ou remoção pela conta master). */
   deleteByEmail?(email: string): Promise<'ok' | 'not_found'>;
 }
 

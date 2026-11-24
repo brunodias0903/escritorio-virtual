@@ -2,6 +2,9 @@ import {
   CreateChannelConfigSchema,
   CreateFeedbackCommentSchema,
   CreateFeedbackSchema,
+  ModerateAccountSchema,
+  ReorderChannelsSchema,
+  UpdateAccountRolesSchema,
   UpdateChannelConfigSchema,
   UpdateFeedbackSchema,
   UpdateServerSettingsSchema,
@@ -76,6 +79,21 @@ export const handleWorkspaceRoutes = async (
     return error(405, 'method_not_allowed');
   }
 
+  if (path === '/api/server/channels/reorder') {
+    if (method !== 'PUT' && method !== 'PATCH') {
+      return error(405, 'method_not_allowed');
+    }
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const parsed = ReorderChannelsSchema.safeParse(body);
+    if (!parsed.success) return error(400, 'invalid_request');
+    return respond(
+      await workspace.reorderChannels(claims, parsed.data),
+      (channels) => json(200, { channels }),
+    );
+  }
+
   const channelMatch = /^\/api\/server\/channels\/([^/]+)$/.exec(path);
   if (channelMatch) {
     if (method !== 'PUT' && method !== 'PATCH') {
@@ -90,6 +108,67 @@ export const handleWorkspaceRoutes = async (
     return respond(
       await workspace.updateChannelConfig(claims, channelId, parsed.data),
       (channel) => json(200, { channel }),
+    );
+  }
+
+  if (path === '/api/server/accounts') {
+    if (method !== 'GET') return error(405, 'method_not_allowed');
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    return respond(await workspace.listAccounts(claims), (accounts) =>
+      json(200, { accounts }),
+    );
+  }
+
+  const accountRolesMatch = /^\/api\/server\/accounts\/([^/]+)\/roles$/.exec(
+    path,
+  );
+  if (accountRolesMatch) {
+    if (method !== 'PUT' && method !== 'PATCH') {
+      return error(405, 'method_not_allowed');
+    }
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const parsed = UpdateAccountRolesSchema.safeParse(body);
+    if (!parsed.success) return error(400, 'invalid_request');
+    const targetEmail = decodeURIComponent(accountRolesMatch[1]!);
+    return respond(
+      await workspace.updateAccountRoles(claims, targetEmail, parsed.data),
+      (account) => json(200, { account }),
+    );
+  }
+
+  const moderateMatch = /^\/api\/server\/accounts\/([^/]+)\/moderate$/.exec(
+    path,
+  );
+  if (moderateMatch) {
+    if (method !== 'POST') return error(405, 'method_not_allowed');
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const parsed = ModerateAccountSchema.safeParse(body);
+    if (!parsed.success) return error(400, 'invalid_request');
+    const targetEmail = decodeURIComponent(moderateMatch[1]!);
+    return respond(
+      await workspace.moderateAccount(claims, targetEmail, parsed.data),
+      (result) => json(200, result),
+    );
+  }
+
+  const accountDeskMatch = /^\/api\/server\/accounts\/([^/]+)\/desk$/.exec(
+    path,
+  );
+  if (accountDeskMatch) {
+    if (method !== 'DELETE') return error(405, 'method_not_allowed');
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const targetEmail = decodeURIComponent(accountDeskMatch[1]!);
+    return respond(
+      await workspace.releaseUserDeskAsAdmin(claims, targetEmail),
+      (result) => json(200, result),
     );
   }
 

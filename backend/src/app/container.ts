@@ -178,6 +178,38 @@ export const createContainer = async (
     secret: config.sessionSecret,
   });
 
+  const desks = new DeskService(deskRepo);
+  const media = new MediaService(config.media);
+  const office = new OfficeService();
+  let clusterRef: Cluster | null = null;
+
+  const broadcastDeskChange = async (
+    desk: Awaited<ReturnType<DeskService['list']>>[number],
+  ) => {
+    office.setDeskLock(desk);
+    await clusterRef?.dispatch(instanceId, [
+      { to: 'all', message: { type: 'desk', desk } },
+    ]);
+  };
+
+  const kickUser = async (
+    email: string,
+    action: 'banned' | 'kicked' | 'restricted' | 'removed',
+    reason?: string,
+  ) => {
+    await clusterRef?.dispatch(instanceId, [
+      {
+        to: 'all',
+        emails: [email],
+        message: {
+          type: 'accountModerated',
+          action,
+          ...(reason ? { reason } : {}),
+        },
+      },
+    ]);
+  };
+
   const auth = new AuthService({
     accounts,
     secret: config.sessionSecret,
@@ -187,6 +219,11 @@ export const createContainer = async (
     revocations,
     codes: config.emailCodes ? codeService : null,
     verifyCodes: codeService,
+    onAccountDeleted: async (email) => {
+      const freed = await desks.releaseByOwner(email);
+      if (freed) await broadcastDeskChange(freed);
+      await kickUser(email, 'removed');
+    },
   });
 
   const chat = new ChatService({
@@ -195,9 +232,6 @@ export const createContainer = async (
     reads,
     profiles,
   });
-  const desks = new DeskService(deskRepo);
-  const media = new MediaService(config.media);
-  const office = new OfficeService();
 
   const wsGateway = new WsGateway({
     office,
@@ -217,6 +251,7 @@ export const createContainer = async (
     deliver: wsGateway.deliverLocal,
     onRemote: (message) => office.applyRemote(message),
   });
+  clusterRef = cluster;
 
   await cluster.start();
   office.replaceRemote(await cluster.remotePlayers());
@@ -227,11 +262,31 @@ export const createContainer = async (
     feedback: feedbackRepo,
     channels,
     accounts,
+    desks,
+    adminEmails: config.adminEmails,
+    getOnlinePlayers: () => office.everyone(),
     onChannelsChanged: () => {
       void cluster.dispatch(instanceId, [
         { to: 'all', message: { type: 'channelsChanged' } },
       ]);
     },
+    onDeskChanged: broadcastDeskChange,
+    onAccountRolesChanged: async (email, update) => {
+      await cluster.dispatch(instanceId, [
+        {
+          to: 'all',
+          emails: [email],
+          message: {
+            type: 'accountUpdated',
+            tier: update.tier,
+            secondaryTiers: update.secondaryTiers,
+            admin: update.admin,
+            role: update.role,
+          },
+        },
+      ]);
+    },
+    onUserModerated: kickUser,
   });
 
   return {

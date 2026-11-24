@@ -14,6 +14,16 @@
   align-items: center;
   pointer-events: none;
   z-index: calc(var(--z-modal) + 10);
+  animation: tipFadeIn var(--motion-fast) var(--ease-emphasized);
+}
+
+@keyframes tipFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .topStart {
@@ -54,13 +64,14 @@
   background-color: var(--bg-tooltip);
   border: 1px solid var(--border-accent);
   white-space: nowrap;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-md), var(--shadow-inner);
 }
 
 .text {
   color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.005em;
 }
 
 .arrow {

@@ -1,9 +1,10 @@
 import type {
   AccountChanges,
+  AccountModerationPatch,
   LocalAccount,
   LocalAccountRepository,
 } from '../../../modules/auth/auth.repository.js';
-import { nicknameKey } from '../../../shared/domain/index.js';
+import { nicknameKey, type AccountTier } from '../../../shared/domain/index.js';
 
 export class MemoryLocalAccountRepository implements LocalAccountRepository {
   private readonly accounts = new Map<string, LocalAccount>();
@@ -105,6 +106,58 @@ export class MemoryLocalAccountRepository implements LocalAccountRepository {
       mfaSecretEnc: mfa.secretEnc,
       mfaRecoveryHashes: [...mfa.recoveryHashes],
     });
+    return 'ok' as const;
+  }
+
+  async setRoles(
+    email: string,
+    roles: { tier: AccountTier; secondaryTiers: AccountTier[]; role?: string },
+  ) {
+    const current = await this.byEmail(email);
+    if (!current) return 'not_found' as const;
+    const seen = new Set<AccountTier>([roles.tier, 'master']);
+    const cleanSecondary: AccountTier[] = [];
+    for (const item of roles.secondaryTiers) {
+      if (!seen.has(item)) {
+        seen.add(item);
+        cleanSecondary.push(item);
+      }
+    }
+    const next: LocalAccount = {
+      ...current,
+      tier: roles.tier,
+      ...(roles.role !== undefined ? { role: roles.role } : {}),
+    };
+    if (cleanSecondary.length > 0) {
+      next.secondaryTiers = cleanSecondary;
+    } else {
+      delete next.secondaryTiers;
+    }
+    this.accounts.set(nicknameKey(current.nickname), next);
+    return 'ok' as const;
+  }
+
+  async setModeration(email: string, moderation: AccountModerationPatch) {
+    const current = await this.byEmail(email);
+    if (!current) return 'not_found' as const;
+    const next: LocalAccount = { ...current };
+    if (moderation.bannedAt !== undefined) {
+      if (moderation.bannedAt === null) delete next.bannedAt;
+      else next.bannedAt = moderation.bannedAt;
+    }
+    if (moderation.banReason !== undefined) {
+      if (!moderation.banReason) delete next.banReason;
+      else next.banReason = moderation.banReason;
+    }
+    if (moderation.restrictedUntil !== undefined) {
+      if (moderation.restrictedUntil === null) delete next.restrictedUntil;
+      else next.restrictedUntil = moderation.restrictedUntil;
+    }
+    if (moderation.restrictionReason !== undefined) {
+      if (!moderation.restrictionReason) delete next.restrictionReason;
+      else next.restrictionReason = moderation.restrictionReason;
+    }
+    this.accounts.set(nicknameKey(current.nickname), next);
     return 'ok' as const;
   }
 

@@ -10,9 +10,10 @@
   border-radius: var(--radius-xl);
   background-color: var(--bg-bar);
   border: 1px solid var(--border-accent);
-  box-shadow: 0 14px 32px rgba(6, 8, 22, 0.65);
+  box-shadow: var(--shadow-lg), var(--shadow-inner);
   pointer-events: auto;
   z-index: var(--z-popup);
+  animation: dsPopoverIn var(--motion-normal) var(--ease-emphasized);
 }
 
 .header {

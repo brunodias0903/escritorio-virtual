@@ -1,4 +1,6 @@
 import {
+  ACCOUNT_TIER_COLORS,
+  ACCOUNT_TIER_LABELS,
   PERSON_STATUS_LABELS,
   defaultAppearance,
   getMap,
@@ -87,6 +89,32 @@ function Row({
           <span className={styles.name}>
             {self ? `${person.name} (você)` : person.name}
           </span>
+          {person.tier ? (
+            <div className={styles.roles}>
+              <span
+                className={styles.primaryRole}
+                style={{
+                  borderColor: `${ACCOUNT_TIER_COLORS[person.tier]}66`,
+                  backgroundColor: `${ACCOUNT_TIER_COLORS[person.tier]}22`,
+                }}
+              >
+                <span
+                  className={styles.roleDot}
+                  style={{ backgroundColor: ACCOUNT_TIER_COLORS[person.tier] }}
+                />
+                {ACCOUNT_TIER_LABELS[person.tier]}
+              </span>
+              {(person.secondaryTiers ?? []).map((sec) => (
+                <span key={sec} className={styles.secondaryRole}>
+                  <span
+                    className={styles.roleDot}
+                    style={{ backgroundColor: ACCOUNT_TIER_COLORS[sec] }}
+                  />
+                  {ACCOUNT_TIER_LABELS[sec]}
+                </span>
+              ))}
+            </div>
+          ) : null}
           {meta ? <span className={styles.detail}>{meta}</span> : null}
           <span className={styles.detail}>
             {PERSON_STATUS_LABELS[person.status]}

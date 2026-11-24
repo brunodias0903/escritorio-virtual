@@ -23,6 +23,8 @@ type ChatState = {
   error: string | null;
   setMe: (email: string) => void;
   setChannels: (channels: ChannelInfo[]) => void;
+  /** Reordena os canais públicos localmente (otimista) enquanto salva no servidor. */
+  reorderPublicChannels: (orderedIds: string[]) => void;
   /** Acrescenta o canal à lista, se ainda não estiver (ex.: conversa recém-aberta). */
   addChannel: (channel: ChannelInfo) => void;
   setHistory: (messages: ChatMessage[]) => void;
@@ -69,6 +71,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ? clearCounts(channels, active)
         : channels;
       return { channels: visible, active };
+    }),
+
+  reorderPublicChannels: (orderedIds) =>
+    set((state) => {
+      const publicMap = new Map(
+        state.channels
+          .filter((c) => c.kind === 'public')
+          .map((c) => [c.id, c] as const),
+      );
+      const dms = state.channels.filter((c) => c.kind === 'dm');
+      const reordered: ChannelInfo[] = [];
+      for (const id of orderedIds) {
+        const ch = publicMap.get(id);
+        if (ch) {
+          reordered.push({ ...ch, position: reordered.length });
+          publicMap.delete(id);
+        }
+      }
+      for (const ch of publicMap.values()) {
+        reordered.push({ ...ch, position: reordered.length });
+      }
+      return { channels: [...reordered, ...dms] };
     }),
 
   addChannel: (channel) =>

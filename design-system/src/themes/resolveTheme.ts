@@ -1,4 +1,13 @@
-import { FONT_SIZES, RADII, SPACING, Z_INDEX } from '../tokens/foundations';
+import {
+  BLUR,
+  FONT_SIZES,
+  RADII,
+  SIZES,
+  SPACING,
+  Z_INDEX,
+} from '../tokens/foundations';
+import { MOTION, type MotionTokens } from '../tokens/motion';
+import { TYPOGRAPHY, type TypographyTokens } from '../tokens/typography';
 import { adjustHex, hexToRgba } from './colorMath';
 import { findPreset, type ThemeColors, type ThemePresetId } from './presets';
 
@@ -13,9 +22,11 @@ export type ResolvedThemeTokens = {
     app: string;
     surface: string;
     surfaceElevated: string;
+    surfaceGlass: string;
     bar: string;
     barGlass: string;
     control: string;
+    controlHover: string;
     input: string;
     inputHover: string;
     tooltip: string;
@@ -25,11 +36,14 @@ export type ResolvedThemeTokens = {
     focus: string;
     tile: string;
     avatarFace: string;
+    hoverOverlay: string;
+    activeOverlay: string;
   };
   border: {
     bar: string;
     subtle: string;
     accent: string;
+    glass: string;
   };
   text: {
     primary: string;
@@ -51,6 +65,7 @@ export type ResolvedThemeTokens = {
     link: string;
     mentionBg: string;
     borderSoft: string;
+    glow: string;
   };
   presence: {
     available: string;
@@ -61,13 +76,33 @@ export type ResolvedThemeTokens = {
     callOnIcon: string;
     zonePillBg: string;
     infoText: string;
+    glow: string;
+  };
+  feedback: {
+    dangerBg: string;
+    dangerBorder: string;
+    warningBg: string;
+    warningBorder: string;
+  };
+  shadows: {
+    xs: string;
+    sm: string;
+    md: string;
+    lg: string;
+    xl: string;
+    focus: string;
+    innerHighlight: string;
   };
   gradient: {
     server: string;
   };
   radii: typeof RADII;
   spacing: typeof SPACING;
+  blur: typeof BLUR;
+  sizes: typeof SIZES;
   fontSizes: typeof FONT_SIZES;
+  typography: TypographyTokens;
+  motion: MotionTokens;
   zIndex: typeof Z_INDEX;
 };
 
@@ -100,9 +135,11 @@ export const resolveThemeTokens = (
       app: adjustHex(surface, -0.03),
       surface,
       surfaceElevated,
+      surfaceGlass: hexToRgba(surfaceElevated, 0.9),
       bar,
       barGlass: hexToRgba(bar, 0.94),
       control,
+      controlHover: adjustHex(control, 0.06),
       input,
       inputHover: adjustHex(input, 0.05),
       tooltip: deep,
@@ -112,11 +149,14 @@ export const resolveThemeTokens = (
       focus: hexToRgba(deep, 0.94),
       tile: adjustHex(surface, 0.03),
       avatarFace: control,
+      hoverOverlay: 'rgba(255, 255, 255, 0.07)',
+      activeOverlay: 'rgba(255, 255, 255, 0.12)',
     },
     border: {
       bar: border,
       subtle: adjustHex(border, 0.04),
       accent: adjustHex(accent, -0.15),
+      glass: 'rgba(255, 255, 255, 0.11)',
     },
     text: {
       primary: preset.textPrimary,
@@ -138,6 +178,7 @@ export const resolveThemeTokens = (
       link: adjustHex(accent, 0.2),
       mentionBg: hexToRgba(accent, 0.22),
       borderSoft: hexToRgba(accent, 0.65),
+      glow: hexToRgba(accent, 0.32),
     },
     presence: {
       available: presence,
@@ -148,6 +189,22 @@ export const resolveThemeTokens = (
       callOnIcon: adjustHex(presence, 0.24),
       zonePillBg: hexToRgba(presenceStrong, 0.85),
       infoText: adjustHex(presence, 0.18),
+      glow: hexToRgba(presence, 0.28),
+    },
+    feedback: {
+      dangerBg: 'rgba(255, 107, 129, 0.15)',
+      dangerBorder: 'rgba(255, 107, 129, 0.38)',
+      warningBg: 'rgba(241, 196, 15, 0.14)',
+      warningBorder: 'rgba(241, 196, 15, 0.36)',
+    },
+    shadows: {
+      xs: '0 2px 6px rgba(4, 6, 20, 0.24)',
+      sm: '0 4px 14px rgba(4, 6, 20, 0.32)',
+      md: '0 10px 26px rgba(4, 6, 20, 0.44)',
+      lg: '0 16px 40px rgba(4, 6, 20, 0.56)',
+      xl: '0 24px 64px rgba(2, 4, 16, 0.68)',
+      focus: `0 0 0 3px ${hexToRgba(accent, 0.32)}`,
+      innerHighlight: 'inset 0 1px 0 rgba(255, 255, 255, 0.07)',
     },
     gradient: {
       server: customized
@@ -156,7 +213,11 @@ export const resolveThemeTokens = (
     },
     radii: RADII,
     spacing: SPACING,
+    blur: BLUR,
+    sizes: SIZES,
     fontSizes: FONT_SIZES,
+    typography: TYPOGRAPHY,
+    motion: MOTION,
     zIndex: Z_INDEX,
   };
 };

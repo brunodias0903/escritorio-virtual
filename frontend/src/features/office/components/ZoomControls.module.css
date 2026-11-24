@@ -15,10 +15,10 @@
   border-radius: var(--radius-xl);
   overflow: hidden;
   background-color: var(--bg-zoom);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  box-shadow: var(--shadow-md), var(--shadow-inner);
 }
 
 .button {
@@ -27,11 +27,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s ease;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
 }
 
 .button:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--bg-hover-overlay);
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.92);
 }
 
 .button:disabled {
@@ -50,20 +56,29 @@
   background-color: var(--bg-zoom);
   border: 1px solid var(--accent-border-soft);
   color: var(--text-primary);
-  font-size: 18px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-extrabold);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-md), var(--shadow-inner);
   transition:
-    background-color 0.15s ease,
-    transform 0.15s ease;
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-spring),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .helpButton:hover {
   background-color: var(--accent);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.04);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 18px var(--accent-glow);
+}
+
+.helpButton:active {
+  transform: scale(0.95);
 }
 
 @media (max-width: 820px) {

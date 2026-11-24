@@ -214,13 +214,13 @@ export function DeskBalloon({
               </div>
             ) : null}
 
-            {state.kind === 'other' && state.canRelease && isStanding ? (
+            {state.kind === 'other' && state.canRelease ? (
               <div className={styles.actions}>
-                <Tip label="Devolver mesa (administração)">
+                <Tip label="Remover mesa (administração)">
                   <button
                     type="button"
                     className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                    aria-label="Devolver mesa (administração)"
+                    aria-label="Remover mesa (administração)"
                     onClick={onRelease}
                   >
                     <Icon name="undo" size={15} />

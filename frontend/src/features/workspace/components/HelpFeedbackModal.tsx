@@ -9,6 +9,7 @@ import {
   canProgressFeedback,
   canResolveFeedback,
   canSeeFeedbackMr,
+  effectiveTiersOf,
   errorMessage,
   type FeedbackItem,
   type FeedbackKind,
@@ -51,11 +52,14 @@ const KIND_EMOJI: Record<FeedbackKind, string> = {
 
 export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
   const { t } = useI18n();
-  const tier = session.user.tier ?? 'tester';
-  const showMr = canSeeFeedbackMr(tier);
-  const canEditMr = canAttachFeedbackMr(tier);
-  const canResolve = canResolveFeedback(tier);
-  const canProgress = canProgressFeedback(tier);
+  const tiers = effectiveTiersOf(
+    session.user.tier ?? 'tester',
+    session.user.secondaryTiers,
+  );
+  const showMr = canSeeFeedbackMr(tiers);
+  const canEditMr = canAttachFeedbackMr(tiers);
+  const canResolve = canResolveFeedback(tiers);
+  const canProgress = canProgressFeedback(tiers);
 
   const [tab, setTab] = useState<Tab>('feedback');
   const [items, setItems] = useState<FeedbackItem[]>([]);

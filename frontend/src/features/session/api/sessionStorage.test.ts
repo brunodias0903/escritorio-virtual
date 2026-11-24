@@ -15,6 +15,7 @@ const session = (exp = NOW / 1000 + 3600): Session => ({
     admin: false,
     kind: 'company',
     tier: 'tester',
+    secondaryTiers: [],
     nickname: 'ana',
     role: '',
   },

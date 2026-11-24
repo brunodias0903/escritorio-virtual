@@ -5,6 +5,7 @@ import type { OfficeSend } from '@/pages/office/routeMessage';
 import {
   canManageServer,
   defaultAppearance,
+  effectiveTiersOf,
   type Appearance,
   type DeskInfo,
   type Session,
@@ -28,7 +29,6 @@ type Props = {
   activeTab: MobileNavTab;
   onSelectTab: (tab: MobileNavTab) => void;
   serverName: string;
-  floorName: string;
   session: Session;
   status: Status;
   appearance: Appearance | undefined;
@@ -60,7 +60,6 @@ export function MobileBottomNav({
   activeTab,
   onSelectTab,
   serverName,
-  floorName,
   session,
   status,
   appearance,
@@ -83,11 +82,12 @@ export function MobileBottomNav({
   onToggleMic,
 }: Props) {
   const { t } = useI18n();
+  const userTiers = effectiveTiersOf(
+    session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
+    session.user.secondaryTiers,
+  );
   const canConfigureServer =
-    Boolean(onOpenServerSettings) &&
-    canManageServer(
-      session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
-    );
+    Boolean(onOpenServerSettings) && canManageServer(userTiers);
   const myAppearance = appearance ?? defaultAppearance(session.user.email);
   const chatBadge =
     mentions > 0 ? `@${mentions}` : unread > 0 ? String(unread) : undefined;
@@ -104,7 +104,6 @@ export function MobileBottomNav({
           <header className={styles.sheetHeader}>
             <div className={styles.sheetTitleGroup}>
               <span className={styles.serverName}>{serverName}</span>
-              <span className={styles.floorBadge}>{floorName}</span>
             </div>
             <div className={styles.sheetActions}>
               {canConfigureServer ? (
@@ -159,10 +158,11 @@ export function MobileBottomNav({
             {activeTab === 'chat' ? (
               <SlackChatView
                 send={send}
+                section="all"
                 expanded={false}
-                userTier={
-                  session.user.tier ?? (session.user.admin ? 'admin' : 'tester')
-                }
+                userTier={userTiers[0] ?? 'tester'}
+                userTiers={userTiers}
+                token={session.token}
               />
             ) : (
               <PeoplePanel

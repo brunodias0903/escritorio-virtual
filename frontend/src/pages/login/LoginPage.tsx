@@ -5,6 +5,7 @@ import { LocalLoginForm } from '@/features/auth/components/LocalLoginForm';
 import { LocalRegisterForm } from '@/features/auth/components/LocalRegisterForm';
 import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm';
 import { LegalModal } from '@/features/legal/LegalModal';
+import { useSessionStore } from '@/features/session/model/sessionStore';
 import { APP_NAME, type AuthOptions } from '@/shared/domain';
 
 import styles from './LoginPage.module.css';
@@ -217,6 +218,8 @@ function CosmicArtwork() {
 export function LoginPage() {
   const [view, setView] = useState<View>('login');
   const [legalOpen, setLegalOpen] = useState(false);
+  const sessionNotice = useSessionStore((s) => s.notice);
+  const clearNotice = useSessionStore((s) => s.clearNotice);
   // O servidor diz o que está ligado. Até responder: sem código e sem dica de domínio.
   const [options, setOptions] = useState<AuthOptions>({
     emailCodes: false,
@@ -257,6 +260,39 @@ export function LoginPage() {
         <div
           className={`${styles.card} ${view === 'register' ? styles.cardWide : ''}`}
         >
+          {sessionNotice ? (
+            <div
+              role="alert"
+              style={{
+                marginBottom: 14,
+                padding: '10px 12px',
+                borderRadius: 10,
+                background: 'rgba(255, 107, 129, 0.16)',
+                border: '1px solid rgba(255, 107, 129, 0.42)',
+                color: '#ffb3be',
+                fontSize: 13,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+              }}
+            >
+              <span>{sessionNotice}</span>
+              <button
+                type="button"
+                aria-label="Fechar aviso"
+                onClick={clearNotice}
+                style={{
+                  color: '#ffb3be',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : null}
           {view === 'register' ? (
             <LocalRegisterForm
               emailCodes={emailCodes}

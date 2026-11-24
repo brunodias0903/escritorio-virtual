@@ -63,8 +63,12 @@ export const ChannelInfoSchema = z.object({
   name: z.string(),
   kind: z.enum(['public', 'dm']),
   archived: z.boolean(),
+  position: z.number().int().min(0).optional(),
   topic: z.string().optional(),
+  viewTiers: z.array(z.enum(ACCOUNT_TIERS)).optional(),
   writeTiers: z.array(z.enum(ACCOUNT_TIERS)).optional(),
+  allowedEmails: z.array(z.string()).optional(),
+  blockedEmails: z.array(z.string()).optional(),
   /** Nas conversas diretas, as duas pessoas. */
   members: z.array(z.object({ email: z.string(), name: z.string() })),
   unread: z.number().int().min(0),
@@ -208,6 +212,20 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('multiDeviceNotice'),
     activeElsewhere: z.boolean(),
+  }),
+  /** A conta sofreu ação de moderação (banida, kickada, restringida ou removida) e foi desconectada. */
+  z.object({
+    type: z.literal('accountModerated'),
+    action: z.enum(['banned', 'kicked', 'restricted', 'removed']),
+    reason: z.string().optional(),
+  }),
+  /** Cargos/acessos da conta foram atualizados em tempo real no painel administrativo. */
+  z.object({
+    type: z.literal('accountUpdated'),
+    tier: z.enum(ACCOUNT_TIERS),
+    secondaryTiers: z.array(z.enum(ACCOUNT_TIERS)),
+    admin: z.boolean(),
+    role: z.string(),
   }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

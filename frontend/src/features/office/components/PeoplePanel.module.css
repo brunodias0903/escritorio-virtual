@@ -40,9 +40,14 @@
   gap: 8px;
   margin: 10px;
   padding: 0 10px;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background-color: var(--bg-input);
   flex-shrink: 0;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .searchInput {
@@ -52,7 +57,7 @@
   border: none;
   background: transparent;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .searchInput:focus-visible {
@@ -60,7 +65,9 @@
 }
 
 .search:focus-within {
-  outline: 2px solid var(--accent-link);
+  background-color: var(--bg-input-hover);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
 }
 
 .searchInput::placeholder {
@@ -83,6 +90,11 @@
   flex-direction: column;
   padding: 9px 12px;
   gap: 8px;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.row:hover {
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 .rowOffline {
@@ -124,6 +136,43 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+  margin-bottom: 1px;
+}
+
+.primaryRole,
+.secondaryRole {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  border: 1px solid var(--border-subtle);
+}
+
+.primaryRole {
+  color: var(--text-primary);
+}
+
+.secondaryRole {
+  color: var(--text-secondary);
+  background: var(--bg-control);
+}
+
+.roleDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .detail {

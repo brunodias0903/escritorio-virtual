@@ -109,6 +109,17 @@ export class DeskService {
     return ok(freeDesk(map, deskId));
   }
 
+  /**
+   * Remove automaticamente a mesa adotada por um usuário (ex.: ao banir,
+   * kickar, restringir ou excluir a conta). Devolve a mesa liberada ou null.
+   */
+  async releaseByOwner(email: string): Promise<DeskInfo | null> {
+    const record = await this.desks.byOwner(email);
+    if (!record) return null;
+    await this.desks.release(record.map, record.deskId);
+    return freeDesk(record.map as MapId, record.deskId);
+  }
+
   async configure(
     email: string,
     map: MapId,

@@ -4,15 +4,22 @@ import {
   ACCOUNT_TIERS,
   ApiErrorSchema,
   DEFAULT_SERVER_SETTINGS,
+  DeskInfoSchema,
   FeedbackCommentSchema,
   FeedbackItemSchema,
+  ManagedAccountSchema,
+  ModerateAccountResponseSchema,
   ServerSettingsSchema,
   type CreateChannelConfig,
   type CreateFeedback,
   type CreateFeedbackComment,
   type FeedbackComment,
   type FeedbackItem,
+  type ManagedAccount,
+  type ModerateAccount,
+  type ReorderChannels,
   type ServerSettings,
+  type UpdateAccountRoles,
   type UpdateChannelConfig,
   type UpdateFeedback,
   type UpdateServerSettings,
@@ -25,8 +32,12 @@ export const ManagedChannelSchema = z.object({
   name: z.string(),
   kind: z.enum(['public', 'dm']),
   archived: z.boolean(),
+  position: z.number().int().min(0).default(0),
   topic: z.string().default(''),
+  viewTiers: z.array(z.enum(ACCOUNT_TIERS)).default([...ACCOUNT_TIERS]),
   writeTiers: z.array(z.enum(ACCOUNT_TIERS)).default([...ACCOUNT_TIERS]),
+  allowedEmails: z.array(z.string()).default([]),
+  blockedEmails: z.array(z.string()).default([]),
 });
 export type ManagedChannel = z.infer<typeof ManagedChannelSchema>;
 
@@ -106,6 +117,14 @@ export function createWorkspaceApi({ baseUrl }: { baseUrl: string }) {
         { method: 'PUT', token, body },
       ),
 
+    reorderChannels: (token: string, body: ReorderChannels) =>
+      request(
+        baseUrl,
+        '/api/server/channels/reorder',
+        z.object({ channels: z.array(ManagedChannelSchema) }),
+        { method: 'PUT', token, body },
+      ),
+
     listFeedback: (token: string) =>
       request(
         baseUrl,
@@ -141,8 +160,44 @@ export function createWorkspaceApi({ baseUrl }: { baseUrl: string }) {
         z.object({ comment: FeedbackCommentSchema }),
         { method: 'POST', token, body },
       ),
+
+    listAccounts: (token: string) =>
+      request(
+        baseUrl,
+        '/api/server/accounts',
+        z.object({ accounts: z.array(ManagedAccountSchema) }),
+        { token },
+      ),
+
+    updateAccountRoles: (
+      token: string,
+      email: string,
+      body: UpdateAccountRoles,
+    ) =>
+      request(
+        baseUrl,
+        `/api/server/accounts/${encodeURIComponent(email)}/roles`,
+        z.object({ account: ManagedAccountSchema }),
+        { method: 'PUT', token, body },
+      ),
+
+    moderateAccount: (token: string, email: string, body: ModerateAccount) =>
+      request(
+        baseUrl,
+        `/api/server/accounts/${encodeURIComponent(email)}/moderate`,
+        ModerateAccountResponseSchema,
+        { method: 'POST', token, body },
+      ),
+
+    releaseAccountDesk: (token: string, email: string) =>
+      request(
+        baseUrl,
+        `/api/server/accounts/${encodeURIComponent(email)}/desk`,
+        z.object({ desk: DeskInfoSchema }),
+        { method: 'DELETE', token },
+      ),
   };
 }
 
 export type WorkspaceApi = ReturnType<typeof createWorkspaceApi>;
-export type { FeedbackItem };
+export type { FeedbackItem, ManagedAccount };

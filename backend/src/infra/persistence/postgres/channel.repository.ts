@@ -16,25 +16,36 @@ type ChannelDbRow = {
   name: string;
   kind: 'public' | 'dm';
   archived: boolean;
+  position?: number | string | null;
   topic?: string | null;
+  view_tiers?: AccountTier[] | null;
   write_tiers?: AccountTier[] | null;
+  allowed_emails?: string[] | null;
+  blocked_emails?: string[] | null;
   created_by: string | null;
   created_at: string | number;
 };
 
 const CHANNEL_COLUMNS =
-  'id, name, kind, archived, topic, write_tiers, created_by, created_at';
+  'id, name, kind, archived, position, topic, view_tiers, write_tiers, allowed_emails, blocked_emails, created_by, created_at';
 
 const toChannel = (row: ChannelDbRow): ChannelRow => ({
   id: row.id,
   name: row.name,
   kind: row.kind,
   archived: row.archived,
+  position: Number(row.position ?? 0),
   topic: row.topic ?? '',
+  viewTiers:
+    Array.isArray(row.view_tiers) && row.view_tiers.length > 0
+      ? row.view_tiers
+      : [...ACCOUNT_TIERS],
   writeTiers:
     Array.isArray(row.write_tiers) && row.write_tiers.length > 0
       ? row.write_tiers
       : [...ACCOUNT_TIERS],
+  allowedEmails: Array.isArray(row.allowed_emails) ? row.allowed_emails : [],
+  blockedEmails: Array.isArray(row.blocked_emails) ? row.blocked_emails : [],
   createdBy: row.created_by,
   createdAt: Number(row.created_at),
 });
@@ -56,7 +67,7 @@ export class PgChannelRepository implements ChannelRepository {
 
   async listPublic() {
     const { rows } = await this.db.query(
-      `SELECT ${CHANNEL_COLUMNS} FROM channels WHERE kind = 'public' ORDER BY created_at, name`,
+      `SELECT ${CHANNEL_COLUMNS} FROM channels WHERE kind = 'public' ORDER BY position ASC, created_at ASC, name ASC`,
     );
     return rows.map((row) => toChannel(row as ChannelDbRow));
   }
@@ -76,15 +87,19 @@ export class PgChannelRepository implements ChannelRepository {
   async create(channel: ChannelRow) {
     try {
       await this.db.query(
-        `INSERT INTO channels (id, name, kind, archived, topic, write_tiers, created_by, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        `INSERT INTO channels (id, name, kind, archived, position, topic, view_tiers, write_tiers, allowed_emails, blocked_emails, created_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           channel.id,
           channel.name,
           channel.kind,
           channel.archived,
+          channel.position ?? 0,
           channel.topic ?? '',
+          channel.viewTiers ?? [...ACCOUNT_TIERS],
           channel.writeTiers ?? [...ACCOUNT_TIERS],
+          channel.allowedEmails ?? [],
+          channel.blockedEmails ?? [],
           channel.createdBy,
           channel.createdAt,
         ],
@@ -106,21 +121,57 @@ export class PgChannelRepository implements ChannelRepository {
 
   async updateConfig(
     id: string,
-    patch: { topic?: string; writeTiers?: AccountTier[]; archived?: boolean },
+    patch: {
+      topic?: string;
+      viewTiers?: AccountTier[];
+      writeTiers?: AccountTier[];
+      allowedEmails?: string[];
+      blockedEmails?: string[];
+      archived?: boolean;
+    },
   ) {
     const existing = await this.get(id);
     if (!existing) return false;
     const { rowCount } = await this.db.query(
       `UPDATE channels
-       SET topic = $2, write_tiers = $3, archived = $4
+       SET topic = $2, view_tiers = $3, write_tiers = $4, allowed_emails = $5, blocked_emails = $6, archived = $7
        WHERE id = $1`,
       [
         id,
         patch.topic ?? existing.topic ?? '',
+        patch.viewTiers ?? existing.viewTiers ?? [...ACCOUNT_TIERS],
         patch.writeTiers ?? existing.writeTiers ?? [...ACCOUNT_TIERS],
+        patch.allowedEmails ?? existing.allowedEmails ?? [],
+        patch.blockedEmails ?? existing.blockedEmails ?? [],
         patch.archived ?? existing.archived,
       ],
     );
     return rowCount === 1;
+  }
+
+  async reorder(orderedIds: string[]) {
+    const existing = await this.listPublic();
+    const seen = new Set<string>();
+    const fullOrder: string[] = [];
+    for (const id of orderedIds) {
+      if (!seen.has(id) && existing.some((c) => c.id === id)) {
+        seen.add(id);
+        fullOrder.push(id);
+      }
+    }
+    for (const row of existing) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        fullOrder.push(row.id);
+      }
+    }
+    await Promise.all(
+      fullOrder.map((id, index) =>
+        this.db.query(
+          `UPDATE channels SET position = $2 WHERE id = $1 AND kind = 'public'`,
+          [id, index],
+        ),
+      ),
+    );
   }
 }

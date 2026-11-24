@@ -43,7 +43,14 @@ export class WsGateway {
   private readonly sockets = new Map<string, WebSocket>();
   private readonly activeByEmail = new Map<
     string,
-    { id: string; displace: () => Promise<void> }
+    {
+      id: string;
+      displace: () => Promise<void>;
+      kick: (
+        action: 'banned' | 'kicked' | 'restricted' | 'removed',
+        reason?: string,
+      ) => Promise<void>;
+    }
   >();
   private readonly deps: WsGatewayDeps;
   private readonly onError: (error: unknown) => void;
@@ -56,6 +63,16 @@ export class WsGateway {
 
   /** Entrega aos sockets desta instância que devem receber a mensagem. */
   deliverLocal = (sender: string, outgoing: Outgoing): void => {
+    if (outgoing.message.type === 'accountModerated' && outgoing.emails) {
+      const { action, reason } = outgoing.message;
+      for (const email of outgoing.emails) {
+        const active = this.activeByEmail.get(email);
+        if (active) {
+          void active.kick(action, reason).catch(this.onError);
+        }
+      }
+      return;
+    }
     const { office } = this.deps;
     for (const [id, socket] of this.sockets) {
       if (outgoing.to === 'self' && id !== sender) continue;
@@ -105,6 +122,7 @@ export class WsGateway {
           this.activeByEmail.set(email, {
             id,
             displace: () => connection.displace(),
+            kick: (action, reason) => connection.kick(action, reason),
           });
           return hadOther;
         },

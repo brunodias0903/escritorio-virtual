@@ -1,40 +1,89 @@
 import { z } from 'zod';
-import { ACCOUNT_TIERS, type AccountTier } from './auth';
+import { ACCOUNT_TIERS, normalizeEmail, type AccountTier } from './auth';
 
-// --- Permissões por tier ------------------------------------------------------
+// --- Permissões por tier (aceita 1 tier ou lista de tiers: principal + secundários) ---
 
-export const canManageServer = (tier: AccountTier): boolean =>
-  tier === 'master' || tier === 'admin';
+export type TierInput = AccountTier | readonly AccountTier[];
+
+const asTiers = (input: TierInput): readonly AccountTier[] =>
+  typeof input === 'string' ? [input] : input;
+
+const hasAnyTier = (
+  input: TierInput,
+  allowed: readonly AccountTier[],
+): boolean => asTiers(input).some((t) => allowed.includes(t));
+
+export const canManageServer = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master', 'admin']);
+
+/** Apenas a conta master pode moderar contas (banir, kickar, restringir, remover). */
+export const canModerateAccounts = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master']);
+
+/** Master e administradores podem manipular acessos e cargos no painel administrativo. */
+export const canManageMembers = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master', 'admin']);
+
+/** Master e administradores podem remover/devolver mesas de outros usuários. */
+export const canManageDesks = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master', 'admin']);
 
 /** Tiers que podem visualizar o link de MR/PR em itens de feedback. */
-export const canSeeFeedbackMr = (tier: AccountTier): boolean =>
-  tier === 'master' ||
-  tier === 'admin' ||
-  tier === 'developer' ||
-  tier === 'tester';
+export const canSeeFeedbackMr = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master', 'admin', 'developer', 'tester']);
 
 /** Tiers que podem vincular/editar um link de MR/PR em um item de feedback. */
-export const canAttachFeedbackMr = (tier: AccountTier): boolean =>
-  tier === 'master' || tier === 'admin' || tier === 'developer';
+export const canAttachFeedbackMr = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master', 'admin', 'developer']);
 
 /** Tiers que podem marcar uma solicitação como concluída, fechada ou reaberta. */
-export const canResolveFeedback = (tier: AccountTier): boolean =>
-  tier === 'master' || tier === 'admin' || tier === 'tester';
+export const canResolveFeedback = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master', 'admin', 'tester']);
 
 /** Tiers que podem mover uma solicitação para em progresso ou em teste. */
-export const canProgressFeedback = (tier: AccountTier): boolean =>
-  tier === 'master' ||
-  tier === 'admin' ||
-  tier === 'developer' ||
-  tier === 'tester';
+export const canProgressFeedback = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master', 'admin', 'developer', 'tester']);
+
+export type ChannelAccess = {
+  viewTiers?: readonly AccountTier[];
+  writeTiers?: readonly AccountTier[];
+  allowedEmails?: readonly string[];
+  blockedEmails?: readonly string[];
+};
+
+export const canViewChannel = (
+  access: Pick<ChannelAccess, 'viewTiers' | 'allowedEmails' | 'blockedEmails'>,
+  tiers: TierInput,
+  email?: string,
+): boolean => {
+  const list = asTiers(tiers);
+  if (list.includes('master')) return true;
+  const normalized = email ? normalizeEmail(email) : null;
+  if (normalized && access.blockedEmails?.includes(normalized)) return false;
+  if (normalized && access.allowedEmails?.includes(normalized)) return true;
+  if (!access.viewTiers || access.viewTiers.length === 0) return true;
+  return list.some((t) => access.viewTiers!.includes(t));
+};
 
 export const canWriteInChannel = (
   writeTiers: readonly AccountTier[] | undefined,
-  tier: AccountTier,
+  tiers: TierInput,
+  access?: Pick<ChannelAccess, 'viewTiers' | 'allowedEmails' | 'blockedEmails'>,
+  email?: string,
 ): boolean => {
-  if (tier === 'master') return true;
+  if (access && !canViewChannel(access, tiers, email)) return false;
+  const list = asTiers(tiers);
+  if (list.includes('master')) return true;
   if (!writeTiers || writeTiers.length === 0) return true;
-  return writeTiers.includes(tier);
+  if (
+    email &&
+    access?.allowedEmails?.includes(normalizeEmail(email)) &&
+    access.viewTiers &&
+    access.viewTiers.every((t) => writeTiers.includes(t))
+  ) {
+    return true;
+  }
+  return list.some((t) => writeTiers.includes(t));
 };
 
 // --- Configurações do servidor ------------------------------------------------
@@ -75,9 +124,14 @@ export const UpdateServerSettingsSchema = z.object({
 });
 export type UpdateServerSettings = z.infer<typeof UpdateServerSettingsSchema>;
 
+const EmailListSchema = z.array(z.string().trim().email().max(254)).max(200);
+
 export const UpdateChannelConfigSchema = z.object({
   topic: z.string().trim().max(160).optional(),
+  viewTiers: z.array(z.enum(ACCOUNT_TIERS)).min(1).optional(),
   writeTiers: z.array(z.enum(ACCOUNT_TIERS)).min(1).optional(),
+  allowedEmails: EmailListSchema.optional(),
+  blockedEmails: EmailListSchema.optional(),
   archived: z.boolean().optional(),
 });
 export type UpdateChannelConfig = z.infer<typeof UpdateChannelConfigSchema>;
@@ -85,12 +139,23 @@ export type UpdateChannelConfig = z.infer<typeof UpdateChannelConfigSchema>;
 export const CreateChannelConfigSchema = z.object({
   name: z.string().trim().min(2).max(30),
   topic: z.string().trim().max(160).default(''),
+  viewTiers: z
+    .array(z.enum(ACCOUNT_TIERS))
+    .min(1)
+    .default([...ACCOUNT_TIERS]),
   writeTiers: z
     .array(z.enum(ACCOUNT_TIERS))
     .min(1)
     .default([...ACCOUNT_TIERS]),
+  allowedEmails: EmailListSchema.default([]),
+  blockedEmails: EmailListSchema.default([]),
 });
 export type CreateChannelConfig = z.infer<typeof CreateChannelConfigSchema>;
+
+export const ReorderChannelsSchema = z.object({
+  channelIds: z.array(z.string().trim().min(1).max(60)).min(1).max(200),
+});
+export type ReorderChannels = z.infer<typeof ReorderChannelsSchema>;
 
 // --- Central de feedback / sugestões / bugs -----------------------------------
 
@@ -165,3 +230,72 @@ export const CreateFeedbackCommentSchema = z.object({
   body: z.string().trim().min(1, 'Escreva uma resposta.').max(1000),
 });
 export type CreateFeedbackComment = z.infer<typeof CreateFeedbackCommentSchema>;
+
+// --- Moderação de contas e mesas (Master) -------------------------------------
+
+export const MODERATION_ACTIONS = [
+  'ban',
+  'unban',
+  'kick',
+  'restrict',
+  'unrestrict',
+  'remove',
+] as const;
+export type ModerationAction = (typeof MODERATION_ACTIONS)[number];
+
+export const ManagedAccountDeskSchema = z.object({
+  map: z.string(),
+  deskId: z.string(),
+  label: z.string(),
+});
+export type ManagedAccountDesk = z.infer<typeof ManagedAccountDeskSchema>;
+
+export const ManagedAccountSchema = z.object({
+  email: z.string(),
+  fullName: z.string(),
+  nickname: z.string(),
+  role: z.string(),
+  tier: z.enum(ACCOUNT_TIERS),
+  secondaryTiers: z.array(z.enum(ACCOUNT_TIERS)).default([]),
+  online: z.boolean().default(false),
+  status: z.enum(['available', 'busy', 'away', 'offline']).default('offline'),
+  map: z.string().nullable().default(null),
+  bannedAt: z.number().nullable().default(null),
+  banReason: z.string().default(''),
+  restrictedUntil: z.number().nullable().default(null),
+  restrictionReason: z.string().default(''),
+  desk: ManagedAccountDeskSchema.nullable().default(null),
+  createdAt: z.number(),
+});
+export type ManagedAccount = z.infer<typeof ManagedAccountSchema>;
+
+export const UpdateAccountRolesSchema = z.object({
+  /** Cargo principal (destaque e cor principal da conta). */
+  tier: z.enum(ACCOUNT_TIERS),
+  /** Cargos secundários (somam permissões e badges, estilo Discord). */
+  secondaryTiers: z
+    .array(z.enum(ACCOUNT_TIERS))
+    .max(ACCOUNT_TIERS.length)
+    .default([]),
+  /** Cargo / função exibido no perfil e na mesa (opcional). */
+  role: z.string().trim().max(60).optional(),
+});
+export type UpdateAccountRoles = z.infer<typeof UpdateAccountRolesSchema>;
+
+export const ModerateAccountSchema = z.object({
+  action: z.enum(MODERATION_ACTIONS),
+  reason: z.string().trim().max(200).optional(),
+  /** Duração da restrição em minutos (apenas para action = 'restrict'; padrão 60 min). */
+  durationMinutes: z.number().int().min(1).max(43_200).optional(),
+});
+export type ModerateAccount = z.infer<typeof ModerateAccountSchema>;
+
+export const ModerateAccountResponseSchema = z.object({
+  email: z.string(),
+  action: z.enum(MODERATION_ACTIONS),
+  deskReleased: z.boolean(),
+  account: ManagedAccountSchema.nullable(),
+});
+export type ModerateAccountResponse = z.infer<
+  typeof ModerateAccountResponseSchema
+>;

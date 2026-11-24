@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { authApi, workspaceApi } from '@/app/api';
 import { WS_URL } from '@/app/config';
-import { endSession } from '@/app/session';
+import { endSession, patchSessionUser } from '@/app/session';
 import { useAccessibilityStore } from '@/features/accessibility/accessibilityStore';
 import { AccountModal } from '@/features/auth/components/AccountModal';
 import { EmailPrefsPrompt } from '@/features/auth/components/EmailPrefsPrompt';
@@ -149,7 +149,7 @@ export function OfficePage({ session }: { session: Session }) {
   const desks = useDeskStore((state) => state.desks);
   const allPeople = usePeopleStore((state) => state.people);
   const [peopleQuery, setPeopleQuery] = useState('');
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chat');
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('channels');
 
   const keyboard = useKeyboardDirection();
   const touch = useRef<Direction>({ dx: 0, dy: 0 });
@@ -228,10 +228,27 @@ export function OfficePage({ session }: { session: Session }) {
     setPanelOpen(wide);
   }, [wide, setPanelOpen]);
 
-  // Ao ver um canal na aba Chat, ele conta como lido também no servidor.
+  // Ao ver um canal ou DM na aba correspondente, ele conta como lido também no servidor.
+  const activeChannelObj = useChatStore((s) =>
+    s.channels.find((c) => c.id === s.active),
+  );
+  const channelUnread = useChatStore((s) =>
+    totalUnread(s.channels.filter((c) => c.kind === 'public')),
+  );
+  const channelMentions = useChatStore((s) =>
+    totalMentions(s.channels.filter((c) => c.kind === 'public')),
+  );
+  const dmUnread = useChatStore((s) =>
+    totalUnread(s.channels.filter((c) => c.kind === 'dm')),
+  );
+  const dmMentions = useChatStore((s) =>
+    totalMentions(s.channels.filter((c) => c.kind === 'dm')),
+  );
   const chatVisible = isMobile
     ? mobileTab === 'chat'
-    : panelOpen && sidebarTab === 'chat';
+    : panelOpen &&
+      ((sidebarTab === 'channels' && activeChannelObj?.kind === 'public') ||
+        (sidebarTab === 'dms' && activeChannelObj?.kind === 'dm'));
   useEffect(() => {
     if (chatVisible) {
       socketRef.current?.send({ type: 'markRead', channel: active });
@@ -251,6 +268,19 @@ export function OfficePage({ session }: { session: Session }) {
           { set: setMedia, setUnavailable: setMediaUnavailable },
           setNotice,
           setDisplaced,
+          (action, reason) => {
+            const labels: Record<typeof action, string> = {
+              banned: 'Sua conta foi banida do servidor.',
+              kicked: 'Você foi desconectado pela moderação.',
+              restricted: 'Sua conta foi temporariamente restringida.',
+              removed: 'Sua conta foi removida do servidor.',
+            };
+            const suffix = reason ? ` Motivo: ${reason}` : '';
+            void endSession(session.token, `${labels[action]}${suffix}`);
+          },
+          (update) => {
+            patchSessionUser(update);
+          },
         ),
       onStatus: setStatus,
     });
@@ -344,7 +374,7 @@ export function OfficePage({ session }: { session: Session }) {
   };
   const openDm = (email: string) => {
     send({ type: 'openDm', email });
-    setSidebarTab('chat');
+    setSidebarTab('dms');
     setPanelOpen(true);
   };
   const openAccount = () => {
@@ -377,6 +407,7 @@ export function OfficePage({ session }: { session: Session }) {
 
   // A chamada em que devo estar: a da zona, a conversa com quem está perto
   // na estrada, ou nenhuma. Usa as posições de destino (o passo já valeu).
+  const isBusy = me?.status === 'busy';
   const callId = me
     ? callKey(
         map,
@@ -388,10 +419,11 @@ export function OfficePage({ session }: { session: Session }) {
   const currentCallKey = callId ? `${view.snapshot.map}:${callId}` : null;
   const optedOut = currentCallKey !== null && leftCallKey === currentCallKey;
 
-  // O acesso só vale enquanto conectado ao servidor, sem ter saído manualmente e na mesma chamada/sala.
-  // Se a conexão WebSocket cair (ex.: túnel fechado), desconecta do LiveKit na hora para não deixar "fantasmas".
+  // O acesso só vale enquanto conectado ao servidor, online (não Ocupado), sem ter saído manualmente e na mesma chamada/sala.
+  // Se a conexão WebSocket cair (ex.: túnel fechado) ou o usuário ficar Ocupado, desconecta do LiveKit na hora.
   const access =
     status === 'open' &&
+    !isBusy &&
     !optedOut &&
     media &&
     media.zone === callId &&
@@ -403,20 +435,24 @@ export function OfficePage({ session }: { session: Session }) {
   // Se o servidor respondeu com outra chamada (alguém se mexeu), pede de novo.
   const accessOk = access !== null;
   useEffect(() => {
-    if (!callId || optedOut || status !== 'open' || accessOk) return;
+    if (!callId || isBusy || optedOut || status !== 'open' || accessOk) return;
     const timer = window.setTimeout(
       () => socketRef.current?.send({ type: 'media' }),
       ZONE_DWELL_MS,
     );
     return () => window.clearTimeout(timer);
-  }, [callId, optedOut, view.snapshot.map, status, accessOk, media]);
+  }, [callId, isBusy, optedOut, view.snapshot.map, status, accessOk, media]);
 
   const call = useCall({
     access,
-    inCall: status === 'open' && !optedOut && callId !== null,
+    inCall: status === 'open' && !isBusy && !optedOut && callId !== null,
     unavailable:
-      status === 'open' && !optedOut && mediaUnavailable && callId !== null,
-    lockedByBusy: me?.status === 'busy',
+      status === 'open' &&
+      !isBusy &&
+      !optedOut &&
+      mediaUnavailable &&
+      callId !== null,
+    lockedByBusy: isBusy,
     snapshotRef,
   });
 
@@ -444,7 +480,9 @@ export function OfficePage({ session }: { session: Session }) {
     const prev = me?.status;
     send({ type: 'status', status: next });
     if (next === 'busy') {
-      // Ocupado: muta áudio, microfone, desliga câmera e interrompe tela.
+      // Ocupado: sai da chamada imediatamente e pausa áudio, microfone, câmera e tela.
+      setSpotlightKey(null);
+      setMedia(null);
       call.setAudioOn(false);
       call.silenceLocal();
     } else if (next === 'away') {
@@ -469,13 +507,6 @@ export function OfficePage({ session }: { session: Session }) {
   const callName = callId
     ? (zoneName ?? (nearCall ? 'Conversa por perto' : null))
     : null;
-  const zoneLabel = callName
-    ? optedOut
-      ? `${callName} · fora da chamada`
-      : call.status === 'on'
-        ? `${callName} · em chamada`
-        : `${callName} · ${call.status === 'unavailable' ? 'sem chamadas' : 'entrando na chamada…'}`
-    : 'Estrada · aproxime-se de alguém para conversar';
 
   return (
     <div className={styles.container}>
@@ -484,7 +515,6 @@ export function OfficePage({ session }: { session: Session }) {
           activeTab={mobileTab}
           onSelectTab={setMobileTab}
           serverName={serverSettings.name}
-          floorName={status === 'open' ? map.name : STATUS_LABEL[status]}
           session={session}
           status={me?.status ?? 'available'}
           appearance={me?.appearance}
@@ -504,6 +534,7 @@ export function OfficePage({ session }: { session: Session }) {
           inActiveCall={
             callId !== null &&
             status === 'open' &&
+            !isBusy &&
             !optedOut &&
             call.status === 'on'
           }
@@ -515,15 +546,16 @@ export function OfficePage({ session }: { session: Session }) {
         <WorkspaceSidebar
           serverName={serverSettings.name}
           serverIcon={serverSettings.icon}
-          floorName={status === 'open' ? map.name : STATUS_LABEL[status]}
           session={session}
           status={me?.status ?? 'available'}
           appearance={me?.appearance}
           wide={wide}
           open={panelOpen}
           tab={sidebarTab}
-          unread={unread}
-          mentions={mentions}
+          channelUnread={channelUnread}
+          channelMentions={channelMentions}
+          dmUnread={dmUnread}
+          dmMentions={dmMentions}
           online={onlinePeople}
           peopleMe={people.me}
           peopleOthers={people.others}
@@ -552,9 +584,6 @@ export function OfficePage({ session }: { session: Session }) {
           speakingIds={call.speakingIds}
           onGoToArea={(areaId) =>
             world.goTo({ map: view.snapshot.map, areaId })
-          }
-          onWalkToPoint={(point) =>
-            world.goTo({ map: view.snapshot.map, point })
           }
           myEmail={myEmail}
           iHaveDesk={mine !== undefined}
@@ -588,25 +617,18 @@ export function OfficePage({ session }: { session: Session }) {
           width={gameSize.width}
           compact={compact}
           spotlightKey={
-            callId !== null && status === 'open' && !optedOut
+            callId !== null && status === 'open' && !isBusy && !optedOut
               ? spotlightKey
               : null
           }
           onSpotlightChange={setSpotlightKey}
         />
 
-        <div className={styles.topBar}>
-          <span className={styles.pill}>
-            {status === 'open' ? map.name : STATUS_LABEL[status]}
-          </span>
-          {status === 'open' ? (
-            <span
-              className={`${styles.pill} ${callName && !optedOut ? styles.pillZone : ''}`}
-            >
-              {zoneLabel}
-            </span>
-          ) : null}
-        </div>
+        {status !== 'open' ? (
+          <div className={styles.topBar}>
+            <span className={styles.pill}>{STATUS_LABEL[status]}</span>
+          </div>
+        ) : null}
 
         {movingDeskId && mine?.map === view.snapshot.map ? (
           <div className={styles.moveBanner} role="status">
@@ -655,7 +677,7 @@ export function OfficePage({ session }: { session: Session }) {
             call={call}
             hasDesk={mine !== undefined}
             onGoToMyDesk={() => mine && goToDesk(mine)}
-            inCallZone={callId !== null && status === 'open'}
+            inCallZone={callId !== null && status === 'open' && !isBusy}
             optedOut={optedOut}
             onLeaveCall={() => {
               setLeftCallKey(currentCallKey);
@@ -666,6 +688,7 @@ export function OfficePage({ session }: { session: Session }) {
             selfCamExpanded={
               callId !== null &&
               status === 'open' &&
+              !isBusy &&
               !optedOut &&
               spotlightKey === 'self'
             }
@@ -681,7 +704,7 @@ export function OfficePage({ session }: { session: Session }) {
             call={call}
             hasDesk={mine !== undefined}
             onGoToMyDesk={() => mine && goToDesk(mine)}
-            inCallZone={callId !== null && status === 'open'}
+            inCallZone={callId !== null && status === 'open' && !isBusy}
             optedOut={optedOut}
             onLeaveCall={() => {
               setLeftCallKey(currentCallKey);
@@ -692,6 +715,7 @@ export function OfficePage({ session }: { session: Session }) {
             selfCamExpanded={
               callId !== null &&
               status === 'open' &&
+              !isBusy &&
               !optedOut &&
               spotlightKey === 'self'
             }
@@ -702,7 +726,6 @@ export function OfficePage({ session }: { session: Session }) {
             unread={unread}
             mentions={mentions}
             onOpenSidebar={() => setPanelOpen(true)}
-            compact={compact}
             onStatus={handleStatusChange}
             onEmote={(emote) => send({ type: 'emote', emote })}
             onAvatar={() => setAvatarOpen(true)}

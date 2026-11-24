@@ -57,9 +57,10 @@
 .brandName {
   margin: 0;
   color: #ffffff;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-snug);
 }
 
 .heroHeadline {
@@ -72,10 +73,11 @@
 .heroLine,
 .heroAccent {
   margin: 0;
+  font-family: var(--font-display);
   font-size: clamp(28px, 3.2vw, 44px);
-  font-weight: 800;
-  line-height: 1.06;
-  letter-spacing: -0.02em;
+  font-weight: var(--font-extrabold);
+  line-height: 1.05;
+  letter-spacing: var(--tracking-tighter);
   text-transform: uppercase;
 }
 

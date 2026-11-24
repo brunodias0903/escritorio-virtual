@@ -141,6 +141,37 @@ describe.each(suites)('repositórios (%s)', (_name, setup) => {
       expect(await channels.setArchived('nada', true)).toBe(false);
     });
 
+    it('atualiza permissões e reordena canais públicos', async () => {
+      const { channels } = repos;
+      expect(
+        await channels.updateConfig?.('projetos', {
+          topic: 'Projetos ativos',
+          viewTiers: ['master', 'admin', 'developer'],
+          writeTiers: ['master', 'admin'],
+          allowedEmails: ['extra@x.com'],
+          blockedEmails: ['fora@x.com'],
+        }),
+      ).toBe(true);
+      expect(await channels.updateConfig?.('inexistente', { topic: 'x' })).toBe(
+        false,
+      );
+      const updated = await channels.get('projetos');
+      expect(updated).toMatchObject({
+        topic: 'Projetos ativos',
+        viewTiers: ['master', 'admin', 'developer'],
+        writeTiers: ['master', 'admin'],
+        allowedEmails: ['extra@x.com'],
+        blockedEmails: ['fora@x.com'],
+      });
+
+      await channels.reorder?.(['projetos', 'aleatorio', 'geral']);
+      expect((await channels.listPublic()).map((c) => c.id)).toEqual([
+        'projetos',
+        'aleatorio',
+        'geral',
+      ]);
+    });
+
     it('lista só as conversas diretas da pessoa', async () => {
       const { channels } = repos;
       const dm = (id: string) => ({
@@ -356,6 +387,76 @@ describe.each(suites)('repositórios (%s)', (_name, setup) => {
       expect(await local.create({ ...ana, nickname: 'outra' })).toBe(
         'email_taken',
       );
+    });
+
+    it('grava e remove banimento e restrição temporária', async () => {
+      const { local } = repos;
+      await local.create(ana);
+      expect(
+        await local.setModeration?.('ana@empresa.com', {
+          bannedAt: 500,
+          banReason: 'Conduta',
+        }),
+      ).toBe('ok');
+      expect(await local.byEmail('ana@empresa.com')).toMatchObject({
+        bannedAt: 500,
+        banReason: 'Conduta',
+      });
+
+      expect(
+        await local.setModeration?.('ana@empresa.com', {
+          bannedAt: null,
+          banReason: '',
+          restrictedUntil: 900,
+          restrictionReason: 'Pausa',
+        }),
+      ).toBe('ok');
+      const afterUnban = await local.byEmail('ana@empresa.com');
+      expect(afterUnban?.bannedAt).toBeUndefined();
+      expect(afterUnban?.banReason).toBeUndefined();
+      expect(afterUnban).toMatchObject({
+        restrictedUntil: 900,
+        restrictionReason: 'Pausa',
+      });
+
+      expect(
+        await local.setModeration?.('ninguem@x.com', { bannedAt: 1 }),
+      ).toBe('not_found');
+    });
+
+    it('atualiza cargo principal, cargos secundários e função exibida', async () => {
+      const { local } = repos;
+      await local.create(ana);
+      expect(
+        await local.setRoles?.('ana@empresa.com', {
+          tier: 'developer',
+          secondaryTiers: ['developer', 'admin', 'designer'],
+          role: 'Tech Lead',
+        }),
+      ).toBe('ok');
+      expect(await local.byEmail('ana@empresa.com')).toMatchObject({
+        tier: 'developer',
+        secondaryTiers: ['admin', 'designer'],
+        role: 'Tech Lead',
+      });
+
+      expect(
+        await local.setRoles?.('ana@empresa.com', {
+          tier: 'tester',
+          secondaryTiers: [],
+        }),
+      ).toBe('ok');
+      const cleared = await local.byEmail('ana@empresa.com');
+      expect(cleared?.tier).toBe('tester');
+      expect(cleared?.secondaryTiers).toBeUndefined();
+      expect(cleared?.role).toBe('Tech Lead');
+
+      expect(
+        await local.setRoles?.('ninguem@x.com', {
+          tier: 'tester',
+          secondaryTiers: [],
+        }),
+      ).toBe('not_found');
     });
   });
 

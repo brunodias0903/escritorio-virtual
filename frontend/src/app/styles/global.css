@@ -16,13 +16,37 @@ body,
   background-color: var(--bg-rail);
   color: var(--text-primary);
   font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: var(--tracking-snug);
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background-color: var(--accent-mention-bg);
+  color: var(--text-primary);
+}
+
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
   color: inherit;
 }
@@ -61,22 +85,24 @@ button:focus:not(:focus-visible),
 
 button:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+select:focus-visible {
   outline: 2px solid var(--accent-link);
   outline-offset: 2px;
 }
 
 @media (max-width: 700px) {
   input,
-  textarea {
+  textarea,
+  select {
     font-size: 16px;
   }
 }
 
-/* Barra de rolagem discreta para listas e chat no tema escuro */
+/* Barra de rolagem discreta e fluida para listas, modais e chat */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -84,12 +110,46 @@ textarea:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(170, 178, 230, 0.22);
-  border-radius: 4px;
+  background: rgba(170, 178, 230, 0.2);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(170, 178, 230, 0.36);
+}
+
+/* Animações globais reutilizáveis do Design System */
+@keyframes dsBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dsDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dsPopoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* --- Recursos de Acessibilidade (WCAG / LBI) -------------------------------- */
@@ -113,6 +173,17 @@ textarea:focus-visible {
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 :root[data-large-text='true'] {

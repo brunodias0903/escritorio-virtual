@@ -146,6 +146,7 @@ const world = (media = new MediaService(null)) => {
     office,
     accounts,
     chat,
+    desks,
     cluster,
     connect,
     login,
@@ -632,5 +633,68 @@ describe('mesinhas adotáveis', () => {
     // Fechar o socket deslocado não derruba o ativo
     await mobile.connection.dispose();
     expect(w.office.players.has('pc')).toBe(true);
+  });
+
+  it('kick desconecta o usuário, revoga o token e envia accountModerated', async () => {
+    const w = world();
+    const ana = await w.login('a', 'ana@empresa.com', 'Ana');
+    const bia = await w.login('b', 'bia@empresa.com', 'Bia');
+    bia.inbox.length = 0;
+
+    await ana.connection.kick('banned', 'Violação');
+    expect(ana.ofType('accountModerated')).toEqual([
+      { type: 'accountModerated', action: 'banned', reason: 'Violação' },
+    ]);
+    expect(ana.closed).toEqual({ code: 4403, reason: 'banned' });
+    expect(w.office.players.has('a')).toBe(false);
+    expect(bia.ofType('left')).toEqual([{ type: 'left', id: 'a' }]);
+  });
+
+  it('usuário no modo Ocupado não recebe acesso a chamadas (mediaNone)', async () => {
+    const w = world();
+    const ana = await w.login('a', 'ana@empresa.com', 'Ana');
+    const player = w.office.players.get('a')!;
+    player.x = 432;
+    player.y = 160;
+    await ana.send({ type: 'status', status: 'busy' });
+    ana.inbox.length = 0;
+
+    await ana.send({ type: 'media' });
+    expect(ana.ofType('mediaNone')).toHaveLength(1);
+    expect(ana.ofType('media')).toHaveLength(0);
+  });
+
+  it('restrição automática no chat (chat_muted) remove automaticamente a mesa do usuário', async () => {
+    const w = world();
+    const ana = await w.login('a', 'ana@empresa.com', 'Ana');
+    const bia = await w.login('b', 'bia@empresa.com', 'Bia');
+    // Coloca Ana na Mesa 1 e adota
+    const player = w.office.players.get('a')!;
+    player.x = 432;
+    player.y = 160;
+    await ana.send({ type: 'deskAdopt', deskId: 'mesa-1' });
+    expect(await w.desks.list()).toHaveLength(1);
+    bia.inbox.length = 0;
+
+    // 3 mensagens com discurso de ódio disparam chat_muted na 3ª
+    for (let i = 0; i < 3; i++) {
+      w.advance(500);
+      await ana.send({
+        type: 'chat',
+        channel: 'geral',
+        text: `mensagem nazista ${i}`,
+      });
+    }
+    expect(ana.ofType('chatError').at(-1)).toEqual({
+      type: 'chatError',
+      code: 'chat_muted',
+    });
+    expect(await w.desks.list()).toEqual([]);
+    expect(bia.ofType('desk')).toEqual([
+      expect.objectContaining({
+        type: 'desk',
+        desk: expect.objectContaining({ deskId: 'mesa-1', owner: null }),
+      }),
+    ]);
   });
 });

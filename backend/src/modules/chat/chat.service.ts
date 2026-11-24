@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import {
+  ACCOUNT_TIERS,
   CHANNEL_NAME_PATTERN,
   CHAT_HISTORY_LIMIT,
   CHAT_TEXT_MAX_LENGTH,
+  canViewChannel,
   canWriteInChannel,
   dmChannelId,
   dmMembers,
@@ -10,6 +12,7 @@ import {
   extractMentionHandles,
   normalizeEmail,
   type AccountTier,
+  type ChannelAccess,
   type ChannelInfo,
   type ChatMessage,
 } from '../../shared/domain/index.js';
@@ -34,6 +37,7 @@ type Sender = {
   name: string;
   color: number;
   tier?: AccountTier;
+  tiers?: readonly AccountTier[];
 };
 
 type Deps = {
@@ -59,14 +63,20 @@ export class ChatService {
     this.newId = deps.newId ?? randomUUID;
   }
 
-  /** Canais públicos ativos e as conversas diretas da pessoa, com não lidas. */
-  async channelsFor(email: string): Promise<ChannelInfo[]> {
+  /** Canais públicos ativos visíveis para os cargos da pessoa e suas conversas diretas, com não lidas. */
+  async channelsFor(
+    email: string,
+    tiers?: readonly AccountTier[],
+  ): Promise<ChannelInfo[]> {
     const [publicRows, directRows, reads] = await Promise.all([
       this.deps.channels.listPublic(),
       this.deps.channels.listDirect(email),
       this.deps.reads.all(email),
     ]);
-    const rows = [...publicRows.filter((c) => !c.archived), ...directRows];
+    const visiblePublic = publicRows.filter(
+      (c) => !c.archived && (!tiers || canViewChannel(c, tiers, email)),
+    );
+    const rows = [...visiblePublic, ...directRows];
 
     // Quem nunca abriu um canal começa "em dia": só o que vier depois conta.
     const now = this.now();
@@ -89,8 +99,16 @@ export class ChatService {
           name: row.name,
           kind: row.kind,
           archived: row.archived,
+          ...(row.position !== undefined ? { position: row.position } : {}),
           ...(row.topic ? { topic: row.topic } : {}),
+          ...(row.viewTiers ? { viewTiers: row.viewTiers } : {}),
           ...(row.writeTiers ? { writeTiers: row.writeTiers } : {}),
+          ...(row.allowedEmails?.length
+            ? { allowedEmails: row.allowedEmails }
+            : {}),
+          ...(row.blockedEmails?.length
+            ? { blockedEmails: row.blockedEmails }
+            : {}),
           members: await this.membersOf(row),
           ...counts,
         };
@@ -99,8 +117,11 @@ export class ChatService {
   }
 
   /** As últimas mensagens de cada canal que a pessoa vê. */
-  async history(email: string): Promise<ChatMessage[]> {
-    const channels = await this.channelsFor(email);
+  async history(
+    email: string,
+    tiers?: readonly AccountTier[],
+  ): Promise<ChatMessage[]> {
+    const channels = await this.channelsFor(email, tiers);
     return this.deps.chat.recentRoots(
       channels.map((c) => c.id),
       CHAT_HISTORY_LIMIT,
@@ -109,7 +130,8 @@ export class ChatService {
 
   /**
    * Grava e devolve a mensagem. `emails` lista quem deve recebê-la quando o
-   * canal é uma conversa direta; sem ele, todos recebem.
+   * canal é uma conversa direta; `restrictedAccess` indica que o canal público
+   * tem visibilidade restrita a cargos/membros específicos.
    */
   async send(
     sender: Sender,
@@ -117,7 +139,15 @@ export class ChatService {
     rawText: string,
     threadId?: string,
   ): Promise<
-    Result<{ message: ChatMessage; emails?: string[]; warning?: string }>
+    Result<{
+      message: ChatMessage;
+      emails?: string[];
+      restrictedAccess?: Pick<
+        ChannelAccess,
+        'viewTiers' | 'allowedEmails' | 'blockedEmails'
+      >;
+      warning?: string;
+    }>
   > {
     const text = rawText.trim().slice(0, CHAT_TEXT_MAX_LENGTH);
     if (!text) return fail('empty');
@@ -128,14 +158,19 @@ export class ChatService {
       return fail('rate_limited');
     }
 
-    const access = await this.access(sender.email, channelId);
+    const senderTiers = sender.tiers ?? (sender.tier ? [sender.tier] : null);
+    const access = await this.access(
+      sender.email,
+      channelId,
+      senderTiers ?? undefined,
+    );
     if (!access.ok) return access;
     const channel = access.value;
     if (channel.archived) return fail('archived');
     if (
       channel.kind === 'public' &&
-      sender.tier &&
-      !canWriteInChannel(channel.writeTiers, sender.tier)
+      senderTiers &&
+      !canWriteInChannel(channel.writeTiers, senderTiers, channel, sender.email)
     ) {
       return fail('channel_read_only');
     }
@@ -172,9 +207,26 @@ export class ChatService {
     };
     await this.deps.chat.save(message);
     await this.deps.reads.set(sender.email, channelId, at);
+
+    const isRestrictedPublic =
+      channel.kind === 'public' &&
+      ((channel.viewTiers !== undefined &&
+        channel.viewTiers.length > 0 &&
+        !ACCOUNT_TIERS.every((t) => channel.viewTiers!.includes(t))) ||
+        (channel.blockedEmails?.length ?? 0) > 0);
+
     return ok({
       message,
       ...(members ? { emails: [...members] } : {}),
+      ...(isRestrictedPublic
+        ? {
+            restrictedAccess: {
+              viewTiers: channel.viewTiers,
+              allowedEmails: channel.allowedEmails,
+              blockedEmails: channel.blockedEmails,
+            },
+          }
+        : {}),
       ...(mod.warning ? { warning: mod.warning } : {}),
     });
   }
@@ -183,17 +235,22 @@ export class ChatService {
   async thread(
     email: string,
     threadId: string,
+    tiers?: readonly AccountTier[],
   ): Promise<Result<ChatMessage[]>> {
     const root = await this.deps.chat.byId(threadId);
     if (!root || root.threadId) return fail('not_found');
-    const access = await this.access(email, root.channel);
+    const access = await this.access(email, root.channel, tiers);
     if (!access.ok) return access;
     const replies = await this.deps.chat.replies(threadId);
     return ok([{ ...root, replyCount: replies.length }, ...replies]);
   }
 
-  async markRead(email: string, channelId: string): Promise<Result<null>> {
-    const access = await this.access(email, channelId);
+  async markRead(
+    email: string,
+    channelId: string,
+    tiers?: readonly AccountTier[],
+  ): Promise<Result<null>> {
+    const access = await this.access(email, channelId, tiers);
     if (!access.ok) return access;
     await this.deps.reads.set(email, channelId, this.now());
     return ok(null);
@@ -205,11 +262,19 @@ export class ChatService {
   ): Promise<Result<ChannelInfo>> {
     const name = rawName.trim().toLowerCase();
     if (!CHANNEL_NAME_PATTERN.test(name)) return fail('invalid_name');
+    const existingPublic = await this.deps.channels.listPublic();
+    const nextPosition =
+      existingPublic.reduce((max, c) => Math.max(max, c.position ?? 0), -1) + 1;
     const created = await this.deps.channels.create({
       id: name,
       name,
       kind: 'public',
       archived: false,
+      position: nextPosition,
+      viewTiers: [...ACCOUNT_TIERS],
+      writeTiers: [...ACCOUNT_TIERS],
+      allowedEmails: [],
+      blockedEmails: [],
       createdBy: email,
       createdAt: this.now(),
     });
@@ -220,6 +285,9 @@ export class ChatService {
       name,
       kind: 'public',
       archived: false,
+      position: nextPosition,
+      viewTiers: [...ACCOUNT_TIERS],
+      writeTiers: [...ACCOUNT_TIERS],
       members: [],
       unread: 0,
       mentions: 0,
@@ -281,10 +349,18 @@ export class ChatService {
   private async access(
     email: string,
     channelId: string,
+    tiers?: readonly AccountTier[],
   ): Promise<Result<ChannelRow>> {
     const channel = await this.deps.channels.get(channelId);
     if (!channel) return fail('not_found');
     if (channel.kind === 'dm' && !dmMembers(channel.id)?.includes(email)) {
+      return fail('forbidden');
+    }
+    if (
+      channel.kind === 'public' &&
+      tiers &&
+      !canViewChannel(channel, tiers, email)
+    ) {
       return fail('forbidden');
     }
     return ok(channel);

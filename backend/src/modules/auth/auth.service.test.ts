@@ -26,8 +26,9 @@ const codeIn = (mails: Mail[], email: string): string =>
 const setup = () => {
   let time = 1_800_000_000_000;
   const mails: Mail[] = [];
+  const accounts = new MemoryLocalAccountRepository();
   const service = new AuthService({
-    accounts: new MemoryLocalAccountRepository(),
+    accounts,
     secret: SECRET,
     adminEmails: [ADMIN, 'chefe@parceiro.com'],
     access: parseAccountAccess('empresa.com,parceiro.com:externo', ''),
@@ -53,6 +54,7 @@ const setup = () => {
     return register({ ...input, code: codeIn(mails, input.email) }, ip);
   };
   return {
+    accounts,
     service,
     mails,
     codeIn: (email: string) => codeIn(mails, email),
@@ -310,6 +312,7 @@ describe('account e updateAccount', () => {
         email: 'ana.souza@empresa.com',
         role: 'Desenvolvedora',
         tier: 'tester',
+        secondaryTiers: [],
         emailVerified: true,
         mfaEnabled: false,
         emailMarketingOptIn: false,
@@ -483,6 +486,62 @@ describe('sessão', () => {
       role: '',
       jti: 'x',
       exp: 1,
+    });
+  });
+
+  it('bloqueia login e sessão ativa de conta banida ou restringida', async () => {
+    const { accounts, service, advance } = setup();
+    await service.register(ana, '1.1.1.1');
+    const session = token(await service.login('anas', PASSWORD, '1.1.1.1'));
+    expect(await service.authenticate(session)).not.toBeNull();
+
+    // Restrição temporária (30 min)
+    await accounts.setModeration('ana.souza@empresa.com', {
+      restrictedUntil: 1_800_000_000_000 + 30 * 60_000,
+      restrictionReason: 'Pausa',
+    });
+    expect(await service.authenticate(session)).toBeNull();
+    expect(await service.login('anas', PASSWORD, '1.1.1.1')).toMatchObject({
+      ok: false,
+      status: 403,
+      error: 'account_restricted',
+    });
+
+    // Após expirar, volta a funcionar
+    advance(31 * 60_000);
+    expect(await service.authenticate(session)).not.toBeNull();
+
+    // Banimento permanente
+    await accounts.setModeration('ana.souza@empresa.com', {
+      bannedAt: 1_800_000_000_000 + 31 * 60_000,
+      banReason: 'Banido',
+    });
+    expect(await service.authenticate(session)).toBeNull();
+    expect(await service.login('anas', PASSWORD, '1.1.1.1')).toMatchObject({
+      ok: false,
+      status: 403,
+      error: 'account_banned',
+    });
+
+    // Desbane, adiciona cargo secundário 'admin' e confirma sessão com admin=true + secondaryTiers
+    await accounts.setModeration('ana.souza@empresa.com', {
+      bannedAt: null,
+      banReason: '',
+    });
+    await accounts.setRoles('ana.souza@empresa.com', {
+      tier: 'developer',
+      secondaryTiers: ['admin', 'designer'],
+    });
+    const promotedLogin = await service.login('anas', PASSWORD, '1.1.1.1');
+    expect(promotedLogin).toMatchObject({
+      ok: true,
+      value: {
+        user: {
+          tier: 'developer',
+          secondaryTiers: ['admin', 'designer'],
+          admin: true,
+        },
+      },
     });
   });
 });

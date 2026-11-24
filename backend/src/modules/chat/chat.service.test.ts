@@ -372,3 +372,91 @@ describe('diretório', () => {
     expect(people.map((p) => p.name)).toEqual(['Ana', 'Bia', 'Caio']);
   });
 });
+
+describe('visibilidade, escrita por cargo e exceções individuais', () => {
+  it('oculta canais restritos, bloqueia leitura/escrita e respeita exceções por e-mail', async () => {
+    const repo = new MemoryChannelRepository();
+    const scoped = new ChatService({
+      channels: repo,
+      chat: new MemoryChatRepository(),
+      reads: new MemoryReadStateRepository(),
+      profiles,
+      now: () => time,
+      newId: () => `m${++counter}`,
+    });
+    await repo.create({
+      id: 'diretoria',
+      name: 'diretoria',
+      kind: 'public',
+      archived: false,
+      position: 5,
+      viewTiers: ['master', 'admin', 'developer'],
+      writeTiers: ['master', 'admin'],
+      allowedEmails: [CAIO.email],
+      blockedEmails: [BIA.email],
+      createdBy: ANA.email,
+      createdAt: time,
+    });
+
+    // Master sempre vê e escreve
+    expect(
+      (await scoped.channelsFor(ANA.email, ['master'])).map((c) => c.id),
+    ).toContain('diretoria');
+
+    // Tester sem exceção não vê nem pode enviar mensagem
+    expect(
+      (await scoped.channelsFor('outro@empresa.com', ['tester'])).map(
+        (c) => c.id,
+      ),
+    ).not.toContain('diretoria');
+    expect(
+      await scoped.send(
+        {
+          email: 'outro@empresa.com',
+          name: 'Outro',
+          color: 4,
+          tiers: ['tester'],
+        },
+        'diretoria',
+        'oi',
+      ),
+    ).toEqual({ ok: false, error: 'forbidden' });
+
+    // Bia tem tier developer mas está bloqueada individualmente
+    expect(
+      (await scoped.channelsFor(BIA.email, ['developer'])).map((c) => c.id),
+    ).not.toContain('diretoria');
+    expect(
+      await scoped.markRead(BIA.email, 'diretoria', ['developer']),
+    ).toEqual({
+      ok: false,
+      error: 'forbidden',
+    });
+
+    // Caio é tester mas foi liberado individualmente (vê o canal, mas escrita é só master/admin)
+    expect(
+      (await scoped.channelsFor(CAIO.email, ['tester'])).map((c) => c.id),
+    ).toContain('diretoria');
+    expect(
+      await scoped.send({ ...CAIO, tiers: ['tester'] }, 'diretoria', 'oi'),
+    ).toEqual({ ok: false, error: 'channel_read_only' });
+
+    // Admin pode enviar e retorna restrictedAccess para filtrar entrega em tempo real
+    const sent = await scoped.send(
+      { ...ANA, tiers: ['admin'] },
+      'diretoria',
+      'aviso',
+    );
+    expect(sent.ok).toBe(true);
+    if (sent.ok) {
+      expect(sent.value.restrictedAccess?.viewTiers).toEqual([
+        'master',
+        'admin',
+        'developer',
+      ]);
+      // Histórico oculta mensagens para quem não tem acesso
+      expect(await scoped.history('outro@empresa.com', ['tester'])).toEqual([]);
+      expect(await scoped.history(CAIO.email, ['tester'])).toHaveLength(1);
+    }
+  });
+});

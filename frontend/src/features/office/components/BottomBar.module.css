@@ -42,58 +42,43 @@
   text-align: center;
 }
 
-.busyBar {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 10px 8px 14px;
-  border-radius: var(--radius-pill);
-  background-color: var(--bg-bar-glass);
-  border: 1px solid rgba(255, 107, 129, 0.45);
-  box-shadow: 0 8px 24px rgba(8, 10, 28, 0.55);
-  pointer-events: auto;
+.goOnlineDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #07221d;
 }
 
-.busyText {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
+.busyDockRow {
+  width: 100%;
+  cursor: pointer;
+  background-color: var(--presence-soft);
+  transition: filter 0.15s ease;
 }
 
-.goOnlineButton {
+.busyDockRow:hover {
+  filter: brightness(1.1);
+}
+
+.busyDockLabel {
+  color: var(--info-text);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.busyDockPill {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 16px;
-  border-radius: var(--radius-pill);
+  justify-content: center;
   background: linear-gradient(
-    90deg,
+    135deg,
     var(--presence-strong) 0%,
     var(--status-available) 100%
   );
-  color: #07221d;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  box-shadow: 0 4px 14px var(--presence-soft);
-  transition:
-    filter 0.15s ease,
-    transform 0.12s ease;
-}
-
-.goOnlineButton:hover {
-  filter: brightness(1.08);
-}
-
-.goOnlineButton:active {
-  transform: translateY(1px);
-}
-
-.goOnlineDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #07221d;
+  box-shadow: 0 4px 12px var(--presence-soft);
 }
 
 .mutedPopup {
@@ -160,12 +145,12 @@
   width: 274px;
   display: flex;
   flex-direction: column;
-  border-radius: 18px;
+  border-radius: var(--radius-3xl);
   background-color: var(--bg-bar-glass);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 30px rgba(6, 8, 22, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-lg), var(--shadow-inner);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
 }
 
 .camDock {
@@ -580,16 +565,17 @@
   position: absolute;
   left: 0;
   bottom: calc(100% + 10px);
-  min-width: 210px;
+  min-width: 214px;
   display: flex;
   flex-direction: column;
   padding: 6px;
   border-radius: var(--radius-xl);
   background-color: var(--bg-bar);
   border: 1px solid var(--border-bar);
-  box-shadow: 0 12px 28px rgba(6, 8, 22, 0.55);
+  box-shadow: var(--shadow-lg), var(--shadow-inner);
   pointer-events: auto;
   z-index: var(--z-popup);
+  animation: dsPopoverIn var(--motion-normal) var(--ease-emphasized);
 }
 
 .emoteTray {

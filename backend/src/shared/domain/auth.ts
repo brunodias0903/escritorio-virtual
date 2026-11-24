@@ -290,6 +290,39 @@ export const ACCOUNT_TIER_LABELS: Record<AccountTier, string> = {
   tester: 'Tester',
 };
 
+/** Cores estilo Discord para identificar cada cargo nos painéis e lista de pessoas. */
+export const ACCOUNT_TIER_COLORS: Record<AccountTier, string> = {
+  master: '#f59e0b',
+  admin: '#f43f5e',
+  developer: '#3b82f6',
+  designer: '#a855f7',
+  tester: '#10b981',
+};
+
+/** Cargos atribuíveis pelo painel administrativo (Master é exclusivo da conta dona). */
+export const ASSIGNABLE_TIERS = [
+  'admin',
+  'developer',
+  'designer',
+  'tester',
+] as const satisfies readonly AccountTier[];
+
+/** Normaliza o conjunto efetivo de cargos (principal primeiro, sem repetição). */
+export const effectiveTiersOf = (
+  primary: AccountTier,
+  secondary?: readonly AccountTier[],
+): AccountTier[] => {
+  const seen = new Set<AccountTier>([primary]);
+  const result: AccountTier[] = [primary];
+  for (const t of secondary ?? []) {
+    if (!seen.has(t)) {
+      seen.add(t);
+      result.push(t);
+    }
+  }
+  return result;
+};
+
 /** Preferência de notificações por e-mail (LGPD opt-in). */
 export const EmailPreferencesSchema = z.object({
   marketingOptIn: z.boolean(),
@@ -358,6 +391,7 @@ export const AccountSchema = z.object({
   email: z.string(),
   role: z.string(),
   tier: z.enum(ACCOUNT_TIERS).default('tester'),
+  secondaryTiers: z.array(z.enum(ACCOUNT_TIERS)).default([]),
   emailVerified: z.boolean().default(false),
   mfaEnabled: z.boolean().default(false),
   mfaMethod: z.enum(MFA_METHODS).optional(),
@@ -396,6 +430,7 @@ export const SessionUserSchema = z.object({
   admin: z.boolean(),
   kind: z.enum(['company', 'third_party']) satisfies z.ZodType<AccountKind>,
   tier: z.enum(ACCOUNT_TIERS).default('tester'),
+  secondaryTiers: z.array(z.enum(ACCOUNT_TIERS)).default([]),
   nickname: z.string().default(''),
   role: z.string().default(''),
 });
@@ -431,6 +466,16 @@ export const ERROR_MESSAGES: Record<string, string> = {
   unauthorized: 'Sessão expirada. Entre novamente.',
   forbidden: 'Você não tem permissão para isso.',
   not_found: 'Não encontrado.',
+  account_banned: 'Esta conta foi banida do servidor.',
+  account_restricted: 'Esta conta está temporariamente restringida.',
+  cannot_moderate_self: 'Você não pode aplicar moderação à própria conta.',
+  cannot_moderate_master: 'Não é possível moderar a conta master.',
+  cannot_edit_own_roles: 'Você não pode alterar os próprios cargos.',
+  cannot_manage_higher_role:
+    'Você não tem permissão para alterar os cargos desta conta.',
+  cannot_assign_master: 'O cargo Master é exclusivo da conta proprietária.',
+  cannot_assign_admin:
+    'Apenas a conta Master pode atribuir ou remover o cargo Administrador.',
   rate_limited: 'Calma: você está enviando mensagens rápido demais.',
   spam_blocked:
     'Filtro anti-spam ativado: aguarde 1 minuto antes de enviar novas mensagens.',

@@ -1,5 +1,6 @@
 import type {
   AccountChanges,
+  AccountModerationPatch,
   LocalAccount,
   LocalAccountRepository,
 } from '../../../modules/auth/auth.repository.js';
@@ -23,6 +24,7 @@ type LocalAccountRow = {
   password_hash: string;
   created_at: string | number;
   tier?: string;
+  secondary_tiers?: string[] | null;
   email_verified?: boolean;
   email_marketing_opt_in?: boolean | null;
   ui_theme?: string | null;
@@ -34,55 +36,91 @@ type LocalAccountRow = {
   pronouns?: string | null;
   accessibility_needs?: AccessibilityNeed[] | null;
   accessibility_prefs?: string | null;
+  banned_at?: string | number | null;
+  ban_reason?: string | null;
+  restricted_until?: string | number | null;
+  restriction_reason?: string | null;
 };
 
 const ACCOUNT_COLUMNS =
-  'nickname, full_name, email, role, password_hash, created_at, tier, email_verified, email_marketing_opt_in, ui_theme, mfa_enabled, mfa_method, mfa_secret_enc, mfa_recovery_hashes, gender_identity, pronouns, accessibility_needs, accessibility_prefs';
+  'nickname, full_name, email, role, password_hash, created_at, tier, secondary_tiers, email_verified, email_marketing_opt_in, ui_theme, mfa_enabled, mfa_method, mfa_secret_enc, mfa_recovery_hashes, gender_identity, pronouns, accessibility_needs, accessibility_prefs, banned_at, ban_reason, restricted_until, restriction_reason';
 
 const toTier = (raw: string | undefined): AccountTier =>
   (ACCOUNT_TIERS as readonly string[]).includes(raw ?? '')
     ? (raw as AccountTier)
     : 'tester';
 
+const toSecondaryTiers = (
+  raw: string[] | null | undefined,
+  primary: AccountTier,
+): AccountTier[] => {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<AccountTier>([primary, 'master']);
+  const out: AccountTier[] = [];
+  for (const item of raw) {
+    if ((ACCOUNT_TIERS as readonly string[]).includes(item)) {
+      const tier = item as AccountTier;
+      if (!seen.has(tier)) {
+        seen.add(tier);
+        out.push(tier);
+      }
+    }
+  }
+  return out;
+};
+
 const toAccount = (
   row: LocalAccountRow | undefined,
-): LocalAccount | undefined =>
-  row
-    ? {
-        nickname: row.nickname,
-        fullName: row.full_name,
-        email: row.email,
-        role: row.role ?? '',
-        passwordHash: row.password_hash,
-        createdAt: Number(row.created_at),
-        tier: toTier(row.tier),
-        emailVerified: Boolean(row.email_verified),
-        emailMarketingOptIn:
-          row.email_marketing_opt_in === undefined
-            ? null
-            : row.email_marketing_opt_in,
-        uiTheme: row.ui_theme ?? null,
-        mfaEnabled: Boolean(row.mfa_enabled),
-        ...(row.mfa_method && row.mfa_method !== 'none'
-          ? { mfaMethod: row.mfa_method as 'email' | 'totp' }
-          : {}),
-        mfaSecretEnc: row.mfa_secret_enc ?? null,
-        mfaRecoveryHashes: Array.isArray(row.mfa_recovery_hashes)
-          ? row.mfa_recovery_hashes
-          : [],
-        ...(row.gender_identity && row.gender_identity !== 'prefer_not_to_say'
-          ? { genderIdentity: row.gender_identity as GenderIdentity }
-          : {}),
-        ...(row.pronouns ? { pronouns: row.pronouns } : {}),
-        ...(Array.isArray(row.accessibility_needs) &&
-        row.accessibility_needs.length > 0
-          ? { accessibilityNeeds: row.accessibility_needs }
-          : {}),
-        ...(row.accessibility_prefs
-          ? { accessibilityPrefs: row.accessibility_prefs }
-          : {}),
-      }
-    : undefined;
+): LocalAccount | undefined => {
+  if (!row) return undefined;
+  const primaryTier = toTier(row.tier);
+  const secondaryTiers = toSecondaryTiers(row.secondary_tiers, primaryTier);
+  return {
+    nickname: row.nickname,
+    fullName: row.full_name,
+    email: row.email,
+    role: row.role ?? '',
+    passwordHash: row.password_hash,
+    createdAt: Number(row.created_at),
+    tier: primaryTier,
+    ...(secondaryTiers.length > 0 ? { secondaryTiers } : {}),
+    emailVerified: Boolean(row.email_verified),
+    emailMarketingOptIn:
+      row.email_marketing_opt_in === undefined
+        ? null
+        : row.email_marketing_opt_in,
+    uiTheme: row.ui_theme ?? null,
+    mfaEnabled: Boolean(row.mfa_enabled),
+    ...(row.mfa_method && row.mfa_method !== 'none'
+      ? { mfaMethod: row.mfa_method as 'email' | 'totp' }
+      : {}),
+    mfaSecretEnc: row.mfa_secret_enc ?? null,
+    mfaRecoveryHashes: Array.isArray(row.mfa_recovery_hashes)
+      ? row.mfa_recovery_hashes
+      : [],
+    ...(row.gender_identity && row.gender_identity !== 'prefer_not_to_say'
+      ? { genderIdentity: row.gender_identity as GenderIdentity }
+      : {}),
+    ...(row.pronouns ? { pronouns: row.pronouns } : {}),
+    ...(Array.isArray(row.accessibility_needs) &&
+    row.accessibility_needs.length > 0
+      ? { accessibilityNeeds: row.accessibility_needs }
+      : {}),
+    ...(row.accessibility_prefs
+      ? { accessibilityPrefs: row.accessibility_prefs }
+      : {}),
+    ...(row.banned_at !== undefined && row.banned_at !== null
+      ? { bannedAt: Number(row.banned_at) }
+      : {}),
+    ...(row.ban_reason ? { banReason: row.ban_reason } : {}),
+    ...(row.restricted_until !== undefined && row.restricted_until !== null
+      ? { restrictedUntil: Number(row.restricted_until) }
+      : {}),
+    ...(row.restriction_reason
+      ? { restrictionReason: row.restriction_reason }
+      : {}),
+  };
+};
 
 export class PgLocalAccountRepository implements LocalAccountRepository {
   private readonly db: SqlClient;
@@ -219,6 +257,53 @@ export class PgLocalAccountRepository implements LocalAccountRepository {
        SET mfa_enabled = $2, mfa_method = $3, mfa_secret_enc = $4, mfa_recovery_hashes = $5
        WHERE email = $1`,
       [email, mfa.enabled, method, mfa.secretEnc, mfa.recoveryHashes],
+    );
+    return rowCount === 1 ? ('ok' as const) : ('not_found' as const);
+  }
+
+  async setRoles(
+    email: string,
+    roles: { tier: AccountTier; secondaryTiers: AccountTier[]; role?: string },
+  ) {
+    const cleanSecondary = toSecondaryTiers(roles.secondaryTiers, roles.tier);
+    const { rowCount } = await this.db.query(
+      `UPDATE local_accounts
+       SET tier = $2,
+           secondary_tiers = $3,
+           role = COALESCE($4, role)
+       WHERE email = $1`,
+      [email, roles.tier, cleanSecondary, roles.role ?? null],
+    );
+    return rowCount === 1 ? ('ok' as const) : ('not_found' as const);
+  }
+
+  async setModeration(email: string, moderation: AccountModerationPatch) {
+    const sets: string[] = [];
+    const params: unknown[] = [email];
+    const push = (column: string, value: unknown) => {
+      params.push(value);
+      sets.push(`${column} = $${params.length}`);
+    };
+    if (moderation.bannedAt !== undefined) {
+      push('banned_at', moderation.bannedAt);
+    }
+    if (moderation.banReason !== undefined) {
+      push('ban_reason', moderation.banReason);
+    }
+    if (moderation.restrictedUntil !== undefined) {
+      push('restricted_until', moderation.restrictedUntil);
+    }
+    if (moderation.restrictionReason !== undefined) {
+      push('restriction_reason', moderation.restrictionReason);
+    }
+    if (sets.length === 0) {
+      return (await this.byEmail(email))
+        ? ('ok' as const)
+        : ('not_found' as const);
+    }
+    const { rowCount } = await this.db.query(
+      `UPDATE local_accounts SET ${sets.join(', ')} WHERE email = $1`,
+      params,
     );
     return rowCount === 1 ? ('ok' as const) : ('not_found' as const);
   }

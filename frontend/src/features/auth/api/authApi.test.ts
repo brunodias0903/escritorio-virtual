@@ -9,6 +9,7 @@ const session = {
     admin: false,
     kind: 'company',
     tier: 'tester',
+    secondaryTiers: [],
     nickname: 'ana',
     role: '',
   },
@@ -137,6 +138,7 @@ describe('authApi', () => {
       email: 'ana@empresa.com',
       role: 'Dev',
       tier: 'tester' as const,
+      secondaryTiers: [],
       emailVerified: false,
       mfaEnabled: false,
     };

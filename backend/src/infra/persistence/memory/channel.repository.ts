@@ -19,8 +19,12 @@ export class MemoryChannelRepository implements ChannelRepository {
         name,
         kind: 'public',
         archived: false,
+        position: 0,
         topic: '',
+        viewTiers: [...ACCOUNT_TIERS],
         writeTiers: [...ACCOUNT_TIERS],
+        allowedEmails: [],
+        blockedEmails: [],
         createdBy: null,
         createdAt: 0,
       });
@@ -35,7 +39,10 @@ export class MemoryChannelRepository implements ChannelRepository {
     return [...this.channels.values()]
       .filter((c) => c.kind === 'public')
       .sort(
-        (a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name),
+        (a, b) =>
+          (a.position ?? 0) - (b.position ?? 0) ||
+          a.createdAt - b.createdAt ||
+          a.name.localeCompare(b.name),
       );
   }
 
@@ -52,7 +59,14 @@ export class MemoryChannelRepository implements ChannelRepository {
         (c) => c.kind === 'public' && c.name === channel.name,
       );
     if (this.channels.has(channel.id) || nameTaken) return false;
-    this.channels.set(channel.id, channel);
+    this.channels.set(channel.id, {
+      position: 0,
+      viewTiers: [...ACCOUNT_TIERS],
+      writeTiers: [...ACCOUNT_TIERS],
+      allowedEmails: [],
+      blockedEmails: [],
+      ...channel,
+    });
     return true;
   }
 
@@ -65,18 +79,56 @@ export class MemoryChannelRepository implements ChannelRepository {
 
   async updateConfig(
     id: string,
-    patch: { topic?: string; writeTiers?: AccountTier[]; archived?: boolean },
+    patch: {
+      topic?: string;
+      viewTiers?: AccountTier[];
+      writeTiers?: AccountTier[];
+      allowedEmails?: string[];
+      blockedEmails?: string[];
+      archived?: boolean;
+    },
   ) {
     const channel = this.channels.get(id);
     if (!channel) return false;
     this.channels.set(id, {
       ...channel,
       ...(patch.topic !== undefined ? { topic: patch.topic } : {}),
+      ...(patch.viewTiers !== undefined
+        ? { viewTiers: [...patch.viewTiers] }
+        : {}),
       ...(patch.writeTiers !== undefined
         ? { writeTiers: [...patch.writeTiers] }
+        : {}),
+      ...(patch.allowedEmails !== undefined
+        ? { allowedEmails: [...patch.allowedEmails] }
+        : {}),
+      ...(patch.blockedEmails !== undefined
+        ? { blockedEmails: [...patch.blockedEmails] }
         : {}),
       ...(patch.archived !== undefined ? { archived: patch.archived } : {}),
     });
     return true;
+  }
+
+  async reorder(orderedIds: string[]) {
+    const existing = await this.listPublic();
+    const seen = new Set<string>();
+    const fullOrder: string[] = [];
+    for (const id of orderedIds) {
+      if (!seen.has(id) && existing.some((c) => c.id === id)) {
+        seen.add(id);
+        fullOrder.push(id);
+      }
+    }
+    for (const row of existing) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        fullOrder.push(row.id);
+      }
+    }
+    fullOrder.forEach((id, index) => {
+      const current = this.channels.get(id);
+      if (current) this.channels.set(id, { ...current, position: index });
+    });
   }
 }

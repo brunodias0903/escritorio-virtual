@@ -2,10 +2,13 @@ import {
   AccessibilityPrefsSchema,
   UiThemeSchema,
   accountKindOf,
+  canManageServer,
+  effectiveTiersOf,
   normalizeEmail,
   type AccessibilityPrefs,
   type Account,
   type AccountAccess,
+  type AccountTier,
   type AuthOptions,
   type MfaEnableResponse,
   type MfaSetupResponse,
@@ -57,6 +60,8 @@ type Deps = {
   codes: CodeService | null;
   /** Envio de códigos para verificação voluntária de e-mail em contas já criadas. */
   verifyCodes?: CodeService | null;
+  /** Chamado após excluir a conta (para liberar mesa e encerrar conexões ativas). */
+  onAccountDeleted?: (email: string) => Promise<void> | void;
   now?: () => number;
 };
 
@@ -99,10 +104,19 @@ export class AuthService {
       if (!accountKindOf(email, this.deps.access)) {
         return httpFail(403, 'email_not_allowed');
       }
-      if (await accounts.byEmail(email)) return httpFail(409, 'email_taken');
+      const existing = await accounts.byEmail(email);
+      if (existing) {
+        return httpFail(
+          existing.bannedAt ? 403 : 409,
+          existing.bannedAt ? 'account_banned' : 'email_taken',
+        );
+      }
     }
-    if (input.purpose === 'reset' && !(await accounts.byEmail(email))) {
-      return ok(null);
+    if (input.purpose === 'reset') {
+      const existing = await accounts.byEmail(email);
+      if (!existing) return ok(null);
+      const blocked = this.moderationBlockCode(existing);
+      if (blocked) return httpFail(403, blocked);
     }
     const sent = await codes.send(email, input.purpose);
     if (sent === 'wait') return httpFail(429, 'code_wait');
@@ -122,6 +136,10 @@ export class AuthService {
     }
     const email = normalizeEmail(input.email);
     const account = await accounts.byEmail(email);
+    if (account) {
+      const blocked = this.moderationBlockCode(account);
+      if (blocked) return httpFail(403, blocked);
+    }
     if (!account || !(await codes.check(email, 'reset', input.code))) {
       return httpFail(400, 'invalid_code');
     }
@@ -141,7 +159,8 @@ export class AuthService {
       return httpFail(429, 'too_many_attempts');
     }
     const email = normalizeEmail(input.email);
-    if (!accountKindOf(email, this.deps.access)) {
+    const kind = accountKindOf(email, this.deps.access);
+    if (!kind) {
       return httpFail(403, 'email_not_allowed');
     }
     if (input.acceptedTerms === false) {
@@ -155,7 +174,7 @@ export class AuthService {
     }
 
     const isMaster = email === this.deps.adminEmails[0];
-    const isAdmin = this.deps.adminEmails.includes(email);
+    const isAdmin = kind === 'company' && this.deps.adminEmails.includes(email);
     const account: LocalAccount = {
       nickname: input.nickname,
       fullName: input.fullName,
@@ -209,6 +228,9 @@ export class AuthService {
       ? await verifyPassword(password, account.passwordHash)
       : await verifyAgainstDummy(password);
     if (!account || !valid) return httpFail(401, 'invalid_login');
+
+    const blocked = this.moderationBlockCode(account);
+    if (blocked) return httpFail(403, blocked);
 
     if (account.mfaEnabled) {
       const method =
@@ -264,12 +286,15 @@ export class AuthService {
         accessibilityPrefs = null;
       }
     }
+    const primaryTier = this.resolveTier(account);
+    const secondaryTiers = this.resolveSecondaryTiers(account, primaryTier);
     return ok({
       fullName,
       nickname,
       email,
       role,
-      tier: this.resolveTier(account),
+      tier: primaryTier,
+      secondaryTiers,
       emailVerified: Boolean(account.emailVerified),
       mfaEnabled: Boolean(account.mfaEnabled),
       ...(account.mfaEnabled
@@ -557,11 +582,14 @@ export class AuthService {
     return ok(this.createSession({ ...account, ...changes }));
   }
 
-  /** Confere o token de sessão. Devolve null se for inválido, vencido ou encerrado. */
+  /** Confere o token de sessão. Devolve null se for inválido, vencido, encerrado ou moderado. */
   async authenticate(token: string): Promise<SessionClaims | null> {
     const claims = verifySession(token, this.deps.secret, this.now());
     if (!claims) return null;
-    return (await this.deps.revocations.isRevoked(claims.jti)) ? null : claims;
+    if (await this.deps.revocations.isRevoked(claims.jti)) return null;
+    const account = await this.deps.accounts.byEmail(claims.email);
+    if (account && this.moderationBlockCode(account)) return null;
+    return claims;
   }
 
   /** Encerra a sessão agora, mesmo que o token ainda não tenha vencido. */
@@ -604,30 +632,61 @@ export class AuthService {
       await accounts.deleteByEmail(account.email);
     }
     await this.logout(claims);
+    await this.deps.onAccountDeleted?.(account.email);
     return ok({ deleted: true });
   }
 
-  private resolveTier(account: LocalAccount) {
-    if (account.email === this.deps.adminEmails[0]) return 'master' as const;
+  private moderationBlockCode(
+    account: LocalAccount,
+  ): 'account_banned' | 'account_restricted' | null {
+    if (account.bannedAt) return 'account_banned';
+    if (account.restrictedUntil && account.restrictedUntil > this.now()) {
+      return 'account_restricted';
+    }
+    return null;
+  }
+
+  private resolveTier(account: LocalAccount): AccountTier {
+    if (account.email === this.deps.adminEmails[0]) return 'master';
     if (account.tier && account.tier !== 'tester') return account.tier;
-    if (this.deps.adminEmails.includes(account.email)) return 'admin' as const;
-    return account.tier ?? ('tester' as const);
+    if (this.deps.adminEmails.includes(account.email)) return 'admin';
+    return account.tier ?? 'tester';
+  }
+
+  private resolveSecondaryTiers(
+    account: LocalAccount,
+    primary: AccountTier,
+  ): AccountTier[] {
+    const seen = new Set<AccountTier>([primary, 'master']);
+    const result: AccountTier[] = [];
+    for (const item of account.secondaryTiers ?? []) {
+      if (!seen.has(item)) {
+        seen.add(item);
+        result.push(item);
+      }
+    }
+    return result;
   }
 
   private createSession(account: LocalAccount): Session {
-    // O tipo vem da lista de acesso. Só o time da casa pode ser administrador.
+    // O tipo vem da lista de acesso. Cargos atribuídos no painel também liberam acesso admin.
     const kind =
       accountKindOf(account.email, this.deps.access) ?? 'third_party';
     const tier = this.resolveTier(account);
+    const secondaryTiers = this.resolveSecondaryTiers(account, tier);
+    const effective = effectiveTiersOf(tier, secondaryTiers);
     const admin =
       tier === 'master' ||
-      (kind === 'company' && this.deps.adminEmails.includes(account.email));
+      (kind === 'company' &&
+        (canManageServer(effective) ||
+          this.deps.adminEmails.includes(account.email)));
     const user = {
       email: account.email,
       name: account.fullName,
       admin,
       kind,
       tier,
+      secondaryTiers,
       nickname: account.nickname,
       role: account.role,
     };

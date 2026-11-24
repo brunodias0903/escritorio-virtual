@@ -208,4 +208,45 @@ describe('useChatStore: respostas', () => {
     state().setError(null);
     expect(state().error).toBeNull();
   });
+
+  it('reordena canais públicos mantendo DMs preservadas', () => {
+    state().setChannels([
+      {
+        id: 'geral',
+        name: 'geral',
+        kind: 'public',
+        archived: false,
+        members: [],
+        unread: 0,
+        mentions: 0,
+      },
+      {
+        id: 'projetos',
+        name: 'projetos',
+        kind: 'public',
+        archived: false,
+        members: [],
+        unread: 0,
+        mentions: 0,
+      },
+      {
+        id: 'dm:a@x.com|b@x.com',
+        name: 'Bia',
+        kind: 'dm',
+        archived: false,
+        members: [
+          { email: 'a@x.com', name: 'Ana' },
+          { email: 'b@x.com', name: 'Bia' },
+        ],
+        unread: 1,
+        mentions: 0,
+      },
+    ]);
+    state().reorderPublicChannels(['projetos', 'geral']);
+    expect(state().channels.map((c) => c.id)).toEqual([
+      'projetos',
+      'geral',
+      'dm:a@x.com|b@x.com',
+    ]);
+  });
 });

@@ -262,16 +262,6 @@ export function MobileCallBar({
             </button>
           </div>
         ) : null}
-        {busy ? (
-          <button
-            type="button"
-            className={styles.busyPill}
-            onClick={() => onStatus('available')}
-          >
-            <span className={styles.onlineDot} />
-            <span>Modo Ocupado · Ficar online</span>
-          </button>
-        ) : null}
       </div>
 
       {/* Pílula flutuante de controles */}
@@ -390,38 +380,51 @@ export function MobileCallBar({
             />
           </button>
 
-          {inCallZone && selfCamExpanded ? (
+          {busy ? (
             <button
               type="button"
-              aria-label="Reduzir câmera"
-              onClick={onToggleSelfCamExpand}
-              className={`${styles.circle} ${styles.circleActive}`}
+              className={styles.goOnlinePillBtn}
+              onClick={() => onStatus('available')}
             >
-              <Icon name="shrink" size={16} color="#ffffff" />
+              <span className={styles.onlineDot} />
+              <span>Ficar online</span>
             </button>
-          ) : null}
+          ) : (
+            <>
+              {inCallZone && selfCamExpanded ? (
+                <button
+                  type="button"
+                  aria-label="Reduzir câmera"
+                  onClick={onToggleSelfCamExpand}
+                  className={`${styles.circle} ${styles.circleActive}`}
+                >
+                  <Icon name="shrink" size={16} color="#ffffff" />
+                </button>
+              ) : null}
 
-          {inCallZone && call.status !== 'unavailable' ? (
-            optedOut ? (
-              <button
-                type="button"
-                aria-label="Voltar para a chamada"
-                onClick={onJoinCall}
-                className={`${styles.circle} ${styles.circleJoin}`}
-              >
-                <Icon name="phone" size={16} color="#ffffff" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                aria-label="Sair da chamada"
-                onClick={onLeaveCall}
-                className={`${styles.circle} ${styles.circleLeave}`}
-              >
-                <Icon name="phoneOff" size={16} color="#ffffff" />
-              </button>
-            )
-          ) : null}
+              {inCallZone && call.status !== 'unavailable' ? (
+                optedOut ? (
+                  <button
+                    type="button"
+                    aria-label="Voltar para a chamada"
+                    onClick={onJoinCall}
+                    className={`${styles.circle} ${styles.circleJoin}`}
+                  >
+                    <Icon name="phone" size={16} color="#ffffff" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Sair da chamada"
+                    onClick={onLeaveCall}
+                    className={`${styles.circle} ${styles.circleLeave}`}
+                  >
+                    <Icon name="phoneOff" size={16} color="#ffffff" />
+                  </button>
+                )
+              ) : null}
+            </>
+          )}
         </div>
       </div>
     </>
