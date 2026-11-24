@@ -83,7 +83,8 @@ Sem essas variáveis:
 ## Docker (produção)
 
 ```bash
-docker build -t escritorio-web .
+# A partir da raiz do repositório (o build usa ../design-system):
+docker build -f frontend/Dockerfile -t escritorio-web .
 docker run -p 5000:80 \
   -e WS_UPSTREAM=host.docker.internal:5001 \
   -e LIVEKIT_UPSTREAM=host.docker.internal:5002 \
