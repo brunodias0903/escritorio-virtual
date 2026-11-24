@@ -147,6 +147,30 @@ describe('createHttpHandler', () => {
     );
   });
 
+  it('ecoa a origem concreta quando autorizada por curinga de subdomínio', async () => {
+    const handler = createHttpHandler({
+      auth: newAuth(),
+      allowedOrigins: ['https://*.trycloudflare.com'],
+      trustProxy: false,
+    });
+
+    const tunnelOrigin =
+      'https://installing-chan-reserved-has.trycloudflare.com';
+    const preflight = mockRes();
+    await handler(
+      mockReq({
+        method: 'OPTIONS',
+        url: '/api/auth/login',
+        headers: { origin: tunnelOrigin },
+      }),
+      preflight.res,
+    );
+    expect(preflight.result().status).toBe(204);
+    expect(preflight.result().headers.get('access-control-allow-origin')).toBe(
+      tunnelOrigin,
+    );
+  });
+
   it('encaminha rotas JSON da API e recusa corpo maior que o limite com 413', async () => {
     const handler = createHttpHandler({
       auth: newAuth(),

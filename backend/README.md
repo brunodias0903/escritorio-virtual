@@ -109,20 +109,20 @@ pnpm dev:local      # sobe o servidor em :5001 conectado aos serviços acima
 
 ## Variáveis de ambiente
 
-| Variável          | Função                                                                    |
-| ----------------- | ------------------------------------------------------------------------- |
-| `HOST` / `PORT`   | Endereço e porta do servidor (padrão `0.0.0.0:5001`)                      |
-| `SESSION_SECRET`  | Segredo HMAC das sessões (32+ caracteres; obrigatório em produção)        |
-| `DATABASE_URL`    | Conexão PostgreSQL (obrigatório em produção; sem ela usa memória)         |
-| `REDIS_URL`       | Conexão Redis/Valkey (opcional: rate limit, revogações e multi-instância) |
-| `ACCOUNT_DOMAINS` | Domínios liberados para cadastro; `:externo` marca convidado              |
-| `ALLOWED_EMAILS`  | E-mails avulsos liberados para cadastro                                   |
-| `ADMIN_EMAILS`    | E-mails com papel de administrador (precisam ser do time interno)         |
-| `ALLOWED_ORIGINS` | Origens permitidas em CORS e WebSocket, separadas por vírgula             |
-| `TRUST_PROXY`     | `true` atrás de proxy reverso para ler `X-Forwarded-For`                  |
-| `EMAIL_CODES`     | `true` exige código por e-mail no cadastro e habilita redefinição         |
-| `SMTP_*`          | Configuração SMTP (obrigatório em produção se `EMAIL_CODES=true`)         |
-| `LIVEKIT_*`       | URL pública, chave e segredo do LiveKit (opcional)                        |
+| Variável          | Função                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| `HOST` / `PORT`   | Endereço e porta do servidor (padrão `0.0.0.0:5001`)                                                   |
+| `SESSION_SECRET`  | Segredo HMAC das sessões (32+ caracteres; obrigatório em produção)                                     |
+| `DATABASE_URL`    | Conexão PostgreSQL (obrigatório em produção; sem ela usa memória)                                      |
+| `REDIS_URL`       | Conexão Redis/Valkey (opcional: rate limit, revogações e multi-instância)                              |
+| `ACCOUNT_DOMAINS` | Domínios liberados para cadastro; `:externo` marca convidado                                           |
+| `ALLOWED_EMAILS`  | E-mails avulsos liberados para cadastro                                                                |
+| `ADMIN_EMAILS`    | E-mails com papel de administrador (precisam ser do time interno)                                      |
+| `ALLOWED_ORIGINS` | Origens permitidas em CORS e WebSocket, separadas por vírgula (aceita curinga `https://*.dominio.com`) |
+| `TRUST_PROXY`     | `true` atrás de proxy reverso para ler `X-Forwarded-For`                                               |
+| `EMAIL_CODES`     | `true` exige código por e-mail no cadastro e habilita redefinição                                      |
+| `SMTP_*`          | Configuração SMTP (obrigatório em produção se `EMAIL_CODES=true`)                                      |
+| `LIVEKIT_*`       | URL pública, chave e segredo do LiveKit (opcional)                                                     |
 
 ## Scripts
 

@@ -34,7 +34,7 @@ docker compose up -d --build
   - A porta padrão `5080` evita conflito com o AirPlay Receiver do macOS na porta `5000`.
   - Para ativar caixa de e-mail de teste (`Mailpit` em `:5007`), ajuste no `.env`: `COMPOSE_PROFILES=dev`, `EMAIL_CODES=true`, `SMTP_HOST=mailpit`, `SMTP_PORT=1025`.
 - **Testes com o time no PC pessoal (Windows 11 + WSL2 + Docker)**:
-  - Para liberar o acesso na rede local (ou via Tailscale/Cloudflare Tunnel), ajuste no `.env`: `WEB_BIND=0.0.0.0`, inclua a URL usada pelo time em `ALLOWED_ORIGINS` (separadas por vírgula) e aponte `LIVEKIT_NODE_IP` / `LIVEKIT_PUBLIC_URL` para o IP/endereço acessível pelo time.
+  - Para liberar o acesso na rede local (ou via Tailscale/Cloudflare Tunnel), ajuste no `.env`: `WEB_BIND=0.0.0.0`, inclua a URL usada pelo time em `ALLOWED_ORIGINS` (separadas por vírgula; aceita curinga de subdomínio como `https://*.trycloudflare.com`) e aponte `LIVEKIT_NODE_IP` / `LIVEKIT_PUBLIC_URL` para o IP/endereço acessível pelo time.
   - Para adicionar novos administradores, basta acrescentar o e-mail no array `ADMIN_EMAILS=["bdd.vasconcelos@gmail.com","outro@outlook.com"]` no `.env` e reiniciar o container `server`.
 
 ### 3. Produção em VPS Linux (com HTTPS automático)
