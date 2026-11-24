@@ -25,6 +25,7 @@ export class MemoryServerSettingsRepository implements ServerSettingsRepository 
 
 export class MemoryFeedbackRepository implements FeedbackRepository {
   private readonly items = new Map<string, FeedbackItem>();
+  private nextTicketSeq = 1;
 
   async list(): Promise<FeedbackItem[]> {
     return [...this.items.values()]
@@ -38,7 +39,13 @@ export class MemoryFeedbackRepository implements FeedbackRepository {
   }
 
   async create(item: FeedbackItem): Promise<void> {
-    this.items.set(item.id, { ...item, comments: [...item.comments] });
+    const ticketKey = item.ticketKey ?? `EV-${this.nextTicketSeq++}`;
+    item.ticketKey = ticketKey;
+    this.items.set(item.id, {
+      ...item,
+      ticketKey,
+      comments: [...item.comments],
+    });
   }
 
   async update(

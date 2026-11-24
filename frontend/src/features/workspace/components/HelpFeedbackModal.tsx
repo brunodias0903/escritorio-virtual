@@ -11,6 +11,7 @@ import {
   canSeeFeedbackMr,
   effectiveTiersOf,
   errorMessage,
+  suggestedFeedbackBranch,
   type FeedbackItem,
   type FeedbackKind,
   type FeedbackStatus,
@@ -79,6 +80,16 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
     {},
   );
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyText = (key: string, value: string, message: string) => {
+    void navigator.clipboard?.writeText(value);
+    setCopiedKey(key);
+    onNotify(message);
+    window.setTimeout(() => {
+      setCopiedKey((prev) => (prev === key ? null : prev));
+    }, 1800);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -321,6 +332,10 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
                     const mrDraft = mrDrafts[item.id] ?? item.mrUrl ?? '';
                     const commentDraft = commentDrafts[item.id] ?? '';
                     const busy = busyId === item.id;
+                    const ticketTag =
+                      item.ticketKey ??
+                      `EV-${item.id.slice(0, 6).toUpperCase()}`;
+                    const branchName = suggestedFeedbackBranch(item);
 
                     return (
                       <article key={item.id} className={styles.card}>
@@ -330,6 +345,9 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
                           onClick={() => setExpandedId(isOpen ? null : item.id)}
                         >
                           <div className={styles.cardMeta}>
+                            <span className={styles.ticketKeyBadge}>
+                              {ticketTag}
+                            </span>
                             <span className={styles.kindBadge}>
                               {KIND_EMOJI[item.kind]} {t(KIND_KEY[item.kind])}
                             </span>
@@ -361,6 +379,29 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
                             {/* Seção de MR (visível apenas para master, admin, developer e tester) */}
                             {showMr ? (
                               <div className={styles.mrBox}>
+                                <div className={styles.branchRow}>
+                                  <span className={styles.branchLabel}>
+                                    🌿 Branch sugerida:
+                                  </span>
+                                  <code className={styles.branchCode}>
+                                    {branchName}
+                                  </code>
+                                  <button
+                                    type="button"
+                                    className={styles.copyBtn}
+                                    onClick={() =>
+                                      copyText(
+                                        `branch:${item.id}`,
+                                        branchName,
+                                        `Branch ${branchName} copiada!`,
+                                      )
+                                    }
+                                  >
+                                    {copiedKey === `branch:${item.id}`
+                                      ? 'Copiado!'
+                                      : 'Copiar'}
+                                  </button>
+                                </div>
                                 <div className={styles.mrLabel}>
                                   🔗 {t('feedback.mr.label')}
                                 </div>

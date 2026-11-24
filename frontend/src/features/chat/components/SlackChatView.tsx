@@ -118,6 +118,15 @@ export function SlackChatView({
     if (node) node.scrollTop = node.scrollHeight;
   }, [activeId, lastMessageId, thread?.messages.length]);
 
+  useEffect(() => {
+    if (mode === 'none') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMode('none');
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mode]);
+
   const select = (id: string) => {
     setError(null);
     setActive(id);
@@ -202,13 +211,8 @@ export function SlackChatView({
     send({ type: 'thread', threadId: rootId });
   };
 
-  const showNav = expanded || drawerOpen;
-  const navToggleLabel =
-    section === 'channels'
-      ? 'Canais do servidor'
-      : section === 'dms'
-        ? 'Conversas diretas'
-        : 'Canais e conversas';
+  const hasOuterToggle = !expanded && section === 'all';
+  const showNav = !hasOuterToggle || drawerOpen;
 
   const canSendInActive =
     !channel ||
@@ -226,16 +230,14 @@ export function SlackChatView({
       <div
         className={`${styles.navBlock} ${expanded ? styles.navBlockExpanded : ''}`}
       >
-        {!expanded ? (
+        {hasOuterToggle ? (
           <button
             type="button"
             className={styles.navToggle}
             onClick={() => setDrawerOpen((prev) => !prev)}
             aria-expanded={drawerOpen}
           >
-            <span>
-              {drawerOpen ? '▾' : '▸'} {navToggleLabel}
-            </span>
+            <span>{drawerOpen ? '▾' : '▸'} Canais e conversas</span>
             <span className={styles.navCount}>{sectionChannels.length}</span>
           </button>
         ) : null}
@@ -250,10 +252,14 @@ export function SlackChatView({
                   <button
                     type="button"
                     className={styles.sectionToggle}
+                    aria-expanded={channelsOpen}
                     onClick={() => setChannelsOpen((prev) => !prev)}
                   >
                     <span>{channelsOpen ? '▾' : '▸'}</span>
                     <span>Canais</span>
+                    <span className={styles.navCount}>
+                      {publicChannels.length}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -398,10 +404,12 @@ export function SlackChatView({
                   <button
                     type="button"
                     className={styles.sectionToggle}
+                    aria-expanded={dmsOpen}
                     onClick={() => setDmsOpen((prev) => !prev)}
                   >
                     <span>{dmsOpen ? '▾' : '▸'}</span>
-                    <span>Mensagens diretas</span>
+                    <span>Conversas diretas</span>
+                    <span className={styles.navCount}>{dmChannels.length}</span>
                   </button>
                   <button
                     type="button"
@@ -444,7 +452,11 @@ export function SlackChatView({
                 ) : null}
 
                 {dmsOpen ? (
-                  <div className={styles.list} aria-label="Mensagens diretas">
+                  <div
+                    className={styles.list}
+                    role="tablist"
+                    aria-label="Conversas diretas"
+                  >
                     {dmChannels.length === 0 ? (
                       <p className={styles.emptySmall}>
                         Nenhuma DM aberta. Clique em + para iniciar.
@@ -457,6 +469,8 @@ export function SlackChatView({
                           <button
                             key={item.id}
                             type="button"
+                            role="tab"
+                            aria-selected={isActive}
                             onClick={() => select(item.id)}
                             className={`${styles.item} ${isActive ? styles.itemActive : ''}`}
                           >

@@ -77,6 +77,7 @@ export class PgServerSettingsRepository implements ServerSettingsRepository {
 
 type FeedbackDbRow = {
   id: string;
+  ticket_key?: string | null;
   kind: FeedbackKind;
   title: string;
   description: string;
@@ -114,6 +115,7 @@ const toItem = (
   comments: FeedbackComment[],
 ): FeedbackItem => ({
   id: row.id,
+  ticketKey: row.ticket_key ?? `EV-${row.id.slice(0, 6).toUpperCase()}`,
   kind: row.kind,
   title: row.title,
   description: row.description,
@@ -137,7 +139,7 @@ export class PgFeedbackRepository implements FeedbackRepository {
   async list(): Promise<FeedbackItem[]> {
     const [itemsRes, commentsRes] = await Promise.all([
       this.db.query(
-        `SELECT id, kind, title, description, status, author_email, author_name, mr_url, created_at, updated_at, updated_by
+        `SELECT id, ticket_key, kind, title, description, status, author_email, author_name, mr_url, created_at, updated_at, updated_by
          FROM feedback_items ORDER BY updated_at DESC LIMIT 200`,
       ),
       this.db.query(
@@ -160,7 +162,7 @@ export class PgFeedbackRepository implements FeedbackRepository {
 
   async get(id: string): Promise<FeedbackItem | undefined> {
     const { rows } = await this.db.query(
-      `SELECT id, kind, title, description, status, author_email, author_name, mr_url, created_at, updated_at, updated_by
+      `SELECT id, ticket_key, kind, title, description, status, author_email, author_name, mr_url, created_at, updated_at, updated_by
        FROM feedback_items WHERE id = $1`,
       [id],
     );
@@ -178,11 +180,21 @@ export class PgFeedbackRepository implements FeedbackRepository {
   }
 
   async create(item: FeedbackItem): Promise<void> {
+    let ticketKey = item.ticketKey;
+    if (!ticketKey) {
+      const seqRes = await this.db.query(
+        `SELECT nextval('feedback_ticket_seq') AS seq`,
+      );
+      const seq = Number((seqRes.rows[0] as { seq: string | number }).seq);
+      ticketKey = `EV-${seq}`;
+      item.ticketKey = ticketKey;
+    }
     await this.db.query(
-      `INSERT INTO feedback_items (id, kind, title, description, status, author_email, author_name, mr_url, created_at, updated_at, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      `INSERT INTO feedback_items (id, ticket_key, kind, title, description, status, author_email, author_name, mr_url, created_at, updated_at, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         item.id,
+        ticketKey,
         item.kind,
         item.title,
         item.description,

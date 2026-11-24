@@ -198,6 +198,8 @@ export type FeedbackComment = z.infer<typeof FeedbackCommentSchema>;
 
 export const FeedbackItemSchema = z.object({
   id: z.string(),
+  /** Tag sequencial estilo Jira (ex.: EV-12) para referenciar em branches e MRs. */
+  ticketKey: z.string().optional(),
   kind: z.enum(FEEDBACK_KINDS),
   title: z.string(),
   description: z.string(),
@@ -212,6 +214,35 @@ export const FeedbackItemSchema = z.object({
   comments: z.array(FeedbackCommentSchema).default([]),
 });
 export type FeedbackItem = z.infer<typeof FeedbackItemSchema>;
+
+const BRANCH_PREFIX_BY_KIND: Record<FeedbackKind, string> = {
+  bug: 'bugfix',
+  suggestion: 'feat',
+  complaint: 'fix',
+  question: 'chore',
+};
+
+/** Gera o nome de branch sugerido no padrão Git com a tag do ticket (ex.: bugfix/ev-12-sidebar). */
+export function suggestedFeedbackBranch(item: {
+  id: string;
+  ticketKey?: string | null;
+  kind: FeedbackKind;
+  title: string;
+}): string {
+  const prefix = BRANCH_PREFIX_BY_KIND[item.kind];
+  const tag = (item.ticketKey?.trim() || `EV-${item.id.slice(0, 6)}`)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-');
+  const slug = item.title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+    .replace(/-+$/g, '');
+  return slug ? `${prefix}/${tag}-${slug}` : `${prefix}/${tag}`;
+}
 
 export const CreateFeedbackSchema = z.object({
   kind: z.enum(FEEDBACK_KINDS),

@@ -302,6 +302,7 @@
   flex-wrap: wrap;
 }
 
+.ticketKeyBadge,
 .kindBadge,
 .statusBadge,
 .mrPill {
@@ -309,6 +310,14 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
+}
+
+.ticketKeyBadge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.03em;
+  background: var(--accent-mention-bg);
+  color: var(--accent-link);
+  border: 1px solid var(--accent-border-soft);
 }
 
 .kindBadge {
@@ -384,6 +393,51 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.branchRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.branchLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.branchCode {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copyBtn {
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: var(--bg-control);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.copyBtn:hover {
+  background: var(--accent-chip);
+  border-color: var(--accent-border-soft);
 }
 
 .mrLabel {

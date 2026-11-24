@@ -55,9 +55,9 @@
 }
 
 .navScroll {
-  max-height: 210px;
+  max-height: 220px;
   overflow-y: auto;
-  padding: 2px 8px 10px;
+  padding: 6px 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -79,7 +79,7 @@
 .sectionToggle {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 700;
