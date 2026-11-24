@@ -11,8 +11,8 @@
   "scripts": {
     "prepare": "husky",
     "env:init": "node scripts/setup-env.mjs",
-    "up": "docker compose up -d --build",
-    "down": "docker compose down",
+    "docker-up": "docker compose up -d --build",
+    "docker-down": "docker compose down",
     "cloudflared": "cloudflared tunnel --url http://localhost:5080",
     "ps": "docker compose ps",
     "logs": "docker compose logs -f",
