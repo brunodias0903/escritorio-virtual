@@ -224,8 +224,10 @@ export function LoginPage() {
   const [options, setOptions] = useState<AuthOptions>({
     emailCodes: false,
     domains: [],
+    allowRegistration: true,
   });
   const { emailCodes } = options;
+  const allowRegistration = options.allowRegistration !== false;
   const hero = HERO_COPY[view];
 
   useEffect(() => {
@@ -293,7 +295,7 @@ export function LoginPage() {
               </button>
             </div>
           ) : null}
-          {view === 'register' ? (
+          {view === 'register' && allowRegistration ? (
             <LocalRegisterForm
               emailCodes={emailCodes}
               domains={options.domains}
@@ -303,7 +305,9 @@ export function LoginPage() {
             <ResetPasswordForm onBack={() => setView('login')} />
           ) : (
             <LocalLoginForm
-              onRegister={() => setView('register')}
+              onRegister={
+                allowRegistration ? () => setView('register') : undefined
+              }
               onForgot={emailCodes ? () => setView('reset') : undefined}
             />
           )}

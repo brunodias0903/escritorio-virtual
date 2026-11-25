@@ -381,6 +381,7 @@ export const AuthOptionsSchema = z.object({
   emailCodes: z.boolean(),
   /** Domínios aceitos no cadastro, para a dica da tela. Os e-mails soltos não aparecem. */
   domains: z.array(z.string()).default([]),
+  allowRegistration: z.boolean().optional(),
 });
 export type AuthOptions = z.infer<typeof AuthOptionsSchema>;
 
@@ -461,6 +462,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   nickname_taken: 'Esse nickname já está em uso. Escolha outro.',
   email_taken: 'Já existe uma conta com esse e-mail.',
   email_not_allowed: 'Esse e-mail não tem permissão para criar conta.',
+  registration_disabled:
+    'O cadastro de novas contas está desabilitado neste ambiente de preview.',
   too_many_attempts: 'Muitas tentativas. Aguarde alguns minutos.',
   unauthorized: 'Sessão expirada. Entre novamente.',
   forbidden: 'Você não tem permissão para isso.',

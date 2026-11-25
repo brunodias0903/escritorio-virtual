@@ -44,6 +44,8 @@ export type AppConfig = {
   trustProxy: boolean;
   /** EMAIL_CODES=true: pede código por e-mail ao criar conta e libera "esqueci a senha". */
   emailCodes: boolean;
+  /** ALLOW_REGISTRATION=false: bloqueia criação de novas contas (útil em previews). */
+  allowRegistration: boolean;
   /** Servidor de e-mail (códigos de confirmação). Sem ele, só em desenvolvimento (terminal). */
   smtp: SmtpConfig | null;
   warnings: string[];
@@ -77,6 +79,7 @@ export const loadConfig = (
 ): AppConfig => {
   const production = env.NODE_ENV === 'production';
   const emailCodes = env.EMAIL_CODES === 'true';
+  const allowRegistration = env.ALLOW_REGISTRATION !== 'false';
   const access = parseAccountAccess(env.ACCOUNT_DOMAINS, env.ALLOWED_EMAILS);
   const nobodyAllowed =
     access.domains.length === 0 && access.emails.length === 0;
@@ -144,6 +147,7 @@ export const loadConfig = (
         : null,
     trustProxy: env.TRUST_PROXY === 'true',
     emailCodes,
+    allowRegistration,
     smtp: env.SMTP_HOST
       ? {
           host: env.SMTP_HOST,

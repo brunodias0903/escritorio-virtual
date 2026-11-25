@@ -23,7 +23,7 @@ const codeIn = (mails: Mail[], email: string): string =>
     [...mails].reverse().find((m) => m.to === email.toLowerCase())?.text ?? '',
   )?.[1] ?? '000000';
 
-const setup = () => {
+const setup = (allowRegistration = true) => {
   let time = 1_800_000_000_000;
   const mails: Mail[] = [];
   const accounts = new MemoryLocalAccountRepository();
@@ -34,6 +34,7 @@ const setup = () => {
     access: parseAccountAccess('empresa.com,parceiro.com:externo', ''),
     loginLimiter: new MemoryRateLimiter(5, 60_000, () => time),
     revocations: new MemoryRevocations(() => time),
+    allowRegistration,
     codes: new CodeService({
       codes: new MemoryEmailCodeRepository(),
       mailer: { send: async (mail) => void mails.push(mail) },
@@ -542,6 +543,26 @@ describe('sessão', () => {
           admin: true,
         },
       },
+    });
+  });
+
+  it('bloqueia cadastro e sinaliza options quando allowRegistration=false', async () => {
+    const { service: previewAuth } = setup(false);
+
+    expect(previewAuth.options()).toMatchObject({
+      emailCodes: true,
+      allowRegistration: false,
+    });
+    expect(
+      await previewAuth.requestCode(
+        { email: 'ana@empresa.com', purpose: 'register' },
+        '1.1.1.1',
+      ),
+    ).toEqual({ ok: false, status: 403, error: 'registration_disabled' });
+    expect(await previewAuth.register(ana, '1.1.1.1')).toEqual({
+      ok: false,
+      status: 403,
+      error: 'registration_disabled',
     });
   });
 });
