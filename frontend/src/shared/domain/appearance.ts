@@ -319,7 +319,13 @@ export const defaultAppearance = (seed: string): Appearance => {
   };
 };
 
-export const STATUSES = ['available', 'busy', 'away'] as const;
+export const STATUSES = [
+  'available',
+  'busy',
+  'away',
+  'coffee',
+  'lunch',
+] as const;
 export const StatusSchema = z.enum(STATUSES);
 export type Status = z.infer<typeof StatusSchema>;
 
@@ -327,7 +333,13 @@ export const STATUS_LABELS: Record<Status, string> = {
   available: 'Disponível',
   busy: 'Ocupado',
   away: 'Ausente',
+  coffee: 'Tomando um café',
+  lunch: 'Almoçando',
 };
+
+/** Status em que a pessoa não está disponível para chamadas (ocupado, café ou almoço). */
+export const isUnavailableStatus = (status: Status | undefined): boolean =>
+  status === 'busy' || status === 'coffee' || status === 'lunch';
 
 export const EMOTES = ['👋', '👍', '😂', '❤️', '🎉', '👏'] as const;
 export const EmoteSchema = z.enum(EMOTES);

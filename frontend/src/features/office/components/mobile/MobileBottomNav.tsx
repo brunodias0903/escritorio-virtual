@@ -22,6 +22,8 @@ import styles from './MobileBottomNav.module.css';
 const STATUS_COLORS: Record<Status, string> = {
   available: 'var(--status-available)',
   busy: 'var(--status-busy)',
+  coffee: '#e07a4b',
+  lunch: '#f39c12',
   away: 'var(--status-away)',
 };
 

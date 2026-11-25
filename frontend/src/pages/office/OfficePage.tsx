@@ -30,6 +30,7 @@ import { Joystick } from '@/features/office/components/Joystick';
 import { MobileBottomNav } from '@/features/office/components/mobile/MobileBottomNav';
 import { MobileCallBar } from '@/features/office/components/mobile/MobileCallBar';
 import { OfficeMap } from '@/features/office/components/OfficeMap';
+import { PantryExitPrompt } from '@/features/office/components/PantryExitPrompt';
 import { SessionDisplacedModal } from '@/features/office/components/SessionDisplacedModal';
 import { WelcomeGuide } from '@/features/office/components/WelcomeGuide';
 import {
@@ -52,6 +53,7 @@ import {
   OfficeWorld,
   type WorldSnapshot,
 } from '@/features/office/model/officeWorld';
+import { isInPantryArea } from '@/features/office/model/pathfind';
 import { peopleList } from '@/features/office/model/people';
 import { usePeopleStore } from '@/features/office/model/peopleStore';
 import { ThemeModal } from '@/features/theme/ThemeModal';
@@ -64,6 +66,7 @@ import {
   callZoneId,
   deskKey,
   isNearCall,
+  isUnavailableStatus,
   onlineCount,
   resolveMap,
   type Appearance,
@@ -174,6 +177,10 @@ export function OfficePage({ session }: { session: Session }) {
   const [movingDeskId, setMovingDeskId] = useState<string | null>(null);
   const [previewDesk, setPreviewDesk] = useState<DeskInfo | null>(null);
   const [notice, setNotice] = useState('');
+  const [pantryExitPrompt, setPantryExitPrompt] = useState<
+    'coffee' | 'lunch' | null
+  >(null);
+  const reachedPantryRef = useRef(false);
   const desks = useDeskStore((state) => state.desks);
   const allPeople = usePeopleStore((state) => state.people);
   const [peopleQuery, setPeopleQuery] = useState('');
@@ -262,7 +269,7 @@ export function OfficePage({ session }: { session: Session }) {
     const total = unread + mentions;
     document.title =
       total > 0 ? `(${total}) Escritório Virtual` : 'Escritório Virtual';
-    if (total > prevUnreadRef.current && myStatus !== 'busy') {
+    if (total > prevUnreadRef.current && !isUnavailableStatus(myStatus)) {
       playNotifyChime('message');
     }
     prevUnreadRef.current = total;
@@ -341,15 +348,30 @@ export function OfficePage({ session }: { session: Session }) {
       // Cada passo vira uma mensagem: o servidor confere o quadradinho.
       if (step) {
         socket.send({ type: 'move', x: step.x, y: step.y });
+        const resolved = resolveMap(
+          world.map,
+          Object.values(useDeskStore.getState().desks),
+        );
         setLeftCallKey((prev) => {
           if (!prev) return null;
-          const resolved = resolveMap(
-            world.map,
-            Object.values(useDeskStore.getState().desks),
-          );
           const nextZone = callZoneId(resolved, step);
           return prev === `${world.map}:${nextZone ?? ''}` ? prev : null;
         });
+        const currentMe = world.me();
+        const breakKind =
+          currentMe?.status === 'coffee' || currentMe?.status === 'lunch'
+            ? currentMe.status
+            : null;
+        if (!breakKind) {
+          reachedPantryRef.current = false;
+          setPantryExitPrompt(null);
+        } else if (isInPantryArea(resolved, step)) {
+          reachedPantryRef.current = true;
+          setPantryExitPrompt(null);
+        } else if (reachedPantryRef.current && !world.autoWalking) {
+          reachedPantryRef.current = false;
+          setPantryExitPrompt(breakKind);
+        }
       }
       world.tick(dt);
       setView({ snapshot: world.snapshot(), time: now });
@@ -447,14 +469,23 @@ export function OfficePage({ session }: { session: Session }) {
 
   // A chamada em que devo estar: a da zona, a conversa com quem está perto
   // na estrada, ou nenhuma. Usa as posições de destino (o passo já valeu).
-  const isBusy = me?.status === 'busy';
+  const isBusy = isUnavailableStatus(me?.status);
   const callId = me
     ? callKey(
         map,
-        { id: me.id, x: me.tx, y: me.ty },
-        view.snapshot.players.map((p) => ({ id: p.id, x: p.tx, y: p.ty })),
+        { id: me.id, x: me.tx, y: me.ty, status: me.status },
+        view.snapshot.players.map((p) => ({
+          id: p.id,
+          x: p.tx,
+          y: p.ty,
+          status: p.status,
+        })),
       )
     : null;
+
+  const meInPantry = Boolean(me && isInPantryArea(map, { x: me.tx, y: me.ty }));
+  const activePantryPrompt =
+    me?.status === 'coffee' || me?.status === 'lunch' ? pantryExitPrompt : null;
   const nearCall = isNearCall(callId);
   const currentCallKey = callId ? `${view.snapshot.map}:${callId}` : null;
   const optedOut = currentCallKey !== null && leftCallKey === currentCallKey;
@@ -518,18 +549,35 @@ export function OfficePage({ session }: { session: Session }) {
 
   const handleStatusChange = (next: Status) => {
     const prev = me?.status;
+    setPantryExitPrompt(null);
     send({ type: 'status', status: next });
-    if (next === 'busy') {
+    if (next === 'coffee' || next === 'lunch') {
+      // Tomando café ou Almoçando: fica indisponível (sai da chamada e silencia) e caminha até a copa/cafeteria.
+      reachedPantryRef.current = meInPantry;
+      setSpotlightKey(null);
+      setMedia(null);
+      call.setAudioOn(false);
+      call.silenceLocal();
+      world.goToPantry();
+      setNotice(
+        next === 'coffee'
+          ? '☕ Indo para a copa tomar um café (você está indisponível para chamadas).'
+          : '🍽️ Indo para a copa almoçar (você está indisponível para chamadas).',
+      );
+    } else if (next === 'busy') {
+      reachedPantryRef.current = false;
       // Ocupado: sai da chamada imediatamente e pausa áudio, microfone, câmera e tela.
       setSpotlightKey(null);
       setMedia(null);
       call.setAudioOn(false);
       call.silenceLocal();
     } else if (next === 'away') {
+      reachedPantryRef.current = false;
       // Ausente: muta microfone, desliga câmera e para tela, mas mantém os botões liberados.
       call.silenceLocal();
-      if (prev === 'busy') call.setAudioOn(true);
-    } else if (prev === 'busy') {
+      if (isUnavailableStatus(prev)) call.setAudioOn(true);
+    } else if (isUnavailableStatus(prev)) {
+      reachedPantryRef.current = false;
       // Ficar online: desmuta somente o áudio e libera os demais controles.
       call.setAudioOn(true);
     }
@@ -681,6 +729,7 @@ export function OfficePage({ session }: { session: Session }) {
               'Sem conexão com o servidor para adotar a mesa.',
             );
           }}
+          onSitDesk={(deskId) => world.goTo({ map: view.snapshot.map, deskId })}
           onMoveDesk={(deskId) => setMovingDeskId(deskId)}
           onToggleDeskLock={(deskId) => {
             const info = desks[deskKey(map.id, deskId)];
@@ -888,6 +937,21 @@ export function OfficePage({ session }: { session: Session }) {
           session={session}
           onClose={() => setHelpOpen(false)}
           onNotify={setNotice}
+        />
+      ) : null}
+
+      {activePantryPrompt ? (
+        <PantryExitPrompt
+          kind={activePantryPrompt}
+          onFinishBreak={() => {
+            setPantryExitPrompt(null);
+            handleStatusChange('available');
+            setNotice('🟢 Você voltou a ficar Disponível!');
+          }}
+          onReturnToPantry={() => {
+            setPantryExitPrompt(null);
+            world.goToPantry();
+          }}
         />
       ) : null}
 

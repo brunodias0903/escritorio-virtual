@@ -26,6 +26,7 @@ import {
   deskSeats,
   doorTiles,
   findPath,
+  pantryTiles,
   type Destination,
 } from './pathfind';
 
@@ -254,6 +255,27 @@ export class OfficeWorld {
   goTo(destination: Destination): void {
     this.destination = destination;
     this.plan();
+  }
+
+  /** Vai andando sozinha até a copa / cafeteria mais próxima do andar atual. */
+  goToPantry(): void {
+    const me = this.me();
+    if (!me) return;
+    const map = this.currentMap();
+    const others = [...this.players.values()].filter((p) => p.id !== me.id);
+    const taken = (p: Point) =>
+      others.some((o) => o.tx === p.x && o.ty === p.y);
+    const all = pantryTiles(map);
+    const free = all.filter((p) => !taken(p));
+    const targets = free.length > 0 ? free : all;
+    for (const target of targets) {
+      const route = findPath(map, me, [target]);
+      if (route) {
+        this.destination = { map: this.map, point: target };
+        this.route = route;
+        return;
+      }
+    }
   }
 
   stopAutoWalk(): void {

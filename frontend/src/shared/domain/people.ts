@@ -26,17 +26,21 @@ export const PersonSchema = z.object({
 });
 export type Person = z.infer<typeof PersonSchema>;
 
-/** Ordem da lista: disponível, ocupado, ausente e, por último, offline. */
+/** Ordem da lista: disponível, ocupado, tomando café, almoçando, ausente e, por último, offline. */
 const STATUS_ORDER: Record<PersonStatus, number> = {
   available: 0,
   busy: 1,
-  away: 2,
-  offline: 3,
+  coffee: 2,
+  lunch: 3,
+  away: 4,
+  offline: 5,
 };
 
 export const PERSON_STATUS_LABELS: Record<PersonStatus, string> = {
   available: 'Disponível',
   busy: 'Ocupado',
+  coffee: 'Tomando um café',
+  lunch: 'Almoçando',
   away: 'Ausente',
   offline: 'Offline',
 };

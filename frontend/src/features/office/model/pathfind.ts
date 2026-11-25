@@ -107,6 +107,33 @@ export const deskSeats = (
   };
 };
 
+/** Quadradinhos livres logo em frente à copa/cafeteria (`pantry` / `fridge`) do mapa. */
+export const pantryTiles = (map: MapDef): Point[] => {
+  const pantries = map.solids.filter(
+    (s) => s.kind === 'pantry' || s.kind === 'fridge',
+  );
+  const candidates: Point[] = [];
+  for (const s of pantries) {
+    const first = tileOf(s);
+    const cols = s.w / TILE;
+    // Prioriza os quadradinhos logo acima ou logo abaixo da bancada da copa
+    for (const dy of [-1, 1]) {
+      const ty = first.ty + (dy > 0 ? s.h / TILE : -1);
+      for (let tx = first.tx; tx < first.tx + cols; tx++) {
+        const p = tileCenter(tx, ty);
+        if (!isBlocked(map, p) && !doorAt(map, p)) {
+          candidates.push(p);
+        }
+      }
+    }
+  }
+  return candidates;
+};
+
+/** Verifica se o jogador está parado em um dos quadradinhos em frente à copa/cafeteria. */
+export const isInPantryArea = (map: MapDef, point: Point): boolean =>
+  pantryTiles(map).some((p) => p.x === point.x && p.y === point.y);
+
 /** Quadradinhos livres dentro de uma sala (ex.: sala de reunião), dos mais centrais para as bordas. */
 export const areaTiles = (map: MapDef, areaId: string): Point[] => {
   const area = map.areas.find((a) => a.id === areaId && !a.desk);

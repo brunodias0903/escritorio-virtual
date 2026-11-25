@@ -14,16 +14,38 @@ import {
 
 const INK = '#1e191d';
 
-/** Tamanho (em pixels do mapa) da área de cada enfeite sobre a mesa (10x10 art px = 20x20 ou compacto 14x14). */
-const CELL = 16;
+/** Tamanho (em pixels do mapa) da área de cada enfeite sobre a mesa (matriz 10x10 em 1.1px = 11x11px). */
+const ITEM_PX = 1.1;
+const ITEM_SIZE = 10 * ITEM_PX;
 
-/** Lugares dos enfeites no tampo: 4 cantos (esquerda/direita atrás e na frente). */
-const slotOf = (desk: DeskDef, index: number) => {
+/**
+ * Posições dos 4 enfeites dentro da área útil da superfície do tampo (`y + 2` até `y + h - 10`),
+ * distribuídos nas alas laterais esquerda e direita (acima dos dois gaveteiros) para nunca
+ * transbordar para fora da mesa nem colidir com monitores, teclado, mouse ou gabinete:
+ * - Slot 0: Ala esquerda superior
+ * - Slot 1: Ala direita superior
+ * - Slot 2: Ala esquerda frontal
+ * - Slot 3: Ala direita frontal
+ */
+const slotOf = (
+  desk: DeskDef,
+  index: number,
+  setup: { machine: DeskMachine; monitor: DeskMonitor },
+) => {
+  const hasTower = setup.machine === 'desktop';
+  const wideMonitors = setup.monitor === 'triple' || setup.monitor === 'dual';
+  const leftBackX = desk.x + 2;
+  const leftFrontX = wideMonitors ? desk.x + 14 : desk.x + 15;
+  const rightFrontX = hasTower
+    ? desk.x + desk.w - 33
+    : desk.x + desk.w - 15 - ITEM_SIZE;
+  const rightBackX = desk.x + desk.w - ITEM_SIZE - 2;
+
   const slots = [
-    { x: desk.x + 3, y: desk.y - 3 },
-    { x: desk.x + desk.w - CELL - 3, y: desk.y - 3 },
-    { x: desk.x + desk.w - CELL - 3, y: desk.y + desk.h - CELL - 1 },
-    { x: desk.x + 3, y: desk.y + desk.h - CELL - 1 },
+    { x: leftBackX, y: desk.y + 1 },
+    { x: rightBackX, y: desk.y + 1 },
+    { x: leftFrontX, y: desk.y + 11 },
+    { x: rightFrontX, y: desk.y + 11 },
   ];
   return slots[index] ?? slots[0]!;
 };
@@ -361,7 +383,7 @@ const ITEM_MATRICES: Record<DeskItem, readonly string[]> = {
 /** Desenha um enfeite `tag: 'desk-decor'` a partir de sua matriz 10x10 em pixel art. */
 function Item({ item, x, y }: { item: DeskItem; x: number; y: number }) {
   const rows = ITEM_MATRICES[item] ?? ITEM_MATRICES.plant;
-  const px = 1.5;
+  const px = ITEM_PX;
   const rects: Array<{
     dx: number;
     dy: number;
@@ -462,16 +484,16 @@ function Laptop({ x, y, w }: { x: number; y: number; w: number }) {
   );
 }
 
-/** Gabinete de PC em cima da mesa (vidro lateral + LED sutil). */
+/** Gabinete de PC compacto em cima da mesa (vidro lateral + LED sutil). */
 function Tower({ x, y }: { x: number; y: number }) {
   return (
     <g>
-      <rect x={x} y={y} width={9} height={18} fill={INK} />
-      <rect x={x + 1} y={y + 1} width={7} height={16} fill="#454c5c" />
-      <rect x={x + 2} y={y + 3} width={4} height={10} fill="#2d313b" />
-      <rect x={x + 3} y={y + 4} width={1.5} height={7} fill="#58a6b8" />
-      <rect x={x + 5} y={y + 5} width={1.5} height={5} fill="#7ca36b" />
-      <rect x={x + 2} y={y + 14} width={5} height={1.5} fill="#96a1b5" />
+      <rect x={x} y={y} width={8} height={15} fill={INK} />
+      <rect x={x + 1} y={y + 1} width={6} height={13} fill="#454c5c" />
+      <rect x={x + 2} y={y + 2} width={4} height={8} fill="#2d313b" />
+      <rect x={x + 2.5} y={y + 3} width={1.5} height={6} fill="#58a6b8" />
+      <rect x={x + 4.5} y={y + 4} width={1.5} height={4} fill="#7ca36b" />
+      <rect x={x + 2} y={y + 11.5} width={4} height={1.5} fill="#96a1b5" />
     </g>
   );
 }
@@ -488,22 +510,22 @@ function Monitors({
 }) {
   switch (monitor) {
     case 'single':
-      return <Monitor x={cx - 11} y={top - 2} w={22} />;
+      return <Monitor x={cx - 10} y={top - 2} w={20} />;
     case 'dual':
       return (
         <g>
-          <Monitor x={cx - 19} y={top - 2} w={18} />
-          <Monitor x={cx + 1} y={top - 2} w={18} />
+          <Monitor x={cx - 17} y={top - 2} w={16} />
+          <Monitor x={cx + 1} y={top - 2} w={16} />
         </g>
       );
     case 'ultrawide':
-      return <Monitor x={cx - 18} y={top - 2} w={36} />;
+      return <Monitor x={cx - 16} y={top - 2} w={32} />;
     case 'triple':
       return (
         <g>
-          <Monitor x={cx - 22} y={top - 1} w={14} />
-          <Monitor x={cx - 7} y={top - 3} w={14} />
-          <Monitor x={cx + 8} y={top - 1} w={14} />
+          <Monitor x={cx - 20} y={top - 1} w={13} />
+          <Monitor x={cx - 6.5} y={top - 3} w={13} />
+          <Monitor x={cx + 7} y={top - 1} w={13} />
         </g>
       );
     default:
@@ -528,14 +550,14 @@ function Computer({
   const rgb = monitor === 'ultrawide';
   const keyboard = (
     <g>
-      <rect x={cx - 10} y={bottom - 11} width={20} height={6} fill={INK} />
-      <rect x={cx - 9} y={bottom - 10} width={18} height={4} fill="#f5f7fa" />
-      <rect x={cx - 8} y={bottom - 9} width={16} height={2} fill={KEYS} />
+      <rect x={cx - 9} y={bottom - 9} width={16} height={6} fill={INK} />
+      <rect x={cx - 8} y={bottom - 8} width={14} height={4} fill="#f5f7fa" />
+      <rect x={cx - 7} y={bottom - 7} width={12} height={2} fill={KEYS} />
       {rgb ? (
-        <rect x={cx - 9} y={bottom - 6} width={18} height={1} fill="#58a6b8" />
+        <rect x={cx - 8} y={bottom - 4} width={14} height={1} fill="#58a6b8" />
       ) : null}
-      <rect x={cx + 12} y={bottom - 10} width={4} height={5} fill={INK} />
-      <rect x={cx + 13} y={bottom - 9} width={2} height={3} fill="#f5f7fa" />
+      <rect x={cx + 9} y={bottom - 8} width={4} height={5} fill={INK} />
+      <rect x={cx + 10} y={bottom - 7} width={2} height={3} fill="#f5f7fa" />
     </g>
   );
 
@@ -544,99 +566,27 @@ function Computer({
       <g>
         <Monitors monitor={monitor} cx={cx} top={top} />
         {keyboard}
-        <Tower x={cx + 21} y={top + 1} />
+        <Tower x={cx + 18} y={top + 5} />
       </g>
     );
   }
 
   if (monitor === 'none') {
-    return <Laptop x={cx - 10} y={top + 6} w={20} />;
+    return <Laptop x={cx - 9} y={top + 5} w={18} />;
   }
 
   return (
     <g>
       <Monitors monitor={monitor} cx={cx} top={top} />
-      <Laptop x={cx - 8} y={top + 11} w={16} />
+      <Laptop x={cx - 7} y={top + 9} w={14} />
     </g>
   );
 }
-
-/** Presets variados e humanos para mesas livres no mapa (tampo, cadeira, tapete, setup e enfeites). */
-const FREE_DESK_VARIANTS: readonly DeskConfig[] = [
-  {
-    color: 1, // Nogueira Executiva
-    rug: 0, // Verde-Sálvia
-    rugPattern: 'bordered',
-    chair: 0,
-    items: ['plant', 'mug', 'lamp'],
-    label: '',
-    computer: 'dualMonitor',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 2, // Freixo Claro Nórdico
-    rug: 1, // Azul-Petróleo
-    rugPattern: 'bordered',
-    chair: 2,
-    items: ['bonsai', 'notebook', 'coffee'],
-    label: '',
-    computer: 'laptopMonitor',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 4, // Verde-Sálvia Studio
-    rug: 4, // Âmbar
-    rugPattern: 'bordered',
-    chair: 5,
-    items: ['duck', 'headphones', 'cactus'],
-    label: '',
-    computer: 'ultrawide',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 5, // Azul-Petróleo Corporativo
-    rug: 3, // Lavanda
-    rugPattern: 'striped',
-    chair: 0,
-    items: ['lavaLamp', 'rubik', 'cat'],
-    label: '',
-    computer: 'desktop',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 7, // Carvalho Clássico
-    rug: 0, // Verde-Sálvia
-    rugPattern: 'bordered',
-    chair: 4,
-    items: ['books', 'teapot', 'hourglass'],
-    label: '',
-    computer: 'dualMonitor',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 3, // Stealth Grafite Escuro
-    rug: 1, // Azul-Petróleo
-    rugPattern: 'bordered',
-    chair: 1,
-    items: ['controller', 'figure', 'mic'],
-    label: '',
-    computer: 'tripleMonitor',
-    locked: false,
-    position: null,
-  },
-];
 
 type Props = {
   desk: DeskDef;
   /** `null` para mesa livre. */
   config: DeskConfig | null;
-  /** Índice opcional para dar identidade e vida às mesas livres no mapa. */
-  variantIndex?: number;
   /** Nome na plaquinha acima da mesa (usado na prévia do editor). */
   showLabel?: boolean;
   /** Mesa livre: mostra o convite para adotar (usado fora do mapa). */
@@ -654,18 +604,12 @@ type Props = {
 export function DeskArt({
   desk,
   config,
-  variantIndex,
   showLabel = true,
   freeHint = true,
   owner = null,
   onHoverChange,
 }: Props) {
-  const look =
-    config ??
-    (variantIndex !== undefined
-      ? (FREE_DESK_VARIANTS[variantIndex % FREE_DESK_VARIANTS.length] ??
-        FREE_DESK_CONFIG)
-      : FREE_DESK_CONFIG);
+  const look = config ?? FREE_DESK_CONFIG;
   const setup = resolveDeskSetup(look);
   const { x, y, w, h } = desk;
   const top = DESK_COLORS[look.color] ?? DESK_COLORS[0];
@@ -870,8 +814,8 @@ export function DeskArt({
         {/* Contorno Externo Chanfrado */}
         <rect x={x} y={y - 2} width={w} height={h + 2} fill={INK} />
         <rect x={x - 2} y={y} width={w + 4} height={h} fill={INK} />
-        {/* Superfície Principal do Tampo */}
-        <rect x={x} y={y} width={w} height={h - 10} fill={top} />
+        {/* Superfície Principal do Tampo (24px de profundidade útil para PC e 4 enfeites) */}
+        <rect x={x} y={y} width={w} height={h - 8} fill={top} />
         <rect
           x={x}
           y={y}
@@ -880,61 +824,78 @@ export function DeskArt({
           fill="#ffffff"
           opacity={0.28}
         />
+        {/* Divisória sutil das duas alas laterais de apoio (sobre os gaveteiros) */}
+        <rect
+          x={x + 25}
+          y={y + 2}
+          width={1}
+          height={h - 11}
+          fill="#000000"
+          opacity={0.14}
+        />
+        <rect
+          x={x + w - 26}
+          y={y + 2}
+          width={1}
+          height={h - 11}
+          fill="#000000"
+          opacity={0.14}
+        />
         {/* Passa-cabos Duplo no Topo da Bancada */}
         <rect
-          x={x + 18}
-          y={y + 3}
-          width={6}
-          height={3}
+          x={x + 27}
+          y={y + 2}
+          width={5}
+          height={2.5}
           fill={INK}
           opacity={0.45}
         />
         <rect
-          x={x + w - 24}
-          y={y + 3}
-          width={6}
-          height={3}
+          x={x + w - 32}
+          y={y + 2}
+          width={5}
+          height={2.5}
           fill={INK}
           opacity={0.45}
         />
         {/* Borda Chanfrada Frontal do Tampo */}
         <rect
           x={x}
-          y={y + h - 12}
+          y={y + h - 10}
           width={w}
-          height={2.5}
+          height={2}
           fill="#000000"
           opacity={0.2}
         />
-        <rect x={x} y={y + h - 10} width={w} height={2} fill={INK} />
+        <rect x={x} y={y + h - 8} width={w} height={1.5} fill={INK} />
         {/* Frente com Dois Gaveteiros Laterais de Painel Rebaixado (Inset Panels) */}
-        <rect x={x} y={y + h - 8} width={w} height={8} fill="#454c5c" />
+        <rect x={x} y={y + h - 6.5} width={w} height={6.5} fill="#454c5c" />
         {/* Gaveteiro Esquerdo */}
-        <rect x={x + 3} y={y + h - 7} width={22} height={6} fill={INK} />
-        <rect x={x + 4} y={y + h - 6} width={20} height={4} fill="#96a1b5" />
-        <rect x={x + 11} y={y + h - 5} width={6} height={2} fill="#f5f7fa" />
+        <rect x={x + 3} y={y + h - 6} width={22} height={5} fill={INK} />
+        <rect x={x + 4} y={y + h - 5} width={20} height={3.5} fill="#96a1b5" />
+        <rect x={x + 11} y={y + h - 4} width={6} height={1.5} fill="#f5f7fa" />
         {/* Vão Central Sombreado */}
         <rect
           x={x + 27}
-          y={y + h - 7}
+          y={y + h - 6}
           width={w - 54}
-          height={6}
+          height={5}
           fill="#2d313b"
         />
         {/* Gaveteiro Direito */}
-        <rect x={x + w - 25} y={y + h - 7} width={22} height={6} fill={INK} />
+        <rect x={x + w - 25} y={y + h - 6} width={22} height={5} fill={INK} />
         <rect
           x={x + w - 24}
-          y={y + h - 6}
+          y={y + h - 5}
           width={20}
-          height={4}
+          height={3.5}
           fill="#96a1b5"
         />
         <rect
           x={x + w - 17}
-          y={y + h - 5}
+          y={y + h - 4}
           width={6}
-          height={2}
+          height={1.5}
           fill="#f5f7fa"
         />
       </g>
@@ -945,11 +906,11 @@ export function DeskArt({
         monitor={setup.monitor}
         cx={x + w / 2}
         top={y}
-        bottom={y + h - 8}
+        bottom={y + h - 7}
       />
 
       {look.items.map((item, index) => {
-        const slot = slotOf(desk, index);
+        const slot = slotOf(desk, index, setup);
         return <Item key={item} item={item} x={slot.x} y={slot.y} />;
       })}
 

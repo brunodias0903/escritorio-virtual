@@ -14,6 +14,8 @@ const SPRITE_SCALE = 2;
 const STATUS_COLORS: Record<Status, string> = {
   available: '#31e0c1',
   busy: '#ff6b81',
+  coffee: '#e07a4b',
+  lunch: '#f39c12',
   away: '#f1c40f',
 };
 
@@ -23,11 +25,25 @@ const WALK_CYCLE: WalkFrame[] = [1, 0, 2, 0];
 /** Espaço entre o alto da cabeça e o balão do nome. */
 const LABEL_GAP = 10;
 
+const INK = '#1e191d';
+
+export type SeatedPose = {
+  facing: RenderPlayer['facing'];
+  /** Cor do encosto da cadeira (desenhado nas costas do avatar quando sentado de costas/perfil). */
+  chairColor?: string;
+  /** Deslocamento horizontal leve em direção à mesa (para mesas de 1:1 / 4 lugares). */
+  offsetX?: number;
+  /** Deslocamento vertical para encaixar o avatar na cadeira em frente à bancada. */
+  offsetY?: number;
+};
+
 type Props = {
   player: RenderPlayer;
   isMe: boolean;
   /** Está falando agora na chamada (mostra indicador de alto-falante na cabeça). */
   speaking?: boolean;
+  /** Quando o avatar está parado em cima de uma cadeira de mesa, senta trabalhando. */
+  seated?: SeatedPose | null;
   /** Relógio do jogo, em ms. Faz as pernas alternarem enquanto anda. */
   time: number;
 };
@@ -67,14 +83,37 @@ function SpeakerGlyph({
   );
 }
 
-export function PixelAvatar({ player, isMe, speaking = false, time }: Props) {
+export function PixelAvatar({
+  player,
+  isMe,
+  speaking = false,
+  seated = null,
+  time,
+}: Props) {
+  const isSitting = Boolean(
+    seated &&
+    !player.moving &&
+    (seated.chairColor !== undefined ||
+      seated.offsetX !== undefined ||
+      seated.offsetY !== undefined),
+  );
+  const effectiveFacing =
+    seated && !player.moving ? seated.facing : player.facing;
   const frame: WalkFrame = player.moving
     ? WALK_CYCLE[Math.floor(time / WALK_POSE_MS) % WALK_CYCLE.length]!
     : 0;
-  const rects = buildSprite(player.appearance, player.facing, frame);
+  // Quando sentado na cadeira, esconde os pixels inferiores das pernas/sapatos (y >= 19) que ficam sob o assento/mesa
+  const allRects = buildSprite(player.appearance, effectiveFacing, frame);
+  const rects = isSitting
+    ? allRects
+        .filter((r) => r.y < 19)
+        .map((r) => (r.y + r.h > 19 ? { ...r, h: Math.max(1, 19 - r.y) } : r))
+    : allRects;
   const width = SPRITE_W * SPRITE_SCALE;
-  // Os pés ficam na base do quadradinho (16 px abaixo do centro); a cabeça passa do quadradinho.
-  const top = 16 - SPRITE_H * SPRITE_SCALE;
+  const sitDx = isSitting && seated?.offsetX ? seated.offsetX : 0;
+  const sitDy = isSitting && seated?.offsetY ? seated.offsetY : 0;
+  // Os pés ficam na base do quadradinho (16 px abaixo do centro); quando sentado, encaixa no assento da cadeira.
+  const top = 16 - SPRITE_H * SPRITE_SCALE + sitDy;
   const pulse = Math.floor(time / 240) % 2 === 0;
 
   const extraSpeakerW = speaking ? 14 : 0;
@@ -86,12 +125,19 @@ export function PixelAvatar({ player, isMe, speaking = false, time }: Props) {
   const labelY = -labelHeight + 3;
 
   return (
-    <g transform={`translate(${player.x}, ${player.y})`}>
-      <ellipse cx={0} cy={14} rx={9} ry={3} fill="#000000" opacity={0.25} />
+    <g transform={`translate(${player.x + sitDx}, ${player.y})`}>
+      <ellipse
+        cx={0}
+        cy={14 + (isSitting ? -4 : 0)}
+        rx={9}
+        ry={3}
+        fill="#000000"
+        opacity={0.25}
+      />
       {isMe ? (
         <ellipse
           cx={0}
-          cy={14}
+          cy={14 + (isSitting ? -4 : 0)}
           rx={13}
           ry={5}
           fill="none"
@@ -102,7 +148,7 @@ export function PixelAvatar({ player, isMe, speaking = false, time }: Props) {
       ) : speaking ? (
         <ellipse
           cx={0}
-          cy={14}
+          cy={14 + (isSitting ? -4 : 0)}
           rx={12}
           ry={4.5}
           fill="none"
@@ -124,6 +170,109 @@ export function PixelAvatar({ player, isMe, speaking = false, time }: Props) {
           />
         ))}
       </g>
+
+      {/* Quando sentado na poltrona executiva da mesa (virado para o monitor), desenha o encosto da cadeira abraçando as costas */}
+      {isSitting && seated?.chairColor && effectiveFacing === 'up' ? (
+        <g>
+          {/* Base estrela sob a cadeira */}
+          <rect x={-2} y={7} width={4} height={5} fill={INK} />
+          <rect x={-7} y={10} width={14} height={2.5} fill={INK} />
+          <rect x={-5} y={10} width={10} height={1.5} fill="#697387" />
+          {/* Apoios de braço laterais */}
+          <rect x={-12} y={-4} width={3} height={7} fill={INK} />
+          <rect x={-11} y={-3} width={2} height={3} fill="#e1e6ef" />
+          <rect x={9} y={-4} width={3} height={7} fill={INK} />
+          <rect x={9} y={-3} width={2} height={3} fill="#e1e6ef" />
+          {/* Encosto da poltrona na frente das costas inferiores do avatar */}
+          <rect x={-9} y={-6} width={18} height={14} fill={INK} />
+          <rect x={-7} y={-4} width={14} height={10} fill={seated.chairColor} />
+          <rect
+            x={-7}
+            y={-4}
+            width={14}
+            height={2.5}
+            fill="#ffffff"
+            opacity={0.26}
+          />
+          <rect
+            x={-5}
+            y={-1}
+            width={10}
+            height={5}
+            fill="none"
+            stroke={INK}
+            strokeWidth={1.2}
+            opacity={0.45}
+          />
+        </g>
+      ) : null}
+
+      {/* Quando em status "Tomando um café" ou "Almoçando" (parado), anima o personagem tomando café ou almoçando */}
+      {!player.moving &&
+      (player.status === 'coffee' || player.status === 'lunch') ? (
+        <g>
+          {player.status === 'coffee' ? (
+            // Caneca de café fumegante que sobe e desce suavemente até a boca
+            <g
+              transform={`translate(5, ${top + 20 - (Math.floor(time / 480) % 2) * 3})`}
+            >
+              {/* Vapor do café */}
+              <rect
+                x={2}
+                y={-5 - (Math.floor(time / 320) % 2) * 2}
+                width={2}
+                height={3}
+                fill="#ffffff"
+                opacity={0.75}
+              />
+              <rect
+                x={6}
+                y={-6 - ((Math.floor(time / 320) + 1) % 2) * 2}
+                width={2}
+                height={3}
+                fill="#ffffff"
+                opacity={0.65}
+              />
+              {/* Corpo da caneca em pixel art */}
+              <rect x={0} y={0} width={9} height={9} fill={INK} />
+              <rect x={1} y={1} width={7} height={7} fill="#f5f7fa" />
+              <rect x={2} y={3} width={5} height={4} fill="#e05a52" />
+              <rect x={9} y={2} width={2.5} height={5} fill={INK} />
+            </g>
+          ) : (
+            // Prato de almoço / lanche animado com garfo subindo até a boca
+            <g
+              transform={`translate(4, ${top + 21 - (Math.floor(time / 520) % 2) * 3})`}
+            >
+              <rect x={-2} y={3} width={14} height={5} fill={INK} />
+              <rect x={-1} y={4} width={12} height={3} fill="#f5f7fa" />
+              <rect x={1} y={0} width={8} height={4} fill={INK} />
+              <rect x={2} y={1} width={6} height={3} fill="#f7cf59" />
+              <rect x={3} y={0} width={4} height={2} fill="#e05a52" />
+              <rect x={6} y={1} width={3} height={2} fill="#52ab3a" />
+            </g>
+          )}
+          {/* Ícone flutuante de status (☕ ou 🍽️) ao lado da cabeça */}
+          <g
+            transform={`translate(14, ${top + 4 - (Math.floor(time / 600) % 2) * 2})`}
+          >
+            <rect
+              x={-8}
+              y={-8}
+              width={16}
+              height={16}
+              rx={8}
+              fill="#0f1430"
+              fillOpacity={0.9}
+              stroke={player.status === 'coffee' ? '#e07a4b' : '#f39c12'}
+              strokeWidth={1.2}
+            />
+            <text x={0} y={3.5} fontSize={10} textAnchor="middle">
+              {player.status === 'coffee' ? '☕' : '🍽️'}
+            </text>
+          </g>
+        </g>
+      ) : null}
 
       {/* Para o próprio avatar: mostra um selo compacto de alto-falante quando está falando. */}
       {isMe && speaking ? (

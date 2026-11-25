@@ -390,7 +390,9 @@ export const ManagedAccountSchema = z.object({
   tier: z.enum(ACCOUNT_TIERS),
   secondaryTiers: z.array(z.enum(ACCOUNT_TIERS)).default([]),
   online: z.boolean().default(false),
-  status: z.enum(['available', 'busy', 'away', 'offline']).default('offline'),
+  status: z
+    .enum(['available', 'busy', 'away', 'coffee', 'lunch', 'offline'])
+    .default('offline'),
   map: z.string().nullable().default(null),
   bannedAt: z.number().nullable().default(null),
   banReason: z.string().default(''),

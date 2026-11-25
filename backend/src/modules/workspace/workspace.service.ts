@@ -24,6 +24,7 @@ import {
   type ModerateAccountResponse,
   type ReorderChannels,
   type ServerSettings,
+  type Status,
   type UpdateAccountRoles,
   type UpdateChannelConfig,
   type UpdateFeedback,
@@ -49,7 +50,7 @@ const DEFAULT_RESTRICTION_MINUTES = 60;
 
 export type OnlinePlayerSummary = {
   email?: string;
-  status: 'available' | 'busy' | 'away';
+  status: Status;
   map: string;
 };
 

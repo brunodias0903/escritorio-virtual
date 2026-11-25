@@ -303,7 +303,7 @@ export const deskKey = (map: string, deskId: string): string =>
 
 /** Aparência de uma mesa livre. */
 export const FREE_DESK_CONFIG: DeskConfig = {
-  color: 0,
+  color: 1,
   rug: null,
   rugPattern: 'bordered',
   chair: 0,

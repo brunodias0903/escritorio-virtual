@@ -98,4 +98,13 @@ describe('callKey', () => {
     expect(callKey(lobby, seat, [seat, below])).toBe('mesa-7');
     expect(callKey(lobby, below, [seat, below])).toBeNull();
   });
+
+  it('quem está tomando café, almoçando ou ocupado não entra em chamadas nem inicia conversa por perto', () => {
+    const coffee = { ...at('b', 528, 560), status: 'coffee' as const };
+    const lunch = { ...at('c', 528, 560), status: 'lunch' as const };
+    expect(callKey(lobby, a, [a, coffee])).toBeNull();
+    expect(callKey(lobby, coffee, [a, coffee])).toBeNull();
+    expect(callKey(lobby, a, [a, lunch])).toBeNull();
+    expect(callKey(lobby, lunch, [a, lunch])).toBeNull();
+  });
 });

@@ -7,6 +7,7 @@ import type {
 } from '@/features/media/model/callTypes';
 import {
   EMOTES,
+  isUnavailableStatus,
   type Appearance,
   type Emote,
   type Status,
@@ -23,7 +24,7 @@ const HINTS: Record<CallState['status'], string> = {
 };
 
 const BUSY_HINT =
-  'Modo Ocupado ativo. Toque em "Ficar online" para liberar áudio e câmera.';
+  'Você está indisponível. Toque em "Ficar online" para liberar áudio e câmera.';
 
 const TOUCH_HOLD_MS = 500;
 
@@ -76,7 +77,7 @@ export function MobileCallBar({
   const holdOpenedRef = useRef(false);
 
   const live = call.status === 'on';
-  const busy = me?.status === 'busy';
+  const busy = isUnavailableStatus(me?.status);
 
   const showMutedBanner =
     live &&
