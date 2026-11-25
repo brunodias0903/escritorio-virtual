@@ -474,6 +474,26 @@ function AreaFloor({
     );
   }
 
+  // Mesas de reunião rápida nas paredes/cantos (capacity = 2 ou 4 lugares)
+  if (!area.private && area.capacity !== undefined) {
+    const boothColor = area.capacity === 2 ? '#58a6b8' : '#8cd668';
+    return (
+      <rect
+        x={area.x + 1}
+        y={area.y + 1}
+        width={area.w - 2}
+        height={area.h - 2}
+        rx={3}
+        fill={boothColor}
+        fillOpacity={0.11}
+        stroke={boothColor}
+        strokeWidth={1.5}
+        strokeDasharray="4 3"
+        strokeOpacity={0.62}
+      />
+    );
+  }
+
   // Sala de Reunião: Tapete Verde-Sálvia com Moldura Ornamental Dupla (Estilo Refs 1 e 3)
   return (
     <g>

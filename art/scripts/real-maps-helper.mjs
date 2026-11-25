@@ -140,11 +140,16 @@ export const renderRealProjectMapSvg = (mapId, compiledById, charPresets) => {
     </g>`);
   }
 
-  // 3. Áreas (Sala de Reunião e Zonas das Mesas)
+  // 3. Áreas (Sala de Reunião, Mesas de 1:1 / 4 lugares e Zonas das Mesas)
   for (const area of map.areas) {
     if (area.desk) {
       parts.push(
         `<rect x="${area.x + 1}" y="${area.y + 1}" width="${area.w - 2}" height="${area.h - 2}" fill="#58a6b8" fill-opacity="0.11" stroke="#58a6b8" stroke-width="2" stroke-opacity="0.65"/>`,
+      );
+    } else if (!area.private && area.capacity !== undefined) {
+      const boothColor = area.capacity === 2 ? '#58a6b8' : '#8cd668';
+      parts.push(
+        `<rect x="${area.x + 1}" y="${area.y + 1}" width="${area.w - 2}" height="${area.h - 2}" rx="3" fill="${boothColor}" fill-opacity="0.11" stroke="${boothColor}" stroke-width="1.5" stroke-dasharray="4 3" stroke-opacity="0.62"/>`,
       );
     } else {
       parts.push(`<g>

@@ -436,10 +436,13 @@ export function OfficePage({ session }: { session: Session }) {
   const editingDeskInfo = editingDeskId
     ? desks[deskKey(map.id, editingDeskId)]
     : undefined;
+  const fullZoneCap = view.snapshot.fullZone
+    ? (map.areas.find((a) => a.name === view.snapshot.fullZone)?.capacity ?? 3)
+    : 3;
   const banner = view.snapshot.lockedZone
     ? `${view.snapshot.lockedZone} está bloqueada pelo dono.`
     : view.snapshot.fullZone
-      ? `${view.snapshot.fullZone} está cheia (3 de 3). Espere alguém sair.`
+      ? `${view.snapshot.fullZone} está cheia (${fullZoneCap} de ${fullZoneCap}). Espere alguém sair.`
       : notice;
 
   // A chamada em que devo estar: a da zona, a conversa com quem está perto

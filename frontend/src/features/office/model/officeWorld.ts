@@ -308,13 +308,13 @@ export class OfficeWorld {
     if ('point' in destination) {
       const target = snapToTile(destination.point);
       const zone = areaAt(map, target);
-      if (zone?.desk) {
+      if (zone?.capacity !== undefined) {
         const inside = callZoneId(map, me) === zone.id;
-        if (this.isLockedFor(this.map, zone.id, me.email)) {
+        if (zone.desk && this.isLockedFor(this.map, zone.id, me.email)) {
           this.lockedZone = zone.name;
           return this.stopAutoWalk();
         }
-        if (!inside && this.occupants(zone.id, me.id) >= DESK_CAPACITY) {
+        if (!inside && this.occupants(zone.id, me.id) >= zone.capacity) {
           this.fullZone = zone.name;
           return this.stopAutoWalk();
         }
@@ -326,13 +326,23 @@ export class OfficeWorld {
     }
 
     if ('areaId' in destination) {
+      const zone = map.areas.find((a) => a.id === destination.areaId);
+      if (zone?.capacity !== undefined) {
+        const inside = callZoneId(map, me) === zone.id;
+        if (!inside && this.occupants(zone.id, me.id) >= zone.capacity) {
+          this.fullZone = zone.name;
+          return this.stopAutoWalk();
+        }
+      }
       const others = [...this.players.values()].filter((p) => p.id !== me.id);
       const taken = (p: Point) =>
         others.some((o) => o.tx === p.x && o.ty === p.y);
       const all = areaTiles(map, destination.areaId);
       const free = all.filter((p) => !taken(p));
       const targets = free.length > 0 ? free : all;
-      const route = findPath(map, me, targets);
+      const route = findPath(map, me, targets, {
+        allowZone: destination.areaId,
+      });
       if (route) this.route = route;
       else this.stopAutoWalk();
       return;
