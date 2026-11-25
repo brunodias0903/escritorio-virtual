@@ -349,8 +349,7 @@ export function DeskEditor({ initial, onSave, onClose }: Props) {
 
             <div className={styles.group}>
               <span className={styles.label}>
-                Enfeites #{DESK_DECOR_TAG} ({draft.items.length} de{' '}
-                {DESK_ITEM_LIMIT})
+                Enfeites ({draft.items.length} de {DESK_ITEM_LIMIT})
               </span>
               <div className={styles.row} style={{ marginBottom: 6 }}>
                 {ITEM_FILTER_TABS.map((tab) => (
