@@ -4,6 +4,7 @@ import {
   areaAt,
   callZoneId,
   deskKey,
+  doorAt,
   resolveMap,
   TILE,
   WALK_SPEED,
@@ -66,6 +67,8 @@ export class OfficeWorld {
   fullZone: string | null = null;
   /** A última mesinha bloqueada pelo dono que barrou a pessoa. */
   lockedZone: string | null = null;
+  /** Enquanto a pessoa está na porta esperando o servidor trocar de sala, bloqueia novos passos. */
+  private awaitingMapChange = false;
   private readonly players = new Map<string, RenderPlayer>();
   private readonly emoteUntil = new Map<string, number>();
   /** Mesas adotadas (posição personalizada e bloqueio). */
@@ -108,6 +111,7 @@ export class OfficeWorld {
       case 'init':
         this.players.clear();
         this.emoteUntil.clear();
+        this.awaitingMapChange = false;
         this.meId = message.id;
         this.map = message.map;
         for (const player of message.players) this.add(player);
@@ -118,6 +122,7 @@ export class OfficeWorld {
         const me = this.me();
         this.players.clear();
         this.emoteUntil.clear();
+        this.awaitingMapChange = false;
         this.map = message.map;
         for (const player of message.players) this.add(player);
         if (me) {
@@ -160,6 +165,7 @@ export class OfficeWorld {
         break;
 
       case 'correct': {
+        this.awaitingMapChange = false;
         const me = this.me();
         if (me) this.place(me, { x: message.x, y: message.y });
         if (this.destination) this.plan();
@@ -207,7 +213,7 @@ export class OfficeWorld {
     if (!me) return null;
 
     const left = this.walk(me, dtSeconds);
-    if (me.x !== me.tx || me.y !== me.ty) return null;
+    if (me.x !== me.tx || me.y !== me.ty || this.awaitingMapChange) return null;
 
     let axis = axisOf(direction);
     if (axis.dx !== 0 || axis.dy !== 0) {
@@ -234,6 +240,9 @@ export class OfficeWorld {
     if (!this.destination) {
       this.fullZone = null;
       this.lockedZone = null;
+    }
+    if (doorAt(map, next)) {
+      this.awaitingMapChange = true;
     }
     me.tx = next.x;
     me.ty = next.y;

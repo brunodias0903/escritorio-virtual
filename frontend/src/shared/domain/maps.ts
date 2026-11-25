@@ -10,7 +10,18 @@ export const MapIdSchema = z.enum(MAP_IDS);
 export type MapId = z.infer<typeof MapIdSchema>;
 export const DEFAULT_MAP: MapId = 'lobby';
 
-export type SolidKind = 'table' | 'desk' | 'wall' | 'plant' | 'sofa' | 'shelf';
+export type SolidKind =
+  | 'table'
+  | 'desk'
+  | 'wall'
+  | 'plant'
+  | 'sofa'
+  | 'shelf'
+  | 'pantry'
+  | 'fridge'
+  | 'printer'
+  | 'cabinet'
+  | 'lamp';
 export type Solid = Rect & { kind: SolidKind };
 
 /**
@@ -145,13 +156,44 @@ const LOBBY: MapDef = {
     solid('wall', 8, 8, 4, 1),
     solid('table', 4, 3, 5, 3),
     ...lobbyDesks.solids,
+    // Plantas biofílicas espalhadas pelo andar
+    solid('plant', 1, 2),
+    solid('plant', 10, 2),
+    solid('plant', 12, 2),
     solid('plant', 12, 9),
     solid('plant', 27, 2),
+    solid('plant', 27, 6),
+    solid('plant', 27, 12),
+    solid('plant', 1, 18),
     solid('plant', 2, 17),
+    solid('plant', 11, 18),
+    solid('plant', 18, 18),
+    solid('plant', 28, 17),
+    // Estantes corporativas e arquivos técnicos
     solid('shelf', 19, 2, 7, 1),
+    solid('printer', 13, 2, 2, 1),
+    solid('cabinet', 15, 2, 2, 1),
+    solid('cabinet', 17, 2, 2, 1),
+    // Copa & Café (canto inferior esquerdo) + Lounge de convivência
+    solid('pantry', 4, 18, 3, 1),
+    solid('fridge', 7, 18, 1, 1),
+    solid('cabinet', 9, 18, 2, 1),
+    solid('sofa', 4, 15, 3, 1),
+    solid('lamp', 3, 15, 1, 1),
+    solid('lamp', 8, 15, 1, 1),
+    // Lounge principal (canto inferior direito, linha 18 mantém linha 17 livre)
+    solid('sofa', 20, 18, 3, 1),
+    solid('sofa', 24, 18, 3, 1),
+    solid('lamp', 19, 18, 1, 1),
+    solid('lamp', 27, 18, 1, 1),
   ],
   desks: lobbyDesks.desks,
-  rugs: [],
+  rugs: [
+    // Tapetes de acolhimento sob os lounges e corredor central
+    { ...tiles(3, 15, 6, 3), color: '#397f94' },
+    { ...tiles(19, 16, 9, 2), color: '#59804b' },
+    { ...tiles(14, 16, 3, 3), color: '#397f94' },
+  ],
   areas: [
     {
       id: 'sala-reuniao',
@@ -193,15 +235,48 @@ const ANDAR_2: MapDef = {
     solid('wall', 29, 2, 1, 17),
     solid('wall', 0, 2, 1, 6),
     solid('wall', 0, 11, 1, 8),
+    // Lounge norte & Copa do Andar 2
+    solid('pantry', 2, 2, 3, 1),
+    solid('fridge', 5, 2, 1, 1),
     solid('sofa', 6, 3, 4, 2),
+    solid('lamp', 10, 3, 1, 1),
+    // Hub de colaboração central-esquerdo (Mesa de reunião aberta com cadeiras)
+    solid('table', 6, 8, 5, 3),
+    // Lounge sul & Biblioteca do Andar 2
     solid('sofa', 6, 14, 4, 2),
+    solid('lamp', 5, 14, 1, 1),
+    solid('lamp', 10, 14, 1, 1),
+    solid('shelf', 2, 18, 8, 1),
     ...andarDesks.solids,
-    solid('plant', 26, 4),
+    // Hub técnico norte e sul
+    solid('printer', 13, 2, 2, 1),
+    solid('cabinet', 15, 2, 2, 1),
+    solid('cabinet', 18, 2, 2, 1),
+    solid('shelf', 21, 2, 6, 1),
+    solid('sofa', 14, 17, 4, 1),
+    solid('sofa', 20, 17, 4, 1),
+    solid('lamp', 13, 17, 1, 1),
+    solid('lamp', 19, 17, 1, 1),
+    solid('shelf', 14, 18, 10, 1),
+    // Plantas biofílicas pelo Andar 2
+    solid('plant', 1, 2),
+    solid('plant', 11, 2),
+    solid('plant', 27, 2),
+    solid('plant', 27, 4),
+    solid('plant', 27, 9),
+    solid('plant', 27, 14),
     solid('plant', 26, 16),
-    solid('shelf', 22, 2, 6, 1),
+    solid('plant', 1, 18),
+    solid('plant', 11, 18),
+    solid('plant', 28, 18),
   ],
   desks: andarDesks.desks,
-  rugs: [],
+  rugs: [
+    { ...tiles(5, 3, 6, 3), color: '#59804b' },
+    { ...tiles(4, 7, 7, 5), color: '#397f94' },
+    { ...tiles(5, 14, 6, 3), color: '#8478a6' },
+    { ...tiles(13, 16, 12, 2), color: '#59804b' },
+  ],
   areas: andarDesks.areas,
   doors: [
     {

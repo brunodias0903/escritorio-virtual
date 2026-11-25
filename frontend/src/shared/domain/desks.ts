@@ -1,44 +1,44 @@
 import { z } from 'zod';
 import { MapIdSchema } from './maps';
 
-/** Cores do tampo da mesa. */
+/** Cores do tampo da mesa (Paleta Corporativa Detailed Modern RPG Office). */
 export const DESK_COLORS = [
-  '#a67c52',
-  '#8b5a2b',
-  '#d9b38c',
-  '#4a4e69',
-  '#e8e8e8',
-  '#2f6f6a',
-  '#23263a',
-  '#5c3a21',
-  '#c98a8b',
-  '#3b4d71',
+  '#e1e6ef', // 0: Laca Branca / Off-White Tech
+  '#754728', // 1: Nogueira Executiva
+  '#cfa06e', // 2: Freixo Claro Nórdico
+  '#454c5c', // 3: Stealth Grafite Escuro
+  '#59804b', // 4: Verde-Sálvia Studio
+  '#397f94', // 5: Azul-Petróleo Corporativo
+  '#23263a', // 6: Ardósia Noite
+  '#8b5a2b', // 7: Carvalho Clássico
+  '#c98a8b', // 8: Terracota Suave
+  '#3b4d71', // 9: Azul Marinho
 ] as const;
 
 /** Cores do tapete sob a mesa. */
 export const RUG_COLORS = [
-  '#7a3b3b',
-  '#2f4f6f',
-  '#3d6b4a',
-  '#6b4a7a',
-  '#b5833a',
-  '#444a5e',
-  '#236468',
-  '#9e4b3a',
-  '#26293d',
-  '#7f6a93',
+  '#59804b', // Verde-Sálvia
+  '#397f94', // Azul-Petróleo
+  '#42526b', // Azul-Ardósia
+  '#8478a6', // Lavanda Corporativo
+  '#b5833a', // Âmbar / Ocre
+  '#454c5c', // Grafite
+  '#7a3b3b', // Bordô
+  '#9e4b3a', // Terracota
+  '#26293d', // Marinho Profundo
+  '#dfd0b8', // Marfim Claro
 ] as const;
 
-/** Cores da cadeira da mesa. */
+/** Cores da cadeira executiva da mesa. */
 export const CHAIR_COLORS = [
-  '#4a4e80',
-  '#25283a',
-  '#2d7d9a',
-  '#1f8a70',
-  '#b83b5e',
-  '#c88a2e',
-  '#7b5ea7',
-  '#d6d9e6',
+  '#397f94', // Azul-Petróleo (Padrão Ref 4)
+  '#2d313b', // Grafite Preto
+  '#59804b', // Verde-Sálvia
+  '#8478a6', // Lavanda
+  '#e05a52', // Coral
+  '#cc962b', // Mostarda / Âmbar
+  '#42526b', // Azul-Ardósia
+  '#e1e6ef', // Off-White
 ] as const;
 
 /** Estilo visual do tapete sob a mesa. */
@@ -46,12 +46,15 @@ export const RUG_PATTERNS = ['bordered', 'solid', 'striped'] as const;
 export type RugPattern = (typeof RUG_PATTERNS)[number];
 
 export const RUG_PATTERN_LABELS: Record<RugPattern, string> = {
-  bordered: 'Com borda',
+  bordered: 'Moldura Ornamental',
   solid: 'Liso',
   striped: 'Listrado',
 };
 
-/** Enfeites que se pode pôr na mesa (até quatro). */
+/**
+ * Enfeites que se pode pôr na mesa (até quatro) — Tag: `desk-decor`.
+ * Inclui os 14 originais + 10 novos enfeites do Atlas `.Art`.
+ */
 export const DESK_ITEMS = [
   'plant',
   'lamp',
@@ -67,6 +70,16 @@ export const DESK_ITEMS = [
   'globe',
   'coffee',
   'frame',
+  'bonsai',
+  'hourglass',
+  'figure',
+  'fan',
+  'notebook',
+  'lavaLamp',
+  'teapot',
+  'camera',
+  'clock',
+  'rubik',
 ] as const;
 export type DeskItem = (typeof DESK_ITEMS)[number];
 
@@ -85,6 +98,46 @@ export const DESK_ITEM_LABELS: Record<DeskItem, string> = {
   globe: 'Globo',
   coffee: 'Café',
   frame: 'Quadro',
+  bonsai: 'Bonsai',
+  hourglass: 'Ampulheta',
+  figure: 'Robô Geek',
+  fan: 'Ventilador',
+  notebook: 'Moleskine',
+  lavaLamp: 'Lava Lamp',
+  teapot: 'Bule de Chá',
+  camera: 'Câmera Retrô',
+  clock: 'Despertador',
+  rubik: 'Cubo Mágico',
+};
+
+/** Tags de categorização dos itens de decoração de mesa (`tag: 'desk-decor'`). */
+export const DESK_DECOR_TAG = 'desk-decor';
+
+export const DESK_ITEM_TAGS: Record<DeskItem, readonly string[]> = {
+  plant: ['desk-decor', 'desk-item', 'nature', 'core-14'],
+  lamp: ['desk-decor', 'desk-item', 'lighting', 'core-14'],
+  mug: ['desk-decor', 'desk-item', 'food-drink', 'core-14'],
+  books: ['desk-decor', 'desk-item', 'stationery', 'core-14'],
+  cactus: ['desk-decor', 'desk-item', 'nature', 'core-14'],
+  duck: ['desk-decor', 'desk-item', 'geek', 'core-14'],
+  headphones: ['desk-decor', 'desk-item', 'audio', 'core-14'],
+  trophy: ['desk-decor', 'desk-item', 'award', 'core-14'],
+  cat: ['desk-decor', 'desk-item', 'pet', 'core-14'],
+  mic: ['desk-decor', 'desk-item', 'audio', 'core-14'],
+  controller: ['desk-decor', 'desk-item', 'geek', 'core-14'],
+  globe: ['desk-decor', 'desk-item', 'scholar', 'core-14'],
+  coffee: ['desk-decor', 'desk-item', 'food-drink', 'core-14'],
+  frame: ['desk-decor', 'desk-item', 'personal', 'core-14'],
+  bonsai: ['desk-decor', 'desk-item', 'nature', 'extra'],
+  hourglass: ['desk-decor', 'desk-item', 'productivity', 'extra'],
+  figure: ['desk-decor', 'desk-item', 'geek', 'extra'],
+  fan: ['desk-decor', 'desk-item', 'gadget', 'extra'],
+  notebook: ['desk-decor', 'desk-item', 'stationery', 'extra'],
+  lavaLamp: ['desk-decor', 'desk-item', 'lighting', 'extra'],
+  teapot: ['desk-decor', 'desk-item', 'food-drink', 'extra'],
+  camera: ['desk-decor', 'desk-item', 'personal', 'extra'],
+  clock: ['desk-decor', 'desk-item', 'productivity', 'extra'],
+  rubik: ['desk-decor', 'desk-item', 'geek', 'extra'],
 };
 
 export const DESK_ITEM_LIMIT = 4;

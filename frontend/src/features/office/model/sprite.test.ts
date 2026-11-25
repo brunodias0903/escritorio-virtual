@@ -64,4 +64,38 @@ describe('sprite', () => {
       }
     }
   });
+
+  it('mantém a cabeça do mesmo tamanho no biotipo gordo (chubby) e alarga apenas o tronco', () => {
+    const regular = spriteRows(
+      { ...appearance, bodyShape: 'regular' },
+      'down',
+      0,
+    );
+    const chubby = spriteRows(
+      { ...appearance, bodyShape: 'chubby' },
+      'down',
+      0,
+    );
+    // Linhas da cabeça (1 a 10) idênticas
+    expect(chubby.slice(1, 11)).toEqual(regular.slice(1, 11));
+    // Linhas do tronco (11 a 17) mais largas no chubby
+    const countBodyPixels = (rows: string[]) =>
+      rows.slice(11, 18).join('').replace(/\./g, '').length;
+    expect(countBodyPixels(chubby)).toBeGreaterThan(countBodyPixels(regular));
+  });
+
+  it('boné (cap) oculta cabelo curto, mas exibe as pontas inferiores quando o cabelo é longo', () => {
+    const shortCap = spriteRows(
+      { ...appearance, style: 2, hairLength: 'short', accessory: 'cap' },
+      'down',
+      0,
+    );
+    const longCap = spriteRows(
+      { ...appearance, style: 2, hairLength: 'long', accessory: 'cap' },
+      'down',
+      0,
+    );
+    expect(shortCap.slice(0, 12).join('')).not.toMatch(/[Hhd]/);
+    expect(longCap.slice(5, 14).join('')).toMatch(/[Hd]/);
+  });
 });

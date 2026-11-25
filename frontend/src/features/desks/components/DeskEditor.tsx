@@ -3,10 +3,12 @@ import { useEffect, useId, useState } from 'react';
 import {
   CHAIR_COLORS,
   DESK_COLORS,
+  DESK_DECOR_TAG,
   DESK_HEIGHT,
   DESK_ITEMS,
   DESK_ITEM_LABELS,
   DESK_ITEM_LIMIT,
+  DESK_ITEM_TAGS,
   DESK_LABEL_MAX_LENGTH,
   DESK_MACHINES,
   DESK_MACHINE_LABELS,
@@ -109,7 +111,21 @@ export function DeskEditor({ initial, onSave, onClose }: Props) {
     monitor: initialSetup.monitor,
   });
 
+  const [itemFilter, setItemFilter] = useState<string>(DESK_DECOR_TAG);
   const setup = resolveDeskSetup(draft);
+
+  const ITEM_FILTER_TABS: Array<{ tag: string; label: string }> = [
+    { tag: DESK_DECOR_TAG, label: 'Todos (24)' },
+    { tag: 'core-14', label: 'Clássicos' },
+    { tag: 'extra', label: 'Novos (+10)' },
+    { tag: 'geek', label: 'Geek' },
+    { tag: 'nature', label: 'Plantas' },
+    { tag: 'food-drink', label: 'Café & Chá' },
+  ];
+
+  const visibleItems = DESK_ITEMS.filter((item) =>
+    DESK_ITEM_TAGS[item]?.includes(itemFilter),
+  );
 
   const selectMachine = (machine: DeskMachine) => {
     const nextMonitor: DeskMonitor =
@@ -333,10 +349,24 @@ export function DeskEditor({ initial, onSave, onClose }: Props) {
 
             <div className={styles.group}>
               <span className={styles.label}>
-                Enfeites ({draft.items.length} de {DESK_ITEM_LIMIT})
+                Enfeites #{DESK_DECOR_TAG} ({draft.items.length} de{' '}
+                {DESK_ITEM_LIMIT})
               </span>
+              <div className={styles.row} style={{ marginBottom: 6 }}>
+                {ITEM_FILTER_TABS.map((tab) => (
+                  <button
+                    key={tab.tag}
+                    type="button"
+                    aria-pressed={itemFilter === tab.tag}
+                    onClick={() => setItemFilter(tab.tag)}
+                    className={`${styles.chip} ${itemFilter === tab.tag ? styles.active : ''}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
               <div className={styles.row}>
-                {DESK_ITEMS.map((item) => {
+                {visibleItems.map((item) => {
                   const on = draft.items.includes(item);
                   const full = !on && draft.items.length >= DESK_ITEM_LIMIT;
                   return (
@@ -345,6 +375,7 @@ export function DeskEditor({ initial, onSave, onClose }: Props) {
                       type="button"
                       disabled={full}
                       aria-pressed={on}
+                      data-tag={DESK_DECOR_TAG}
                       onClick={() => toggleItem(item)}
                       className={`${styles.chip} ${on ? styles.active : ''}`}
                     >
