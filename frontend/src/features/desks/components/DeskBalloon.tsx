@@ -80,12 +80,8 @@ export function DeskBalloon({
     <div
       className={`${styles.anchor} ${placeBelow ? styles.anchorBelow : ''}`}
       style={{ left: x, top: y }}
-      onPointerEnter={(event) => {
-        if (event.pointerType === 'mouse') onMouseEnter();
-      }}
-      onPointerLeave={(event) => {
-        if (event.pointerType === 'mouse') onMouseLeave();
-      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation();
