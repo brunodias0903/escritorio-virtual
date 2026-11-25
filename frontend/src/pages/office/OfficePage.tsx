@@ -540,6 +540,16 @@ export function OfficePage({ session }: { session: Session }) {
   const mapTouch = useZoomGestures(gameNode, zoom, setZoom);
 
   const saveAppearance = (appearance: Appearance) => {
+    if (status !== 'open') {
+      setNotice('Sem conexão com o servidor para salvar a aparência.');
+      return;
+    }
+    if (me) {
+      world.apply(
+        { type: 'appearance', id: me.id, appearance },
+        performance.now(),
+      );
+    }
     send({ type: 'appearance', appearance });
     setAvatarOpen(false);
   };
