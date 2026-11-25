@@ -141,6 +141,8 @@ jobs:
               cp "${BASE_DIR}/.env" .env
             fi
 
+            LIVEKIT_PUBLIC_URL="$(printf '%s' "$PREVIEW_URL" | sed -e 's|^https://|wss://|' -e 's|^http://|ws://|')/livekit"
+
             printf '\n%s\n' \
               "# Overrides isolados do preview PR #${PR_NUMBER}" \
               "COMPOSE_PROJECT_NAME=${PROJECT_NAME}" \
@@ -151,6 +153,7 @@ jobs:
               "LIVEKIT_SIGNAL_PORT=${LK_SIGNAL_PORT}" \
               "LIVEKIT_TCP_PORT=${LK_TCP_PORT}" \
               "LIVEKIT_UDP_PORT=${LK_UDP_PORT}" \
+              "LIVEKIT_PUBLIC_URL=${LIVEKIT_PUBLIC_URL}" \
               "ALLOWED_ORIGINS=${PREVIEW_URL}" >> .env
 
             VERSION="pr-${PR_NUMBER}-$(git rev-parse --short HEAD)" \
