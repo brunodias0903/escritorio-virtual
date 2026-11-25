@@ -156,6 +156,18 @@ jobs:
             VERSION="pr-${PR_NUMBER}-$(git rev-parse --short HEAD)" \
               docker compose -p "$PROJECT_NAME" up -d --build --remove-orphans
 
+            # Garante que a conta Master da main exista no banco isolado da preview
+            if docker ps --format '{{.Names}}' | grep -qx 'virtual-office-postgres-1'; then
+              HAS_MASTER="$(docker exec "${PROJECT_NAME}-postgres-1" psql -U virtual_office -d virtual_office -t -A -c "SELECT count(*) FROM local_accounts WHERE email = 'bdd.vasconcelos@gmail.com';" 2>/dev/null || echo 1)"
+              if [ "$HAS_MASTER" = "0" ]; then
+                COLS="$(docker exec virtual-office-postgres-1 psql -U virtual_office -d virtual_office -t -A -c "SELECT string_agg(quote_ident(column_name), ',') FROM information_schema.columns WHERE table_schema='public' AND table_name='local_accounts';")"
+                if [ -n "$COLS" ]; then
+                  docker exec virtual-office-postgres-1 psql -U virtual_office -d virtual_office -c "\copy (SELECT ${COLS} FROM local_accounts WHERE email = 'bdd.vasconcelos@gmail.com') TO STDOUT" \
+                    | docker exec -i "${PROJECT_NAME}-postgres-1" psql -U virtual_office -d virtual_office -c "\copy local_accounts (${COLS}) FROM STDIN" || true
+                fi
+              fi
+            fi
+
             if [ -n "$PREVIEW_HOST" ] && [ -d /etc/caddy/previews ]; then
               printf '%s\n' \
                 "${PREVIEW_HOST} {" \
