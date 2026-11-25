@@ -159,15 +159,15 @@ jobs:
             VERSION="pr-${PR_NUMBER}-$(git rev-parse --short HEAD)" \
               docker compose -p "$PROJECT_NAME" up -d --build --remove-orphans
 
-            # Garante que a conta Master da main exista no banco isolado da preview
+            # Copia contas autorizadas da main (master, admin, developer, designer, tester) para o banco da preview
             if docker ps --format '{{.Names}}' | grep -qx 'virtual-office-postgres-1'; then
-              HAS_MASTER="$(docker exec "${PROJECT_NAME}-postgres-1" psql -U virtual_office -d virtual_office -t -A -c "SELECT count(*) FROM local_accounts WHERE email = 'bdd.vasconcelos@gmail.com';" 2>/dev/null || echo 1)"
-              if [ "$HAS_MASTER" = "0" ]; then
-                COLS="$(docker exec virtual-office-postgres-1 psql -U virtual_office -d virtual_office -t -A -c "SELECT string_agg(quote_ident(column_name), ',') FROM information_schema.columns WHERE table_schema='public' AND table_name='local_accounts';")"
-                if [ -n "$COLS" ]; then
-                  docker exec virtual-office-postgres-1 psql -U virtual_office -d virtual_office -c "\copy (SELECT ${COLS} FROM local_accounts WHERE email = 'bdd.vasconcelos@gmail.com') TO STDOUT" \
-                    | docker exec -i "${PROJECT_NAME}-postgres-1" psql -U virtual_office -d virtual_office -c "\copy local_accounts (${COLS}) FROM STDIN" || true
-                fi
+              COLS="$(docker exec virtual-office-postgres-1 psql -U virtual_office -d virtual_office -t -A -c "SELECT string_agg(quote_ident(column_name), ',') FROM information_schema.columns WHERE table_schema='public' AND table_name='local_accounts';" 2>/dev/null || true)"
+              if [ -n "$COLS" ]; then
+                {
+                  printf 'CREATE TEMP TABLE _seed_accounts (LIKE local_accounts);\nCOPY _seed_accounts (%s) FROM STDIN;\n' "$COLS"
+                  docker exec virtual-office-postgres-1 psql -U virtual_office -d virtual_office -c "\copy (SELECT ${COLS} FROM local_accounts WHERE tier IN ('master','admin','developer','designer','tester') OR secondary_tiers && ARRAY['master','admin','developer','designer','tester']::text[] OR role = 'admin') TO STDOUT"
+                  printf '\\.\nINSERT INTO local_accounts (%s) SELECT %s FROM _seed_accounts ON CONFLICT DO NOTHING;\n' "$COLS" "$COLS"
+                } | docker exec -i "${PROJECT_NAME}-postgres-1" psql -U virtual_office -d virtual_office || true
               fi
             fi
 
