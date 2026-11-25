@@ -60,6 +60,8 @@ type Deps = {
   codes: CodeService | null;
   /** Envio de códigos para verificação voluntária de e-mail em contas já criadas. */
   verifyCodes?: CodeService | null;
+  /** Permite criação de novas contas. False em ambientes de preview. */
+  allowRegistration?: boolean;
   /** Chamado após excluir a conta (para liberar mesa e encerrar conexões ativas). */
   onAccountDeleted?: (email: string) => Promise<void> | void;
   now?: () => number;
@@ -83,6 +85,9 @@ export class AuthService {
     return {
       emailCodes: this.deps.codes !== null,
       domains: this.deps.access.domains.map((d) => d.domain),
+      ...(this.deps.allowRegistration === false
+        ? { allowRegistration: false }
+        : {}),
     };
   }
 
@@ -101,6 +106,9 @@ export class AuthService {
       return httpFail(429, 'too_many_attempts');
     }
     if (input.purpose === 'register') {
+      if (this.deps.allowRegistration === false) {
+        return httpFail(403, 'registration_disabled');
+      }
       if (!accountKindOf(email, this.deps.access)) {
         return httpFail(403, 'email_not_allowed');
       }
@@ -154,6 +162,9 @@ export class AuthService {
 
   /** Cria a conta e já entra. Com os códigos ligados, pede o do e-mail. Nickname e e-mail não repetem. */
   async register(input: Register, ip: string): Promise<HttpResult<Session>> {
+    if (this.deps.allowRegistration === false) {
+      return httpFail(403, 'registration_disabled');
+    }
     const { accounts, loginLimiter, codes } = this.deps;
     if (!(await loginLimiter.attempt(`register|${ip}`))) {
       return httpFail(429, 'too_many_attempts');

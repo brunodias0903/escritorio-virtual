@@ -12,7 +12,8 @@ import { LockIcon, MailIcon } from './AuthIcons';
 import { SocialAuthButtons } from './SocialAuthButtons';
 
 type Props = {
-  onRegister: () => void;
+  /** Abre o cadastro. Sem ele, o botão some (ex.: ambiente de preview). */
+  onRegister?: () => void;
   /** Abre o "Esqueci minha senha". Sem ele, o botão some (códigos desligados). */
   onForgot?: () => void;
 };
@@ -136,20 +137,24 @@ export function LocalLoginForm({ onRegister, onForgot }: Props) {
         fullWidth
       />
 
-      <SocialAuthButtons />
+      {onRegister ? (
+        <>
+          <SocialAuthButtons />
 
-      <div className={styles.links}>
-        <p className={styles.switchText}>
-          Não tem conta?
-          <button
-            type="button"
-            onClick={onRegister}
-            className={styles.switchLink}
-          >
-            Cadastre-se
-          </button>
-        </p>
-      </div>
+          <div className={styles.links}>
+            <p className={styles.switchText}>
+              Não tem conta?
+              <button
+                type="button"
+                onClick={onRegister}
+                className={styles.switchLink}
+              >
+                Cadastre-se
+              </button>
+            </p>
+          </div>
+        </>
+      ) : null}
     </form>
   );
 }

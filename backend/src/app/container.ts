@@ -217,6 +217,7 @@ export const createContainer = async (
     access: config.access,
     loginLimiter,
     revocations,
+    allowRegistration: config.allowRegistration,
     codes: config.emailCodes ? codeService : null,
     verifyCodes: codeService,
     onAccountDeleted: async (email) => {

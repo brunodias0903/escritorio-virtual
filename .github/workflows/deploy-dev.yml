@@ -154,6 +154,7 @@ jobs:
               "LIVEKIT_TCP_PORT=${LK_TCP_PORT}" \
               "LIVEKIT_UDP_PORT=${LK_UDP_PORT}" \
               "LIVEKIT_PUBLIC_URL=${LIVEKIT_PUBLIC_URL}" \
+              "ALLOW_REGISTRATION=false" \
               "ALLOWED_ORIGINS=${PREVIEW_URL}" >> .env
 
             VERSION="pr-${PR_NUMBER}-$(git rev-parse --short HEAD)" \
