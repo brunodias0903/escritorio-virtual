@@ -381,3 +381,12 @@ jobs:
                 description: 'Preview encerrada após fechamento/merge da MR.',
               });
             }
+            try {
+              await github.rest.repos.deleteAnEnvironment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                environment_name: environment,
+              });
+            } catch {
+              // Ambiente pode já não existir
+            }

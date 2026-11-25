@@ -15,12 +15,16 @@ concurrency:
 
 permissions:
   contents: read
+  deployments: write
 
 jobs:
   deploy:
     name: Deploy Production via SSH
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://escritoriovirtual.duckdns.org
     steps:
       - name: Check production secrets
         id: check
