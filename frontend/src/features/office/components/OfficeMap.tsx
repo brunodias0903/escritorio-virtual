@@ -152,7 +152,7 @@ type Props = {
   onReleaseDesk: (deskId: string) => void;
 };
 
-const HOVER_LEAVE_GRACE_MS = 180;
+const HOVER_LEAVE_GRACE_MS = 260;
 const CLOSE_ANIMATION_MS = 200;
 
 export function OfficeMap({
@@ -182,6 +182,8 @@ export function OfficeMap({
   const deskList = Object.values(desks);
   const [hoveredDeskId, setHoveredDeskId] = useState<string | null>(null);
   const [closingDeskId, setClosingDeskId] = useState<string | null>(null);
+  const mapHoverDeskRef = useRef<string | null>(null);
+  const balloonHoverDeskRef = useRef<string | null>(null);
   const leaveTimerRef = useRef<number | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const [ghostTile, setGhostTile] = useState<{
@@ -259,15 +261,31 @@ export function OfficeMap({
       window.clearTimeout(leaveTimerRef.current);
       leaveTimerRef.current = null;
     }
+    if (mapHoverDeskRef.current === deskId) mapHoverDeskRef.current = null;
+    if (balloonHoverDeskRef.current === deskId) {
+      balloonHoverDeskRef.current = null;
+    }
     setHoveredDeskId((current) => (current === deskId ? null : current));
   };
 
   const leaveDesk = (deskId: string) => {
+    if (
+      mapHoverDeskRef.current === deskId ||
+      balloonHoverDeskRef.current === deskId
+    ) {
+      return;
+    }
     if (leaveTimerRef.current !== null) {
       window.clearTimeout(leaveTimerRef.current);
     }
     leaveTimerRef.current = window.setTimeout(() => {
       leaveTimerRef.current = null;
+      if (
+        mapHoverDeskRef.current === deskId ||
+        balloonHoverDeskRef.current === deskId
+      ) {
+        return;
+      }
       setHoveredDeskId((current) => {
         if (current !== deskId) return current;
         if (deskId !== activeDeskId) {
@@ -287,9 +305,12 @@ export function OfficeMap({
 
   const handleMapHoverDesk = (deskId: string | null) => {
     if (deskId) {
+      mapHoverDeskRef.current = deskId;
       enterDesk(deskId);
-    } else if (hoveredDeskId) {
-      leaveDesk(hoveredDeskId);
+    } else {
+      const prev = mapHoverDeskRef.current ?? hoveredDeskId;
+      mapHoverDeskRef.current = null;
+      if (prev) leaveDesk(prev);
     }
   };
 
@@ -532,8 +553,16 @@ export function OfficeMap({
             isSeated={isSeated}
             expanded={expanded}
             closing={isClosing}
-            onMouseEnter={() => enterDesk(desk.id)}
-            onMouseLeave={() => leaveDesk(desk.id)}
+            onMouseEnter={() => {
+              balloonHoverDeskRef.current = desk.id;
+              enterDesk(desk.id);
+            }}
+            onMouseLeave={() => {
+              if (balloonHoverDeskRef.current === desk.id) {
+                balloonHoverDeskRef.current = null;
+              }
+              leaveDesk(desk.id);
+            }}
             onExpand={() => enterDesk(desk.id)}
             onCollapse={() => collapseDesk(desk.id)}
             onAdopt={() => onAdoptDesk(desk.id)}
