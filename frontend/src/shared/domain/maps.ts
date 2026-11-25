@@ -21,7 +21,9 @@ export type SolidKind =
   | 'fridge'
   | 'printer'
   | 'cabinet'
-  | 'lamp';
+  | 'lamp'
+  | 'booth2'
+  | 'booth4';
 export type Solid = Rect & { kind: SolidKind };
 
 /**
@@ -162,15 +164,24 @@ const LOBBY: MapDef = {
     solid('plant', 12, 2),
     solid('plant', 12, 9),
     solid('plant', 27, 2),
-    solid('plant', 27, 6),
-    solid('plant', 27, 12),
+    solid('plant', 28, 7),
+    solid('plant', 1, 9),
+    solid('plant', 1, 14),
     solid('plant', 1, 18),
-    solid('plant', 2, 17),
+    solid('plant', 2, 18),
     solid('plant', 11, 18),
     solid('plant', 18, 18),
-    solid('plant', 28, 17),
+    solid('plant', 28, 15),
+    // Mesas de Reunião Rápida (1:1 com 2 cadeiras e 4 cadeiras) encostadas nas paredes e cantos
+    solid('booth2', 26, 2, 1, 1),
+    solid('booth2', 11, 18, 1, 1),
+    solid('booth2', 2, 10, 1, 1),
+    solid('booth4', 2, 13, 1, 2),
+    solid('booth4', 27, 5, 1, 2),
+    solid('booth4', 27, 12, 1, 2),
+    solid('booth4', 27, 17, 1, 2),
     // Estantes corporativas e arquivos técnicos
-    solid('shelf', 19, 2, 7, 1),
+    solid('shelf', 19, 2, 6, 1),
     solid('printer', 13, 2, 2, 1),
     solid('cabinet', 15, 2, 2, 1),
     solid('cabinet', 17, 2, 2, 1),
@@ -183,13 +194,15 @@ const LOBBY: MapDef = {
     solid('lamp', 8, 15, 1, 1),
     // Lounge principal (canto inferior direito, linha 18 mantém linha 17 livre)
     solid('sofa', 20, 18, 3, 1),
-    solid('sofa', 24, 18, 3, 1),
+    solid('sofa', 24, 18, 2, 1),
     solid('lamp', 19, 18, 1, 1),
-    solid('lamp', 27, 18, 1, 1),
   ],
   desks: lobbyDesks.desks,
   rugs: [
-    // Tapetes de acolhimento sob os lounges e corredor central
+    // Tapetes de acolhimento sob os lounges, cantos de 1:1 e corredor central
+    { ...tiles(1, 10, 3, 4), color: '#8478a6' },
+    { ...tiles(26, 5, 3, 2), color: '#397f94' },
+    { ...tiles(26, 12, 3, 2), color: '#59804b' },
     { ...tiles(3, 15, 6, 3), color: '#397f94' },
     { ...tiles(19, 16, 9, 2), color: '#59804b' },
     { ...tiles(14, 16, 3, 3), color: '#397f94' },
@@ -252,26 +265,38 @@ const ANDAR_2: MapDef = {
     solid('printer', 13, 2, 2, 1),
     solid('cabinet', 15, 2, 2, 1),
     solid('cabinet', 18, 2, 2, 1),
-    solid('shelf', 21, 2, 6, 1),
+    solid('shelf', 21, 2, 5, 1),
     solid('sofa', 14, 17, 4, 1),
     solid('sofa', 20, 17, 4, 1),
     solid('lamp', 13, 17, 1, 1),
     solid('lamp', 19, 17, 1, 1),
     solid('shelf', 14, 18, 10, 1),
+    // Mesas de Reunião Rápida (1:1 com 2 cadeiras e 4 cadeiras) nas paredes e cantos do Andar 2
+    solid('booth4', 2, 5, 1, 2),
+    solid('booth4', 2, 12, 1, 2),
+    solid('booth2', 2, 16, 1, 1),
+    solid('booth2', 11, 2, 1, 1),
+    solid('booth2', 27, 2, 1, 1),
+    solid('booth4', 27, 5, 1, 2),
+    solid('booth2', 27, 9, 1, 1),
+    solid('booth4', 27, 12, 1, 2),
+    solid('booth4', 27, 16, 1, 2),
+    solid('booth2', 11, 18, 1, 1),
     // Plantas biofílicas pelo Andar 2
     solid('plant', 1, 2),
-    solid('plant', 11, 2),
-    solid('plant', 27, 2),
-    solid('plant', 27, 4),
-    solid('plant', 27, 9),
-    solid('plant', 27, 14),
-    solid('plant', 26, 16),
+    solid('plant', 28, 2),
+    solid('plant', 28, 8),
+    solid('plant', 28, 15),
     solid('plant', 1, 18),
-    solid('plant', 11, 18),
     solid('plant', 28, 18),
   ],
   desks: andarDesks.desks,
   rugs: [
+    { ...tiles(1, 5, 3, 2), color: '#397f94' },
+    { ...tiles(1, 12, 3, 2), color: '#59804b' },
+    { ...tiles(26, 5, 3, 2), color: '#8478a6' },
+    { ...tiles(26, 12, 3, 2), color: '#397f94' },
+    { ...tiles(26, 16, 3, 2), color: '#59804b' },
     { ...tiles(5, 3, 6, 3), color: '#59804b' },
     { ...tiles(4, 7, 7, 5), color: '#397f94' },
     { ...tiles(5, 14, 6, 3), color: '#8478a6' },

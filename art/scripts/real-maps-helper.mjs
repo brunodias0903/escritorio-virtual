@@ -483,6 +483,30 @@ export const renderRealProjectMapSvg = (mapId, compiledById, charPresets) => {
         <rect x="${x + 6}" y="${y + 1}" width="20" height="11" fill="${INK}"/>
         <rect x="${x + 8}" y="${y + 3}" width="16" height="7" fill="#f7cf59"/>
       </g>`);
+    } else if (solid.kind === 'booth2') {
+      parts.push(`<g>
+        <rect x="${x - 13}" y="${y + 6}" width="12" height="18" fill="${INK}"/>
+        <rect x="${x - 11}" y="${y + 8}" width="9" height="14" fill="#397f94"/>
+        <rect x="${x + w + 1}" y="${y + 6}" width="12" height="18" fill="${INK}"/>
+        <rect x="${x + w + 2}" y="${y + 8}" width="9" height="14" fill="#59804b"/>
+        <rect x="${x + 1}" y="${y + 2}" width="${w - 2}" height="${h - 4}" fill="${INK}"/>
+        <rect x="${x + 3}" y="${y + 4}" width="${w - 6}" height="${h - 10}" fill="#9c653e"/>
+        <rect x="${x + 5}" y="${y + 6}" width="${w - 10}" height="${h - 14}" fill="#cfa06e"/>
+        <rect x="${x + 7}" y="${y + 10}" width="8" height="10" fill="#f7e8d0"/>
+        <rect x="${x + 19}" y="${y + 9}" width="5" height="5" fill="#e05a52"/>
+        <rect x="${x + 19}" y="${y + 16}" width="5" height="5" fill="#f7cf59"/>
+      </g>`);
+    } else if (solid.kind === 'booth4') {
+      parts.push(`<g>
+        ${[8, 36].map((dy, idx) => `<rect x="${x - 13}" y="${y + dy}" width="12" height="17" fill="${INK}"/><rect x="${x - 11}" y="${y + dy + 2}" width="9" height="13" fill="${idx === 0 ? '#397f94' : '#59804b'}"/><rect x="${x + w + 1}" y="${y + dy}" width="12" height="17" fill="${INK}"/><rect x="${x + w + 2}" y="${y + dy + 2}" width="9" height="13" fill="${idx === 0 ? '#59804b' : '#397f94'}"/>`).join('')}
+        <rect x="${x}" y="${y + 2}" width="${w}" height="${h - 2}" fill="${INK}"/>
+        <rect x="${x + 2}" y="${y + 4}" width="${w - 4}" height="${h - 10}" fill="#9c653e"/>
+        <rect x="${x + 4}" y="${y + 6}" width="${w - 8}" height="${h - 14}" fill="#cfa06e"/>
+        <rect x="${x + 7}" y="${y + 11}" width="${w - 14}" height="${h - 24}" fill="#e1e6ef"/>
+        <rect x="${x + 9}" y="${y + 14}" width="14" height="10" fill="${INK}"/>
+        <rect x="${x + 10}" y="${y + 15}" width="12" height="8" fill="#4fa3c7"/>
+        <rect x="${x + 9}" y="${y + 36}" width="14" height="10" fill="#f7e8d0"/>
+      </g>`);
     }
   }
 
