@@ -417,4 +417,26 @@ describe('OfficeWorld: ir andando até a mesa', () => {
     expect(me.y).toBeLessThan(8 * 32);
     expect(world.autoWalking).toBe(false);
   });
+
+  it('respeita o limite de 2 pessoas na mesa de 1:1 e 4 pessoas na mesa de 4 lugares', () => {
+    const world = new OfficeWorld();
+    // Mesa 1:1 Sul em (10, 18) -> lugares em (9, 18) = (304, 592) e (11, 18) = (368, 592)
+    world.apply({
+      type: 'init',
+      id: 'a',
+      map: 'lobby',
+      players: [ana, player('b', 'B', 304, 592), player('c', 'C', 368, 592)],
+    });
+    world.goTo({ map: 'lobby', areaId: 'reuniao-1x1-3' });
+    expect(world.fullZone).toBe('Mesa 1:1 Sul');
+    expect(world.autoWalking).toBe(false);
+
+    world.goTo({ map: 'lobby', point: { x: 304, y: 592 } });
+    expect(world.fullZone).toBe('Mesa 1:1 Sul');
+    expect(world.autoWalking).toBe(false);
+
+    // Com vaga, entra na mesa de 4 lugares
+    world.goTo({ map: 'lobby', areaId: 'reuniao-4-1' });
+    expect(world.autoWalking).toBe(true);
+  });
 });

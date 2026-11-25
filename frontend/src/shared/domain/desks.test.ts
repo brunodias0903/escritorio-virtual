@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   DESK_COLORS,
+  DESK_DECOR_TAG,
   DESK_ITEMS,
   DESK_ITEM_LIMIT,
+  DESK_ITEM_TAGS,
   DESK_LABEL_MAX_LENGTH,
   DeskConfigSchema,
   DeskInfoSchema,
@@ -94,6 +96,16 @@ describe('DeskConfigSchema', () => {
     expect(DeskConfigSchema.safeParse({ ...valid, rug: null }).success).toBe(
       true,
     );
+  });
+
+  it('marca todos os 24 enfeites com a tag desk-decor', () => {
+    expect(DESK_ITEMS).toHaveLength(24);
+    for (const item of DESK_ITEMS) {
+      expect(DESK_ITEM_TAGS[item]).toContain(DESK_DECOR_TAG);
+      expect(
+        DeskConfigSchema.safeParse({ ...valid, items: [item] }).success,
+      ).toBe(true);
+    }
   });
 
   it.each([

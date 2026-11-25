@@ -158,6 +158,23 @@ describe.each(MAP_IDS)('zonas de chamada do mapa %s', (id) => {
       ).toBe(false);
     }
   });
+
+  it('as mesas de reunião rápida (2 e 4 lugares) têm exatamente a capacidade e os lugares livres correspondentes', () => {
+    const booths = map.areas.filter(
+      (a) => !a.desk && !a.private && a.capacity !== undefined,
+    );
+    expect(booths.length).toBeGreaterThan(0);
+    for (const booth of booths) {
+      expect([2, 4]).toContain(booth.capacity);
+      let freeSeats = 0;
+      for (let y = booth.y + 16; y < booth.y + booth.h; y += 32) {
+        for (let x = booth.x + 16; x < booth.x + booth.w; x += 32) {
+          if (!isBlocked(map, { x, y })) freeSeats++;
+        }
+      }
+      expect(freeSeats, `lugares livres de ${booth.id}`).toBe(booth.capacity);
+    }
+  });
 });
 
 describe('mover mesinhas (resolveMap e canPlaceDesk)', () => {

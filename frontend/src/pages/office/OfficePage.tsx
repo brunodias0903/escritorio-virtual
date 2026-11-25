@@ -436,10 +436,13 @@ export function OfficePage({ session }: { session: Session }) {
   const editingDeskInfo = editingDeskId
     ? desks[deskKey(map.id, editingDeskId)]
     : undefined;
+  const fullZoneCap = view.snapshot.fullZone
+    ? (map.areas.find((a) => a.name === view.snapshot.fullZone)?.capacity ?? 3)
+    : 3;
   const banner = view.snapshot.lockedZone
     ? `${view.snapshot.lockedZone} está bloqueada pelo dono.`
     : view.snapshot.fullZone
-      ? `${view.snapshot.fullZone} está cheia (3 de 3). Espere alguém sair.`
+      ? `${view.snapshot.fullZone} está cheia (${fullZoneCap} de ${fullZoneCap}). Espere alguém sair.`
       : notice;
 
   // A chamada em que devo estar: a da zona, a conversa com quem está perto
@@ -536,9 +539,50 @@ export function OfficePage({ session }: { session: Session }) {
   useZoomKeys(zoomIn, zoomOut);
   const mapTouch = useZoomGestures(gameNode, zoom, setZoom);
 
+  const sendConnected = (
+    message: Parameters<typeof send>[0],
+    offlineNotice: string,
+  ): boolean => {
+    if (status !== 'open') {
+      setNotice(offlineNotice);
+      return false;
+    }
+    send(message);
+    return true;
+  };
+
   const saveAppearance = (appearance: Appearance) => {
-    send({ type: 'appearance', appearance });
+    if (
+      !sendConnected(
+        { type: 'appearance', appearance },
+        'Sem conexão com o servidor para salvar a aparência.',
+      )
+    ) {
+      return;
+    }
+    if (me) {
+      world.apply(
+        { type: 'appearance', id: me.id, appearance },
+        performance.now(),
+      );
+    }
     setAvatarOpen(false);
+  };
+
+  const saveDeskConfig = (deskId: string, config: DeskInfo['config']) => {
+    const info = desks[deskKey(map.id, deskId)];
+    if (
+      !sendConnected(
+        { type: 'deskConfig', deskId, config },
+        'Sem conexão com o servidor para salvar a mesa.',
+      )
+    ) {
+      return false;
+    }
+    if (info) {
+      useDeskStore.getState().upsert({ ...info, config });
+    }
+    return true;
   };
 
   const callName = callId
@@ -631,19 +675,28 @@ export function OfficePage({ session }: { session: Session }) {
               ? previewDesk.deskId
               : null
           }
-          onAdoptDesk={(deskId) => send({ type: 'deskAdopt', deskId })}
+          onAdoptDesk={(deskId) => {
+            sendConnected(
+              { type: 'deskAdopt', deskId },
+              'Sem conexão com o servidor para adotar a mesa.',
+            );
+          }}
           onMoveDesk={(deskId) => setMovingDeskId(deskId)}
           onToggleDeskLock={(deskId) => {
             const info = desks[deskKey(map.id, deskId)];
             if (!info) return;
-            send({
-              type: 'deskConfig',
-              deskId,
-              config: { ...info.config, locked: !info.config.locked },
+            saveDeskConfig(deskId, {
+              ...info.config,
+              locked: !info.config.locked,
             });
           }}
           onEditDesk={(deskId) => setEditingDeskId(deskId)}
-          onReleaseDesk={(deskId) => send({ type: 'deskRelease', deskId })}
+          onReleaseDesk={(deskId) => {
+            sendConnected(
+              { type: 'deskRelease', deskId },
+              'Sem conexão com o servidor para devolver a mesa.',
+            );
+          }}
           movingDeskId={
             movingDeskId && mine?.map === view.snapshot.map
               ? movingDeskId
@@ -651,8 +704,14 @@ export function OfficePage({ session }: { session: Session }) {
           }
           onPlaceDesk={(col, row) => {
             if (!movingDeskId) return;
-            send({ type: 'deskMove', deskId: movingDeskId, col, row });
-            setMovingDeskId(null);
+            if (
+              sendConnected(
+                { type: 'deskMove', deskId: movingDeskId, col, row },
+                'Sem conexão com o servidor para mover a mesa.',
+              )
+            ) {
+              setMovingDeskId(null);
+            }
           }}
         />
         <CallTiles
@@ -785,8 +844,9 @@ export function OfficePage({ session }: { session: Session }) {
         <DeskEditor
           initial={editingDeskInfo.config}
           onSave={(config) => {
-            send({ type: 'deskConfig', deskId: editingDeskId, config });
-            setEditingDeskId(null);
+            if (saveDeskConfig(editingDeskId, config)) {
+              setEditingDeskId(null);
+            }
           }}
           onClose={() => setEditingDeskId(null)}
         />

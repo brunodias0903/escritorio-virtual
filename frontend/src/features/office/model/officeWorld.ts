@@ -4,6 +4,7 @@ import {
   areaAt,
   callZoneId,
   deskKey,
+  doorAt,
   resolveMap,
   TILE,
   WALK_SPEED,
@@ -66,6 +67,8 @@ export class OfficeWorld {
   fullZone: string | null = null;
   /** A última mesinha bloqueada pelo dono que barrou a pessoa. */
   lockedZone: string | null = null;
+  /** Enquanto a pessoa está na porta esperando o servidor trocar de sala, bloqueia novos passos. */
+  private awaitingMapChange = false;
   private readonly players = new Map<string, RenderPlayer>();
   private readonly emoteUntil = new Map<string, number>();
   /** Mesas adotadas (posição personalizada e bloqueio). */
@@ -108,6 +111,7 @@ export class OfficeWorld {
       case 'init':
         this.players.clear();
         this.emoteUntil.clear();
+        this.awaitingMapChange = false;
         this.meId = message.id;
         this.map = message.map;
         for (const player of message.players) this.add(player);
@@ -118,6 +122,7 @@ export class OfficeWorld {
         const me = this.me();
         this.players.clear();
         this.emoteUntil.clear();
+        this.awaitingMapChange = false;
         this.map = message.map;
         for (const player of message.players) this.add(player);
         if (me) {
@@ -160,6 +165,7 @@ export class OfficeWorld {
         break;
 
       case 'correct': {
+        this.awaitingMapChange = false;
         const me = this.me();
         if (me) this.place(me, { x: message.x, y: message.y });
         if (this.destination) this.plan();
@@ -207,7 +213,7 @@ export class OfficeWorld {
     if (!me) return null;
 
     const left = this.walk(me, dtSeconds);
-    if (me.x !== me.tx || me.y !== me.ty) return null;
+    if (me.x !== me.tx || me.y !== me.ty || this.awaitingMapChange) return null;
 
     let axis = axisOf(direction);
     if (axis.dx !== 0 || axis.dy !== 0) {
@@ -234,6 +240,9 @@ export class OfficeWorld {
     if (!this.destination) {
       this.fullZone = null;
       this.lockedZone = null;
+    }
+    if (doorAt(map, next)) {
+      this.awaitingMapChange = true;
     }
     me.tx = next.x;
     me.ty = next.y;
@@ -299,13 +308,13 @@ export class OfficeWorld {
     if ('point' in destination) {
       const target = snapToTile(destination.point);
       const zone = areaAt(map, target);
-      if (zone?.desk) {
+      if (zone?.capacity !== undefined) {
         const inside = callZoneId(map, me) === zone.id;
-        if (this.isLockedFor(this.map, zone.id, me.email)) {
+        if (zone.desk && this.isLockedFor(this.map, zone.id, me.email)) {
           this.lockedZone = zone.name;
           return this.stopAutoWalk();
         }
-        if (!inside && this.occupants(zone.id, me.id) >= DESK_CAPACITY) {
+        if (!inside && this.occupants(zone.id, me.id) >= zone.capacity) {
           this.fullZone = zone.name;
           return this.stopAutoWalk();
         }
@@ -317,13 +326,23 @@ export class OfficeWorld {
     }
 
     if ('areaId' in destination) {
+      const zone = map.areas.find((a) => a.id === destination.areaId);
+      if (zone?.capacity !== undefined) {
+        const inside = callZoneId(map, me) === zone.id;
+        if (!inside && this.occupants(zone.id, me.id) >= zone.capacity) {
+          this.fullZone = zone.name;
+          return this.stopAutoWalk();
+        }
+      }
       const others = [...this.players.values()].filter((p) => p.id !== me.id);
       const taken = (p: Point) =>
         others.some((o) => o.tx === p.x && o.ty === p.y);
       const all = areaTiles(map, destination.areaId);
       const free = all.filter((p) => !taken(p));
       const targets = free.length > 0 ? free : all;
-      const route = findPath(map, me, targets);
+      const route = findPath(map, me, targets, {
+        allowZone: destination.areaId,
+      });
       if (route) this.route = route;
       else this.stopAutoWalk();
       return;

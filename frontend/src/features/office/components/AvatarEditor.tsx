@@ -3,13 +3,30 @@ import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import {
   AVATAR_ACCESSORIES,
   AVATAR_ACCESSORY_LABELS,
+  AVATAR_BEARDS,
+  AVATAR_BEARD_LABELS,
+  AVATAR_BODY_SHAPES,
+  AVATAR_BODY_SHAPE_LABELS,
   AVATAR_BODY_STYLES,
   AVATAR_BODY_STYLE_LABELS,
+  AVATAR_BOTTOMS,
+  AVATAR_BOTTOM_LABELS,
+  AVATAR_FACES,
+  AVATAR_FACE_LABELS,
+  AVATAR_HAIR_LENGTHS,
+  AVATAR_HAIR_LENGTH_LABELS,
+  AVATAR_HEIGHTS,
+  AVATAR_HEIGHT_LABELS,
+  AVATAR_SHOES,
+  AVATAR_SHOE_LABELS,
+  AVATAR_TOPS,
+  AVATAR_TOP_LABELS,
   HAIR_COLORS,
   HAIR_STYLE_COUNT,
   HAIR_STYLE_LABELS,
   PANTS_COLORS,
   SHIRT_COLORS,
+  SHOE_COLORS,
   SKIN_TONES,
   type Appearance,
 } from '@/shared/domain';
@@ -73,8 +90,18 @@ export function AvatarEditor({ initial, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<Appearance>({
     ...initial,
     pants: initial.pants ?? 0,
+    shoes: initial.shoes ?? 0,
     accessory: initial.accessory ?? 'none',
     bodyStyle: initial.bodyStyle ?? 'masculine',
+    bodyShape: initial.bodyShape ?? 'regular',
+    height: initial.height ?? 'average',
+    hairLength: initial.hairLength ?? (initial.style === 1 ? 'long' : 'short'),
+    face: initial.face ?? 'happy',
+    beard:
+      initial.beard ?? (initial.accessory === 'beard' ? 'full_beard' : 'none'),
+    topStyle: initial.topStyle ?? 'tshirt',
+    bottomStyle: initial.bottomStyle ?? 'pants',
+    shoeStyle: initial.shoeStyle ?? 'sneakers',
     photo: initial.photo ?? null,
   });
   const [facing, setFacing] = useState<Facing>('down');
@@ -101,7 +128,16 @@ export function AvatarEditor({ initial, onSave, onClose }: Props) {
       style: Math.floor(Math.random() * HAIR_STYLE_COUNT),
       shirt: Math.floor(Math.random() * SHIRT_COLORS.length),
       pants: Math.floor(Math.random() * PANTS_COLORS.length),
+      shoes: Math.floor(Math.random() * SHOE_COLORS.length),
       accessory: pick(AVATAR_ACCESSORIES),
+      bodyShape: pick(AVATAR_BODY_SHAPES),
+      height: pick(AVATAR_HEIGHTS),
+      hairLength: pick(AVATAR_HAIR_LENGTHS),
+      face: pick(AVATAR_FACES),
+      beard: Math.random() < 0.55 ? 'none' : pick(AVATAR_BEARDS),
+      topStyle: pick(AVATAR_TOPS),
+      bottomStyle: pick(AVATAR_BOTTOMS),
+      shoeStyle: pick(AVATAR_SHOES),
     }));
   };
 
@@ -242,8 +278,30 @@ export function AvatarEditor({ initial, onSave, onClose }: Props) {
 
           <div className={styles.optionsCol}>
             <div className={styles.group}>
-              <span className={styles.label}>Estilo do personagem</span>
+              <span className={styles.label}>Biotipo e altura</span>
               <div className={styles.row}>
+                {AVATAR_BODY_SHAPES.map((shape) => (
+                  <button
+                    key={shape}
+                    type="button"
+                    aria-pressed={(draft.bodyShape ?? 'regular') === shape}
+                    onClick={() => setDraft({ ...draft, bodyShape: shape })}
+                    className={`${styles.styleButton} ${(draft.bodyShape ?? 'regular') === shape ? styles.active : ''}`}
+                  >
+                    {AVATAR_BODY_SHAPE_LABELS[shape]}
+                  </button>
+                ))}
+                {AVATAR_HEIGHTS.map((height) => (
+                  <button
+                    key={height}
+                    type="button"
+                    aria-pressed={(draft.height ?? 'average') === height}
+                    onClick={() => setDraft({ ...draft, height })}
+                    className={`${styles.styleButton} ${(draft.height ?? 'average') === height ? styles.active : ''}`}
+                  >
+                    {AVATAR_HEIGHT_LABELS[height]}
+                  </button>
+                ))}
                 {AVATAR_BODY_STYLES.map((bodyStyle) => (
                   <button
                     key={bodyStyle}
@@ -266,15 +324,33 @@ export function AvatarEditor({ initial, onSave, onClose }: Props) {
               selected={draft.skin}
               onSelect={(skin) => setDraft({ ...draft, skin })}
             />
+
+            <div className={styles.group}>
+              <span className={styles.label}>Expressão do rosto</span>
+              <div className={styles.row}>
+                {AVATAR_FACES.map((face) => (
+                  <button
+                    key={face}
+                    type="button"
+                    aria-pressed={(draft.face ?? 'happy') === face}
+                    onClick={() => setDraft({ ...draft, face })}
+                    className={`${styles.styleButton} ${(draft.face ?? 'happy') === face ? styles.active : ''}`}
+                  >
+                    {AVATAR_FACE_LABELS[face]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <Swatches
-              label="Cor do cabelo"
+              label="Cor do cabelo e barba"
               colors={HAIR_COLORS}
               selected={draft.hair}
               onSelect={(hair) => setDraft({ ...draft, hair })}
             />
 
             <div className={styles.group}>
-              <span className={styles.label}>Estilo do cabelo</span>
+              <span className={styles.label}>Estilo e tamanho do cabelo</span>
               <div className={styles.row}>
                 {Array.from({ length: HAIR_STYLE_COUNT }, (_, style) => (
                   <button
@@ -285,6 +361,34 @@ export function AvatarEditor({ initial, onSave, onClose }: Props) {
                     className={`${styles.styleButton} ${style === draft.style ? styles.active : ''}`}
                   >
                     {HAIR_STYLE_LABELS[style]}
+                  </button>
+                ))}
+                {AVATAR_HAIR_LENGTHS.map((hairLength) => (
+                  <button
+                    key={hairLength}
+                    type="button"
+                    aria-pressed={(draft.hairLength ?? 'short') === hairLength}
+                    onClick={() => setDraft({ ...draft, hairLength })}
+                    className={`${styles.styleButton} ${(draft.hairLength ?? 'short') === hairLength ? styles.active : ''}`}
+                  >
+                    {AVATAR_HAIR_LENGTH_LABELS[hairLength]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.group}>
+              <span className={styles.label}>Barba e bigode</span>
+              <div className={styles.row}>
+                {AVATAR_BEARDS.map((beard) => (
+                  <button
+                    key={beard}
+                    type="button"
+                    aria-pressed={(draft.beard ?? 'none') === beard}
+                    onClick={() => setDraft({ ...draft, beard })}
+                    className={`${styles.styleButton} ${(draft.beard ?? 'none') === beard ? styles.active : ''}`}
+                  >
+                    {AVATAR_BEARD_LABELS[beard]}
                   </button>
                 ))}
               </div>
@@ -307,17 +411,78 @@ export function AvatarEditor({ initial, onSave, onClose }: Props) {
               </div>
             </div>
 
+            <div className={styles.group}>
+              <span className={styles.label}>Roupa superior</span>
+              <div className={styles.row}>
+                {AVATAR_TOPS.map((topStyle) => (
+                  <button
+                    key={topStyle}
+                    type="button"
+                    aria-pressed={(draft.topStyle ?? 'tshirt') === topStyle}
+                    onClick={() => setDraft({ ...draft, topStyle })}
+                    className={`${styles.styleButton} ${(draft.topStyle ?? 'tshirt') === topStyle ? styles.active : ''}`}
+                  >
+                    {AVATAR_TOP_LABELS[topStyle]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <Swatches
-              label="Camisa"
+              label="Cor da roupa superior"
               colors={SHIRT_COLORS}
               selected={draft.shirt}
               onSelect={(shirt) => setDraft({ ...draft, shirt })}
             />
+
+            <div className={styles.group}>
+              <span className={styles.label}>Calça, bermuda ou saia</span>
+              <div className={styles.row}>
+                {AVATAR_BOTTOMS.map((bottomStyle) => (
+                  <button
+                    key={bottomStyle}
+                    type="button"
+                    aria-pressed={
+                      (draft.bottomStyle ?? 'pants') === bottomStyle
+                    }
+                    onClick={() => setDraft({ ...draft, bottomStyle })}
+                    className={`${styles.styleButton} ${(draft.bottomStyle ?? 'pants') === bottomStyle ? styles.active : ''}`}
+                  >
+                    {AVATAR_BOTTOM_LABELS[bottomStyle]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <Swatches
-              label="Calça"
+              label="Cor da calça / bermuda"
               colors={PANTS_COLORS}
               selected={draft.pants ?? 0}
               onSelect={(pants) => setDraft({ ...draft, pants })}
+            />
+
+            <div className={styles.group}>
+              <span className={styles.label}>Tênis e calçado</span>
+              <div className={styles.row}>
+                {AVATAR_SHOES.map((shoeStyle) => (
+                  <button
+                    key={shoeStyle}
+                    type="button"
+                    aria-pressed={(draft.shoeStyle ?? 'sneakers') === shoeStyle}
+                    onClick={() => setDraft({ ...draft, shoeStyle })}
+                    className={`${styles.styleButton} ${(draft.shoeStyle ?? 'sneakers') === shoeStyle ? styles.active : ''}`}
+                  >
+                    {AVATAR_SHOE_LABELS[shoeStyle]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Swatches
+              label="Cor do tênis"
+              colors={SHOE_COLORS}
+              selected={draft.shoes ?? 0}
+              onSelect={(shoes) => setDraft({ ...draft, shoes })}
             />
           </div>
         </div>

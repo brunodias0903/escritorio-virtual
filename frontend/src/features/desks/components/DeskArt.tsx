@@ -12,197 +12,452 @@ import {
   type DeskMonitor,
 } from '@/shared/domain';
 
-const INK = '#202030';
+const INK = '#1e191d';
 
-/** Tamanho (em pixels do mapa) da área de cada enfeite sobre a mesa. */
-const CELL = 12;
+/** Tamanho (em pixels do mapa) da área de cada enfeite sobre a mesa (10x10 art px = 20x20 ou compacto 14x14). */
+const CELL = 16;
 
 /** Lugares dos enfeites no tampo: 4 cantos (esquerda/direita atrás e na frente). */
 const slotOf = (desk: DeskDef, index: number) => {
   const slots = [
-    { x: desk.x + 4, y: desk.y + 3 },
-    { x: desk.x + desk.w - CELL - 4, y: desk.y + 3 },
-    { x: desk.x + desk.w - CELL - 4, y: desk.y + desk.h - CELL - 3 },
-    { x: desk.x + 4, y: desk.y + desk.h - CELL - 3 },
+    { x: desk.x + 3, y: desk.y - 3 },
+    { x: desk.x + desk.w - CELL - 3, y: desk.y - 3 },
+    { x: desk.x + desk.w - CELL - 3, y: desk.y + desk.h - CELL - 1 },
+    { x: desk.x + 3, y: desk.y + desk.h - CELL - 1 },
   ];
   return slots[index] ?? slots[0]!;
 };
 
-/** Desenha um enfeite em pixel art dentro de uma célula de 12 x 12. */
+/** Paleta padronizada `.Art` para compilar as matrizes 10x10 dos 24 itens `tag: 'desk-decor'`. */
+const ITEM_PALETTE: Readonly<Record<string, string>> = {
+  O: '#1e191d',
+  x: '#2d313b',
+  A: '#454c5c',
+  a: '#697387',
+  s: '#96a1b5',
+  S: '#c3ccd9',
+  f: '#f5f7fa',
+  F: '#e1e6ef',
+  e: '#c5cddb',
+  h: '#f7e8d0',
+  l: '#bdaea0',
+  U: '#58a6b8',
+  y: '#397f94',
+  J: '#245566',
+  G: '#7ca36b',
+  g: '#59804b',
+  t: '#3d5c33',
+  j: '#8cd668',
+  L: '#52ab3a',
+  T: '#2d6e22',
+  w: '#e8be8e',
+  W: '#cfa06e',
+  m: '#ab7b4b',
+  n: '#9c653e',
+  N: '#754728',
+  d: '#522f18',
+  R: '#e05a52',
+  b: '#a33631',
+  Y: '#f7cf59',
+  2: '#cc962b',
+  v: '#d9f5ff',
+  V: '#8cd8f5',
+  i: '#4fa3c7',
+  9: '#5b4e7a',
+};
+
+/** Matrizes 10x10 (escala 1.5x = 15x15 px no mapa) dos 24 itens `tag: 'desk-decor'`. */
+const ITEM_MATRICES: Record<DeskItem, readonly string[]> = {
+  plant: [
+    '..OO..OO..',
+    '.OjjOOjjO.',
+    '.OjLLLLjO.',
+    '..OTLLTO..',
+    '..OOOOOO..',
+    '.ORRRRRRO.',
+    '.ORbbbbRO.',
+    '..ORbbRO..',
+    '..ObbbbO..',
+    '...OOOO...',
+  ],
+  lamp: [
+    '..OOOOOO..',
+    '.OYYYYYYO.',
+    'OYffffffYO',
+    'O22222222O',
+    '.OOOOOOOO.',
+    '....OSO...',
+    '....OsO...',
+    '...OOsOO..',
+    '..OSSSSSO.',
+    '..OOOOOOO.',
+  ],
+  mug: [
+    '...f..f...',
+    '..f..f....',
+    '.OOOOOOO..',
+    'Off999ffOO',
+    'OffffffffO',
+    'OfUUUUUUOO',
+    'OyyyyyyfOO',
+    'OfffffffO.',
+    'OeeeeeeeO.',
+    '.OOOOOOO..',
+  ],
+  books: [
+    '..........',
+    '.OOOOOOOO.',
+    'OGGGGGhhhO',
+    'OttttttllO',
+    'OOOOOOOOOO',
+    'OUUUUUhhhO',
+    'OyyyyyyllO',
+    'OOOOOOOOOO',
+    'ORRRRRhhhO',
+    'OOOOOOOOOO',
+  ],
+  cactus: [
+    '....OR....',
+    '...OjjO...',
+    '.OOjLLjOO.',
+    'OjLLLLLLjO',
+    'OTLTTTTLTO',
+    '.OOTLLTOO.',
+    '..OOOOOO..',
+    '..O2222O..',
+    '..O2222O..',
+    '...OOOO...',
+  ],
+  duck: [
+    '...OOOO...',
+    '..OYYYYO..',
+    '..OYxYYOO.',
+    '..OYYYYRRO',
+    '.OO2222OO.',
+    'OYYYYYYYO.',
+    'OYfYYYYYO.',
+    'O2222222O.',
+    '.OOOOOOO..',
+    '..........',
+  ],
+  headphones: [
+    '..OOOOOO..',
+    '.OAAAAAAO.',
+    'OAO....OAO',
+    'OxO....OxO',
+    'OUUO..OUUO',
+    'OyyO..OyyO',
+    'OJJO..OJJO',
+    '.OO....OO.',
+    '..........',
+    '..........',
+  ],
+  trophy: [
+    '.OOOOOOOO.',
+    'OYYfYYYYYO',
+    'OAOYYYYOAO',
+    '.OOY22YOO.',
+    '..OO22OO..',
+    '...O22O...',
+    '..OO22OO..',
+    '.ONNNNNNO.',
+    '.OddddddO.',
+    '..OOOOOO..',
+  ],
+  cat: [
+    '.OO....OO.',
+    'O2YO..OY2O',
+    'OYYYYYYYYO',
+    'OYxYYYYxYO',
+    'OYYYRYYYYO',
+    'O22222222O',
+    'OYYYYYY22O',
+    '.OOOOOOOO.',
+    '..........',
+    '..........',
+  ],
+  mic: [
+    '...OOOO...',
+    '..OSSSSO..',
+    '..OsasSO..',
+    '..OSSSSO..',
+    '..OAxxAO..',
+    '..OAGGAA..',
+    '...OxxO...',
+    '...OxxO...',
+    '..OxxxxO..',
+    '..OOOOOO..',
+  ],
+  controller: [
+    '..........',
+    '.OOOOOOOO.',
+    'OAAAAAAAAO',
+    'OAfAxxARAO',
+    'OAffxxUGAO',
+    'OAAAAAAAAO',
+    'OxxOOOOxxO',
+    'OxxO..OxxO',
+    '.OO....OO.',
+    '..........',
+  ],
+  globe: [
+    '...OOOO...',
+    '..OVLLVO..',
+    '.OVLLLLVO.',
+    '.OVViiLVO.',
+    '..OiiLiO..',
+    '...O22O...',
+    '...O22O...',
+    '..OO22OO..',
+    '.ONNNNNNO.',
+    '..OOOOOO..',
+  ],
+  coffee: [
+    '..OOOOOO..',
+    '.ORRRRRRO.',
+    '.ObbbbbbO.',
+    '..OffffO..',
+    '..OWWWWO..',
+    '..OmmmmO..',
+    '..OffffO..',
+    '..OeeeeO..',
+    '...OOOO...',
+    '..........',
+  ],
+  frame: [
+    '.OOOOOOOO.',
+    'OwwwwwwwwO',
+    'OwOOOOOOwO',
+    'OwOVVYYOwO',
+    'OwOVVVVOwO',
+    'OwOLLLLOwO',
+    'OwOTTTTOwO',
+    'OwOOOOOOwO',
+    'OmmmmmmmmO',
+    '.OOOOOOOO.',
+  ],
+  bonsai: [
+    '..OOOOOO..',
+    '.OjjLLLLjO',
+    '.OLLLLTTTO',
+    '..OOOOOnO.',
+    '..OjjOnnO.',
+    '..OTTOnO..',
+    '..OOOOOO..',
+    '.OUUUUUUO.',
+    '.OJJJJJJO.',
+    '..OOOOOO..',
+  ],
+  hourglass: [
+    '.OOOOOOOO.',
+    '.OYYYYYYO.',
+    '..OvvvVO..',
+    '..OvYYVO..',
+    '...OYYO...',
+    '..OvYYVO..',
+    '..OYYYYO..',
+    '.OYYYYYYO.',
+    '.OOOOOOOO.',
+    '..........',
+  ],
+  figure: [
+    '....OO....',
+    '..OOOOOO..',
+    '.OSSSSSSO.',
+    '.OSxVVxSO.',
+    '..OOOOOO..',
+    '.ORRRRRRO.',
+    '.OROYYORO.',
+    '..OaaaaO..',
+    '..OxOOxO..',
+    '..OO..OO..',
+  ],
+  fan: [
+    '..OOOOOO..',
+    '.OSSSSSSO.',
+    'OSsUssUsSO',
+    'OSssOOssSO',
+    'OSsUssUsSO',
+    '.OSSSSSSO.',
+    '..OOssOO..',
+    '...OaaO...',
+    '..OSSSSO..',
+    '..OOOOOO..',
+  ],
+  notebook: [
+    '..........',
+    '.OOOOOO.O.',
+    'OAAAAAROAO',
+    'OAAAAAROAO',
+    'OAffAAROAO',
+    'OAAAAAROAO',
+    'OAAAAAROSO',
+    'OhhhhhRO.O',
+    '.OOOOOO...',
+    '..........',
+  ],
+  lavaLamp: [
+    '...OOOO...',
+    '...OSSO...',
+    '..OVRRVO..',
+    '..OVRYYO..',
+    '..OYYRVO..',
+    '..OVRRVO..',
+    '..OSSSSO..',
+    '...OaaO...',
+    '..OSSSSO..',
+    '..OOOOOO..',
+  ],
+  teapot: [
+    '....OO....',
+    '..OOOOOO..',
+    '.OGGGGGGO.',
+    'OOOOggggOO',
+    'OgggggggOO',
+    '.OggggggO.',
+    '.OttttttO.',
+    '..OOOOOO..',
+    '..........',
+    '..........',
+  ],
+  camera: [
+    '..........',
+    '..OO..OO..',
+    '.OSSSSSSO.',
+    'OSSSSSSSSO',
+    'OxxOOOOxxO',
+    'OxOvvVVOxO',
+    'OxOViiiOxO',
+    'OxxOOOOxxO',
+    '.OOOOOOOO.',
+    '..........',
+  ],
+  clock: [
+    '.OO....OO.',
+    'OYYOOOOYYO',
+    '.ORRRRRRO.',
+    'ORffffffRO',
+    'ORffxfffRO',
+    'ORffxxffRO',
+    'ORffffffRO',
+    '.ORbbbbRO.',
+    '.OO....OO.',
+    '..........',
+  ],
+  rubik: [
+    '..........',
+    '..OOOOOO..',
+    '.ORRYYUUO.',
+    '.OOOOOOOO.',
+    '.OYYGGRRO.',
+    '.OOOOOOOO.',
+    '.OUURRYYO.',
+    '..OOOOOO..',
+    '..........',
+    '..........',
+  ],
+};
+
+/** Desenha um enfeite `tag: 'desk-decor'` a partir de sua matriz 10x10 em pixel art. */
 function Item({ item, x, y }: { item: DeskItem; x: number; y: number }) {
-  const r = (dx: number, dy: number, w: number, h: number, fill: string) => (
-    <rect
-      key={`${dx}-${dy}-${fill}`}
-      x={x + dx}
-      y={y + dy}
-      width={w}
-      height={h}
-      fill={fill}
-    />
-  );
+  const rows = ITEM_MATRICES[item] ?? ITEM_MATRICES.plant;
+  const px = 1.5;
+  const rects: Array<{
+    dx: number;
+    dy: number;
+    w: number;
+    h: number;
+    fill: string;
+  }> = [];
 
-  switch (item) {
-    case 'plant':
-      return (
-        <g>
-          {r(3, 7, 6, 5, '#b5651d')}
-          {r(5, 2, 2, 6, '#2e8b57')}
-          {r(2, 3, 4, 3, '#3cb371')}
-          {r(6, 1, 4, 3, '#3cb371')}
-        </g>
-      );
-    case 'lamp':
-      return (
-        <g>
-          {r(4, 10, 4, 2, '#3a3d5c')}
-          {r(5, 4, 2, 6, '#7b83bd')}
-          {r(2, 0, 8, 5, '#f6d365')}
-          {r(3, 1, 6, 2, '#fff3b0')}
-        </g>
-      );
-    case 'mug':
-      return (
-        <g>
-          {r(3, 5, 6, 6, '#f2f2f7')}
-          {r(9, 6, 2, 3, '#f2f2f7')}
-          {r(4, 5, 4, 2, '#6f4e37')}
-        </g>
-      );
-    case 'books':
-      return (
-        <g>
-          {r(1, 8, 10, 3, '#c0392b')}
-          {r(2, 5, 8, 3, '#2980b9')}
-          {r(1, 2, 9, 3, '#27ae60')}
-        </g>
-      );
-    case 'cactus':
-      return (
-        <g>
-          {r(3, 8, 6, 4, '#a0522d')}
-          {r(5, 1, 3, 8, '#4caf50')}
-          {r(2, 3, 3, 2, '#4caf50')}
-          {r(2, 3, 2, 4, '#4caf50')}
-          {r(8, 4, 3, 2, '#4caf50')}
-          {r(9, 2, 2, 4, '#4caf50')}
-        </g>
-      );
-    case 'duck':
-      return (
-        <g>
-          {r(2, 6, 7, 5, '#ffd93d')}
-          {r(6, 2, 4, 5, '#ffd93d')}
-          {r(10, 4, 2, 2, '#ff9f1c')}
-          {r(8, 3, 1, 1, '#1b1b24')}
-        </g>
-      );
-    case 'headphones':
-      return (
-        <g>
-          {r(2, 1, 8, 2, '#2d2f4a')}
-          {r(1, 3, 3, 6, '#5b6cff')}
-          {r(8, 3, 3, 6, '#5b6cff')}
-        </g>
-      );
-    case 'trophy':
-      return (
-        <g>
-          {r(3, 1, 6, 5, '#f1c40f')}
-          {r(1, 2, 2, 3, '#f1c40f')}
-          {r(9, 2, 2, 3, '#f1c40f')}
-          {r(5, 6, 2, 3, '#d4a60a')}
-          {r(3, 9, 6, 2, '#8d6e0a')}
-        </g>
-      );
-    case 'cat':
-      return (
-        <g>
-          {r(2, 5, 8, 6, '#f4a261')}
-          {r(2, 3, 2, 2, '#f4a261')}
-          {r(8, 3, 2, 2, '#f4a261')}
-          {r(4, 7, 1, 1, '#1b1b24')}
-          {r(7, 7, 1, 1, '#1b1b24')}
-          {r(5, 8, 2, 1, '#e76f51')}
-          {r(10, 6, 2, 4, '#e07a5f')}
-        </g>
-      );
-    case 'mic':
-      return (
-        <g>
-          {r(4, 1, 4, 5, '#3a3d5c')}
-          {r(5, 2, 2, 3, '#31e0c1')}
-          {r(5, 6, 2, 4, '#7b83bd')}
-          {r(3, 10, 6, 2, '#28202c')}
-        </g>
-      );
-    case 'controller':
-      return (
-        <g>
-          {r(1, 4, 10, 5, '#2b2d42')}
-          {r(2, 8, 3, 2, '#2b2d42')}
-          {r(7, 8, 3, 2, '#2b2d42')}
-          {r(3, 5, 2, 2, '#edf2f4')}
-          {r(8, 5, 1, 1, '#31e0c1')}
-          {r(9, 6, 1, 1, '#ff6b81')}
-        </g>
-      );
-    case 'globe':
-      return (
-        <g>
-          {r(3, 1, 6, 6, '#3498db')}
-          {r(4, 2, 3, 2, '#2ecc71')}
-          {r(6, 4, 2, 2, '#2ecc71')}
-          {r(5, 7, 2, 3, '#b5833a')}
-          {r(3, 10, 6, 2, '#8b5a2b')}
-        </g>
-      );
-    case 'coffee':
-      return (
-        <g>
-          {r(3, 2, 6, 2, '#e63946')}
-          {r(4, 4, 4, 7, '#f1faee')}
-          {r(4, 6, 4, 2, '#a8763e')}
-        </g>
-      );
-    case 'frame':
-      return (
-        <g>
-          {r(2, 2, 8, 9, '#d4a373')}
-          {r(3, 3, 6, 7, '#a8dadc')}
-          {r(4, 6, 4, 4, '#457b9d')}
-          {r(5, 4, 2, 2, '#ffd166')}
-        </g>
-      );
-  }
-}
+  rows.forEach((row, ry) => {
+    let rx = 0;
+    while (rx < row.length) {
+      const ch = row[rx]!;
+      let end = rx + 1;
+      while (end < row.length && row[end] === ch) end++;
+      const fill = ITEM_PALETTE[ch];
+      if (fill) {
+        rects.push({
+          dx: rx * px,
+          dy: ry * px,
+          w: (end - rx) * px,
+          h: px,
+          fill,
+        });
+      }
+      rx = end;
+    }
+  });
 
-const SCREEN = '#88c0f8';
-const SHINE = '#c8e4ff';
-const KEYS = '#58587c';
-const METAL = '#a8acc4';
-
-/** Um monitor com pé, a partir do canto de cima à esquerda. */
-function Monitor({ x, y, w }: { x: number; y: number; w: number }) {
   return (
     <g>
-      <rect x={x + w / 2 - 2} y={y + 11} width={4} height={4} fill={INK} />
-      <rect x={x} y={y} width={w} height={12} fill={INK} />
-      <rect x={x + 2} y={y + 2} width={w - 4} height={7} fill={SCREEN} />
-      <rect x={x + 2} y={y + 2} width={w - 4} height={2} fill={SHINE} />
+      {rects.map((r, idx) => (
+        <rect
+          key={idx}
+          x={x + r.dx}
+          y={y + r.dy}
+          width={r.w}
+          height={r.h}
+          fill={r.fill}
+        />
+      ))}
     </g>
   );
 }
 
-/** Um notebook aberto: tela em cima, teclado embaixo. */
+const SCREEN = '#4fa3c7';
+const SCREEN_MID = '#8cd8f5';
+const SHINE = '#d9f5ff';
+const KEYS = '#454c5c';
+const METAL = '#c3ccd9';
+
+/** Um monitor widescreen detalhado com código/UI na tela e suporte articulado. */
+function Monitor({ x, y, w }: { x: number; y: number; w: number }) {
+  return (
+    <g>
+      <rect x={x + w / 2 - 2} y={y + 11} width={4} height={5} fill={INK} />
+      <rect x={x + w / 2 - 5} y={y + 14} width={10} height={2} fill="#697387" />
+      <rect x={x} y={y} width={w} height={12} fill={INK} />
+      <rect x={x + 1} y={y + 1} width={w - 2} height={10} fill="#2d313b" />
+      <rect x={x + 2} y={y + 2} width={w - 4} height={8} fill={SCREEN} />
+      <rect
+        x={x + 2}
+        y={y + 2}
+        width={(w - 4) * 0.55}
+        height={4}
+        fill={SCREEN_MID}
+      />
+      <rect x={x + 2} y={y + 2} width={4} height={2} fill={SHINE} />
+      <rect
+        x={x + 4}
+        y={y + 7}
+        width={Math.max(4, w - 10)}
+        height={1.5}
+        fill="#f5f7fa"
+      />
+      <rect
+        x={x + 4}
+        y={y + 9}
+        width={Math.max(3, w - 14)}
+        height={1}
+        fill="#f7cf59"
+      />
+    </g>
+  );
+}
+
+/** Um notebook aberto em suporte de alumínio: tela em cima, teclado e trackpad embaixo. */
 function Laptop({ x, y, w }: { x: number; y: number; w: number }) {
   return (
     <g>
       <rect x={x} y={y} width={w} height={11} fill={INK} />
       <rect x={x + 2} y={y + 2} width={w - 4} height={7} fill={SCREEN} />
-      <rect x={x + 2} y={y + 2} width={w - 4} height={2} fill={SHINE} />
+      <rect x={x + 2} y={y + 2} width={6} height={2} fill={SHINE} />
+      <rect x={x + 4} y={y + 6} width={w - 8} height={1.5} fill="#f5f7fa" />
       <rect x={x - 2} y={y + 11} width={w + 4} height={6} fill={INK} />
-      <rect x={x} y={y + 12} width={w} height={4} fill={METAL} />
-      <rect x={x + 2} y={y + 13} width={w - 4} height={2} fill={KEYS} />
+      <rect x={x - 1} y={y + 12} width={w + 2} height={4} fill={METAL} />
+      <rect x={x + 1} y={y + 12.5} width={w - 2} height={2} fill={KEYS} />
     </g>
   );
 }
@@ -211,12 +466,12 @@ function Laptop({ x, y, w }: { x: number; y: number; w: number }) {
 function Tower({ x, y }: { x: number; y: number }) {
   return (
     <g>
-      <rect x={x} y={y} width={8} height={17} fill={INK} />
-      <rect x={x + 1} y={y + 1} width={6} height={15} fill="#2b2f46" />
-      <rect x={x + 2} y={y + 3} width={3} height={9} fill="#181b2e" />
-      <rect x={x + 3} y={y + 4} width={1} height={7} fill="#31e0c1" />
-      <rect x={x + 5} y={y + 2} width={1} height={1} fill="#5b6cff" />
-      <rect x={x + 2} y={y + 13} width={4} height={1} fill="#464c6e" />
+      <rect x={x} y={y} width={9} height={18} fill={INK} />
+      <rect x={x + 1} y={y + 1} width={7} height={16} fill="#454c5c" />
+      <rect x={x + 2} y={y + 3} width={4} height={10} fill="#2d313b" />
+      <rect x={x + 3} y={y + 4} width={1.5} height={7} fill="#58a6b8" />
+      <rect x={x + 5} y={y + 5} width={1.5} height={5} fill="#7ca36b" />
+      <rect x={x + 2} y={y + 14} width={5} height={1.5} fill="#96a1b5" />
     </g>
   );
 }
@@ -233,22 +488,22 @@ function Monitors({
 }) {
   switch (monitor) {
     case 'single':
-      return <Monitor x={cx - 10} y={top + 2} w={20} />;
+      return <Monitor x={cx - 11} y={top - 2} w={22} />;
     case 'dual':
       return (
         <g>
-          <Monitor x={cx - 18} y={top + 2} w={17} />
-          <Monitor x={cx + 1} y={top + 2} w={17} />
+          <Monitor x={cx - 19} y={top - 2} w={18} />
+          <Monitor x={cx + 1} y={top - 2} w={18} />
         </g>
       );
     case 'ultrawide':
-      return <Monitor x={cx - 17} y={top + 2} w={34} />;
+      return <Monitor x={cx - 18} y={top - 2} w={36} />;
     case 'triple':
       return (
         <g>
-          <Monitor x={cx - 21} y={top + 3} w={13} />
-          <Monitor x={cx - 7} y={top + 1} w={14} />
-          <Monitor x={cx + 8} y={top + 3} w={13} />
+          <Monitor x={cx - 22} y={top - 1} w={14} />
+          <Monitor x={cx - 7} y={top - 3} w={14} />
+          <Monitor x={cx + 8} y={top - 1} w={14} />
         </g>
       );
     default:
@@ -273,18 +528,14 @@ function Computer({
   const rgb = monitor === 'ultrawide';
   const keyboard = (
     <g>
-      <rect x={cx - 9} y={bottom - 10} width={18} height={5} fill={INK} />
-      <rect
-        x={cx - 8}
-        y={bottom - 9}
-        width={16}
-        height={rgb ? 2 : 3}
-        fill={KEYS}
-      />
+      <rect x={cx - 10} y={bottom - 11} width={20} height={6} fill={INK} />
+      <rect x={cx - 9} y={bottom - 10} width={18} height={4} fill="#f5f7fa" />
+      <rect x={cx - 8} y={bottom - 9} width={16} height={2} fill={KEYS} />
       {rgb ? (
-        <rect x={cx - 8} y={bottom - 7} width={16} height={1} fill="#31e0c1" />
+        <rect x={cx - 9} y={bottom - 6} width={18} height={1} fill="#58a6b8" />
       ) : null}
-      <rect x={cx + 11} y={bottom - 10} width={3} height={4} fill={INK} />
+      <rect x={cx + 12} y={bottom - 10} width={4} height={5} fill={INK} />
+      <rect x={cx + 13} y={bottom - 9} width={2} height={3} fill="#f5f7fa" />
     </g>
   );
 
@@ -293,28 +544,99 @@ function Computer({
       <g>
         <Monitors monitor={monitor} cx={cx} top={top} />
         {keyboard}
-        <Tower x={cx + 22} y={top + 4} />
+        <Tower x={cx + 21} y={top + 1} />
       </g>
     );
   }
 
-  // Notebook centralizado; quando há monitores, eles ficam logo atrás dele.
   if (monitor === 'none') {
-    return <Laptop x={cx - 10} y={top + 8} w={20} />;
+    return <Laptop x={cx - 10} y={top + 6} w={20} />;
   }
 
   return (
     <g>
       <Monitors monitor={monitor} cx={cx} top={top} />
-      <Laptop x={cx - 8} y={top + 12} w={16} />
+      <Laptop x={cx - 8} y={top + 11} w={16} />
     </g>
   );
 }
+
+/** Presets variados e humanos para mesas livres no mapa (tampo, cadeira, tapete, setup e enfeites). */
+const FREE_DESK_VARIANTS: readonly DeskConfig[] = [
+  {
+    color: 1, // Nogueira Executiva
+    rug: 0, // Verde-Sálvia
+    rugPattern: 'bordered',
+    chair: 0,
+    items: ['plant', 'mug', 'lamp'],
+    label: '',
+    computer: 'dualMonitor',
+    locked: false,
+    position: null,
+  },
+  {
+    color: 2, // Freixo Claro Nórdico
+    rug: 1, // Azul-Petróleo
+    rugPattern: 'bordered',
+    chair: 2,
+    items: ['bonsai', 'notebook', 'coffee'],
+    label: '',
+    computer: 'laptopMonitor',
+    locked: false,
+    position: null,
+  },
+  {
+    color: 4, // Verde-Sálvia Studio
+    rug: 4, // Âmbar
+    rugPattern: 'bordered',
+    chair: 5,
+    items: ['duck', 'headphones', 'cactus'],
+    label: '',
+    computer: 'ultrawide',
+    locked: false,
+    position: null,
+  },
+  {
+    color: 5, // Azul-Petróleo Corporativo
+    rug: 3, // Lavanda
+    rugPattern: 'striped',
+    chair: 0,
+    items: ['lavaLamp', 'rubik', 'cat'],
+    label: '',
+    computer: 'desktop',
+    locked: false,
+    position: null,
+  },
+  {
+    color: 7, // Carvalho Clássico
+    rug: 0, // Verde-Sálvia
+    rugPattern: 'bordered',
+    chair: 4,
+    items: ['books', 'teapot', 'hourglass'],
+    label: '',
+    computer: 'dualMonitor',
+    locked: false,
+    position: null,
+  },
+  {
+    color: 3, // Stealth Grafite Escuro
+    rug: 1, // Azul-Petróleo
+    rugPattern: 'bordered',
+    chair: 1,
+    items: ['controller', 'figure', 'mic'],
+    label: '',
+    computer: 'tripleMonitor',
+    locked: false,
+    position: null,
+  },
+];
 
 type Props = {
   desk: DeskDef;
   /** `null` para mesa livre. */
   config: DeskConfig | null;
+  /** Índice opcional para dar identidade e vida às mesas livres no mapa. */
+  variantIndex?: number;
   /** Nome na plaquinha acima da mesa (usado na prévia do editor). */
   showLabel?: boolean;
   /** Mesa livre: mostra o convite para adotar (usado fora do mapa). */
@@ -324,19 +646,30 @@ type Props = {
   onHoverChange?: (hovered: boolean) => void;
 };
 
-/** Desenha uma mesinha de computador, com tapete, enfeites e plaquinha, em pixel art. */
+/**
+ * Desenha uma estação de trabalho corporativa (`tag: 'desk-decor'`) com cantos chanfrados,
+ * gaveteiros laterais com painéis rebaixados, poltrona executiva giratória com base estrela,
+ * tapete ornamental e até 4 enfeites.
+ */
 export function DeskArt({
   desk,
   config,
+  variantIndex,
   showLabel = true,
   freeHint = true,
   owner = null,
   onHoverChange,
 }: Props) {
-  const look = config ?? FREE_DESK_CONFIG;
+  const look =
+    config ??
+    (variantIndex !== undefined
+      ? (FREE_DESK_VARIANTS[variantIndex % FREE_DESK_VARIANTS.length] ??
+        FREE_DESK_CONFIG)
+      : FREE_DESK_CONFIG);
   const setup = resolveDeskSetup(look);
   const { x, y, w, h } = desk;
-  const top = DESK_COLORS[look.color];
+  const top = DESK_COLORS[look.color] ?? DESK_COLORS[0];
+  const chairColor = CHAIR_COLORS[look.chair ?? 0] ?? CHAIR_COLORS[0];
   const ownerLine = owner
     ? owner.role
       ? `${owner.name} · ${owner.role}`
@@ -359,87 +692,252 @@ export function DeskArt({
           style={{ cursor: 'pointer' }}
         />
       ) : null}
-      {/* O tapete cobre a área da mesinha (os 3 lugares à frente dela) */}
+
+      {/* Tapete sob a mesa com moldura ornamental estilo `.Art` */}
       {look.rug !== null ? (
         <g>
+          <rect x={x + 2} y={y + h} width={w - 4} height={TILE} fill={INK} />
           <rect
-            x={x}
-            y={y + h}
-            width={w}
-            height={TILE}
+            x={x + 4}
+            y={y + h + 2}
+            width={w - 8}
+            height={TILE - 4}
             fill={RUG_COLORS[look.rug] ?? RUG_COLORS[0]}
           />
           {look.rugPattern === 'striped' ? (
             <>
               <rect
-                x={x + 6}
-                y={y + h}
+                x={x + 12}
+                y={y + h + 2}
                 width={6}
-                height={TILE}
+                height={TILE - 4}
                 fill="#ffffff"
-                opacity={0.14}
+                opacity={0.16}
               />
               <rect
                 x={x + w / 2 - 3}
-                y={y + h}
+                y={y + h + 2}
                 width={6}
-                height={TILE}
+                height={TILE - 4}
                 fill="#ffffff"
-                opacity={0.14}
+                opacity={0.16}
               />
               <rect
-                x={x + w - 12}
-                y={y + h}
+                x={x + w - 18}
+                y={y + h + 2}
                 width={6}
-                height={TILE}
+                height={TILE - 4}
                 fill="#ffffff"
-                opacity={0.14}
+                opacity={0.16}
               />
             </>
           ) : look.rugPattern !== 'solid' ? (
-            <rect
-              x={x + 2}
-              y={y + h + 2}
-              width={w - 4}
-              height={TILE - 4}
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth={2}
-              opacity={0.4}
-            />
+            <>
+              <rect
+                x={x + 7}
+                y={y + h + 5}
+                width={w - 14}
+                height={TILE - 10}
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={2}
+                opacity={0.35}
+              />
+              <rect
+                x={x + 11}
+                y={y + h + 9}
+                width={w - 22}
+                height={TILE - 18}
+                fill="none"
+                stroke="#1e191d"
+                strokeWidth={1.5}
+                opacity={0.28}
+              />
+            </>
           ) : null}
         </g>
       ) : null}
 
-      {/* Uma cadeira só, no lugar do meio */}
-      <rect x={x + w / 2 - 9} y={y + h + 4} width={18} height={18} fill={INK} />
-      <rect
-        x={x + w / 2 - 7}
-        y={y + h + 6}
-        width={14}
-        height={14}
-        fill={CHAIR_COLORS[look.chair ?? 0] ?? CHAIR_COLORS[0]}
-      />
-      <rect
-        x={x + w / 2 - 7}
-        y={y + h + 6}
-        width={14}
-        height={4}
-        fill="#ffffff"
-        opacity={0.22}
-      />
-      {/* Tampo, com contorno escuro */}
-      <rect x={x - 2} y={y - 2} width={w + 4} height={h + 4} fill={INK} />
-      <rect x={x} y={y} width={w} height={h} fill={top} />
-      <rect x={x} y={y} width={w} height={4} fill="#ffffff" opacity={0.25} />
-      <rect
-        x={x}
-        y={y + h - 6}
-        width={w}
-        height={6}
-        fill="#000000"
-        opacity={0.22}
-      />
+      {/* Poltrona Executiva Giratória com Base Estrela de 5 Rodízios (Estilo Ref 4) */}
+      <g>
+        {/* Sombra e Base Estrela Metálica */}
+        <ellipse
+          cx={x + w / 2}
+          cy={y + h + 25}
+          rx={11}
+          ry={3}
+          fill="#141218"
+          opacity={0.25}
+        />
+        <rect
+          x={x + w / 2 - 2}
+          y={y + h + 19}
+          width={4}
+          height={6}
+          fill={INK}
+        />
+        <rect
+          x={x + w / 2 - 8}
+          y={y + h + 23}
+          width={16}
+          height={3}
+          fill={INK}
+        />
+        <rect
+          x={x + w / 2 - 6}
+          y={y + h + 23}
+          width={12}
+          height={2}
+          fill="#697387"
+        />
+        {/* Apoios de Braço */}
+        <rect
+          x={x + w / 2 - 12}
+          y={y + h + 8}
+          width={3}
+          height={9}
+          fill={INK}
+        />
+        <rect
+          x={x + w / 2 - 11}
+          y={y + h + 9}
+          width={2}
+          height={4}
+          fill="#e1e6ef"
+        />
+        <rect x={x + w / 2 + 9} y={y + h + 8} width={3} height={9} fill={INK} />
+        <rect
+          x={x + w / 2 + 9}
+          y={y + h + 9}
+          width={2}
+          height={4}
+          fill="#e1e6ef"
+        />
+        {/* Encosto Estruturado Duplo */}
+        <rect
+          x={x + w / 2 - 9}
+          y={y + h + 2}
+          width={18}
+          height={18}
+          fill={INK}
+        />
+        <rect
+          x={x + w / 2 - 7}
+          y={y + h + 4}
+          width={14}
+          height={14}
+          fill={chairColor}
+        />
+        <rect
+          x={x + w / 2 - 7}
+          y={y + h + 4}
+          width={14}
+          height={3}
+          fill="#ffffff"
+          opacity={0.26}
+        />
+        <rect
+          x={x + w / 2 - 5}
+          y={y + h + 8}
+          width={10}
+          height={7}
+          fill="none"
+          stroke={INK}
+          strokeWidth={1.5}
+          opacity={0.45}
+        />
+        <rect
+          x={x + w / 2 - 7}
+          y={y + h + 15}
+          width={14}
+          height={3}
+          fill="#000000"
+          opacity={0.24}
+        />
+      </g>
+
+      {/* Bancada Corporativa com Cantos Chanfrados e Gaveteiros de Painel Rebaixado */}
+      <g>
+        {/* Sombra Projetada no Chão */}
+        <rect
+          x={x + 2}
+          y={y + h + 1}
+          width={w - 4}
+          height={4}
+          fill="#141218"
+          opacity={0.24}
+        />
+        {/* Contorno Externo Chanfrado */}
+        <rect x={x} y={y - 2} width={w} height={h + 2} fill={INK} />
+        <rect x={x - 2} y={y} width={w + 4} height={h} fill={INK} />
+        {/* Superfície Principal do Tampo */}
+        <rect x={x} y={y} width={w} height={h - 10} fill={top} />
+        <rect
+          x={x}
+          y={y}
+          width={w}
+          height={2.5}
+          fill="#ffffff"
+          opacity={0.28}
+        />
+        {/* Passa-cabos Duplo no Topo da Bancada */}
+        <rect
+          x={x + 18}
+          y={y + 3}
+          width={6}
+          height={3}
+          fill={INK}
+          opacity={0.45}
+        />
+        <rect
+          x={x + w - 24}
+          y={y + 3}
+          width={6}
+          height={3}
+          fill={INK}
+          opacity={0.45}
+        />
+        {/* Borda Chanfrada Frontal do Tampo */}
+        <rect
+          x={x}
+          y={y + h - 12}
+          width={w}
+          height={2.5}
+          fill="#000000"
+          opacity={0.2}
+        />
+        <rect x={x} y={y + h - 10} width={w} height={2} fill={INK} />
+        {/* Frente com Dois Gaveteiros Laterais de Painel Rebaixado (Inset Panels) */}
+        <rect x={x} y={y + h - 8} width={w} height={8} fill="#454c5c" />
+        {/* Gaveteiro Esquerdo */}
+        <rect x={x + 3} y={y + h - 7} width={22} height={6} fill={INK} />
+        <rect x={x + 4} y={y + h - 6} width={20} height={4} fill="#96a1b5" />
+        <rect x={x + 11} y={y + h - 5} width={6} height={2} fill="#f5f7fa" />
+        {/* Vão Central Sombreado */}
+        <rect
+          x={x + 27}
+          y={y + h - 7}
+          width={w - 54}
+          height={6}
+          fill="#2d313b"
+        />
+        {/* Gaveteiro Direito */}
+        <rect x={x + w - 25} y={y + h - 7} width={22} height={6} fill={INK} />
+        <rect
+          x={x + w - 24}
+          y={y + h - 6}
+          width={20}
+          height={4}
+          fill="#96a1b5"
+        />
+        <rect
+          x={x + w - 17}
+          y={y + h - 5}
+          width={6}
+          height={2}
+          fill="#f5f7fa"
+        />
+      </g>
 
       {/* O computador da mesa, no meio (desktop com gabinete ou notebook + monitores) */}
       <Computer
@@ -447,7 +945,7 @@ export function DeskArt({
         monitor={setup.monitor}
         cx={x + w / 2}
         top={y}
-        bottom={y + h}
+        bottom={y + h - 8}
       />
 
       {look.items.map((item, index) => {

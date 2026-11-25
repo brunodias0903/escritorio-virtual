@@ -1,0 +1,227 @@
+# Especificação Mestre de Arte e Pixel Art (`.Art`) — Escritório Virtual
+
+> **Documento Oficial de Padrão Visual e Catálogo de Produção de Sprites**
+> Estilo aprovado: **Detailed Modern RPG Office (Low-Wood, Rich Props & Recessed Panels)**
+> Referência base de implementação: diretório [`art/`](./art/)
+
+---
+
+## 1. Visão Geral e Identidade Visual
+
+O **Escritório Virtual** adota uma estética **Pixel Art 2D Top-Down 3/4 Corporativa Moderna**, inspirada em interiores detalhados de RPGs modernos, mas adaptada para um **ambiente de empresa de tecnologia real** (e não uma casa ou cabana rústica).
+
+### Pilares Estéticos Obrigatórios
+1. **Equilíbrio de Materiais (Corporativo & Tech — Sem Excesso de Madeira)**:
+   - **Proibido** dominar o cenário com marrom/madeira no chão, paredes e móveis simultaneamente.
+   - Os materiais predominantes são: **Carpete Comercial Azul-Ardósia**, **Porcelanato Técnico Cinza-Gelo**, **Ladrilho Cerâmico Diagonal Marfim**, **Lajota de Ardósia Grafite**, **Aço Escovado / Alumínio**, **Laca Branca / Off-White**, **Vidro Temperado**, **Concreto / Bloco Arquitetônico Cinza** e **Estofados em Azul-Petróleo (Teal), Verde-Sálvia e Lavanda**.
+   - A madeira (**Freixo Claro** ou **Nogueira Executiva**) entra apenas como **destaque pontual** (ex.: tampo da mesa executiva da diretoria ou detalhes de marcenaria fina).
+2. **Geometria Limpa + Alto Nível de Detalhamento Estrutural**:
+   - **Contorno Externo Fechado (`1px`)**: Todo móvel, equipamento e prop possui contorno externo nítido em **Chumbo-Café Profundo (`#1e191d`)** — nunca preto puro `#000000`.
+   - **Cantos Chanfrados (*1px Corner Cut*)**: Quase todos os móveis, tapetes, eletrodomésticos e quadros têm o pixel do canto externo chanfrado/arredondado para evitar blocos quadrados chapados.
+   - **Painéis Rebaixados (*Recessed / Inset Panels*)**: Frentes de balcões, portas de armários, gaveteiros de aço e mesas executivas nunca são retângulos lisos sem volume; eles possuem molduras internas rebaixadas com `1px` de sombra superior e `1px` de brilho inferior, puxadores, fechaduras e divisórias.
+   - **Riqueza de Micro-Props com Silhueta Própria**: As superfícies ganham vida de escritório através de objetos bem desenhados e contornados: monitores duplos articulados, teclados mecânicos, cadernos abertos de duas páginas, bandejas de papel A4, pastas/mapas inclinados em coral, cafeteira espresso vermelha, bule, pilha de louças, ar-condicionado split na parede, calendário mensal em grade e lousa dark mode.
+
+---
+
+## 2. Especificações Técnicas de Grade e Renderização
+
+| Parâmetro                  | Valor Oficial         | Regra Técnica                                                                                   |
+| -------------------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
+| **Unidade do Mapa (`TILE`)** | `32 × 32 px`          | Unidade lógica de movimento, colisão e posicionamento no mundo (`frontend` e `backend`).        |
+| **Grade de Arte (`ART_TILE`)**| `16 × 16 px`          | Resolução nativa do pixel art por tile.                                                         |
+| **Fator de Escala (`SCALE`)**| `2` (`1 art px = 2×2`) | Nunca misturar escalas (`1×` com `2×`). Todo pixel de arte ocupa exatamente `2 × 2` px no mapa. |
+| **Perspectiva**            | Top-Down 3/4 Oblíqua  | Objetos exibem **Face Superior (Topo)** iluminada e **Face Frontal** sombreada com painéis.     |
+| **Altura de Paredes**      | `2 tiles` (`32 art px`)| Paredes de topo ocupam `2 tiles` de altura: sanca superior + corpo da parede + rodapé metálico. |
+| **Direção da Luz**         | Superior-Esquerda     | Brilhos (`highlight`) no topo/esquerda; sombras (`shadow`) na base/direita.                     |
+| **Sombra no Chão**         | `dropShadow` (`#141218`)| Todo móvel de chão projeta `1 a 2 art px` de sombra na base com opacidade `0.22–0.26`.          |
+| **Compilação de Sprites**  | *Greedy 2D Meshing*   | Matrizes de caracteres são compiladas em `<rect>` horizontais/verticais agrupados (`crispEdges`).|
+
+---
+
+## 3. Paleta Master Oficial (36 Códigos Semânticos)
+
+Todo sprite criado em código deve utilizar exclusivamente os tokens de cor abaixo definidos em [`art/src/palette.mjs`](./art/src/palette.mjs):
+
+### 3.1. Contornos, Grafite e Aço Escovado
+| Token | Hex       | Nome do Tom                  | Aplicação Principal                                                  |
+| :---: | --------- | ---------------------------- | -------------------------------------------------------------------- |
+|  `O`  | `#1e191d` | Contorno Chumbo Universal    | Silhueta externa de 1px de todos os objetos e divisórias principais  |
+|  `o`  | `#28252e` | Contorno Interno / Junta     | Juntas de lajotas de ardósia e divisões internas suaves              |
+|  `x`  | `#2d313b` | Grafite Quase Preto          | Caixilhos de janela, bases de cadeira, rodízios, telas desligadas    |
+|  `A`  | `#454c5c` | Aço Grafite Escuro           | Estrutura metálica de mesas, pés, gabinetes, moldura de lousa        |
+|  `a`  | `#697387` | Aço Médio / Ardósia          | Sombras de aço inox, lateral de arquivos e impressoras               |
+|  `s`  | `#96a1b5` | Aço Claro / Alumínio         | Frente de gaveteiros de aço, copiadoras, hastes metálicas            |
+|  `S`  | `#c3ccd9` | Prata / Borda Metálica       | Topo iluminado de aço, puxadores cromados, sancas e calhas           |
+
+### 3.2. Laca Branca, Porcelanato, Pedra Arquitetônica e Carpete
+| Token | Hex       | Nome do Tom                  | Aplicação Principal                                                  |
+| :---: | --------- | ---------------------------- | -------------------------------------------------------------------- |
+|  `f`  | `#f5f7fa` | Branco Puro                  | Brilho de laca branca, papel A4, louças, fundo de calendário         |
+|  `F`  | `#e1e6ef` | Laca Off-White / Cinza-Gelo  | Tampo de estações tech, corpo de geladeira, porcelanato, drywall     |
+|  `e`  | `#c5cddb` | Sombra de Laca / Rejunte Frio| Painéis rebaixados brancos, rejunte de porcelanato, bordas           |
+|  `P`  | `#d9d4cc` | Pedra / Concreto Claro       | Blocos arquitetônicos da parede de estúdio                           |
+|  `p`  | `#ebe6df` | Brilho de Bloco de Pedra     | Borda iluminada de blocos arquitetônicos                             |
+|  `q`  | `#bab3a8` | Concreto Médio               | Variação tonal de bloco de pedra                                     |
+|  `Q`  | `#968e83` | Junta Arquitetônica          | Argamassa/junta entre blocos de concreto                             |
+|  `h`  | `#f7e8d0` | Marfim Claro                 | Centro de ladrilho diagonal, páginas de caderno aberto               |
+|  `H`  | `#dfd0b8` | Marfim Médio                 | Borda de ladrilho diagonal, caixas organizadoras                     |
+|  `l`  | `#bdaea0` | Rejunte Greige               | Linhas diagonais do piso marfim e linhas de texto no papel           |
+|  `C`  | `#42526b` | Carpete Azul-Ardósia Base    | Piso principal das áreas de trabalho e tecnologia                    |
+|  `c`  | `#536582` | Carpete Azul-Ardósia Claro   | Placa alternada do carpete modular                                   |
+|  `k`  | `#323f54` | Carpete Azul-Ardósia Sombra  | Divisa de placas e oclusão de piso                                   |
+
+### 3.3. Cores Corporativas, Estofados, Plantas e Acentos
+| Token | Hex       | Nome do Tom                  | Aplicação Principal                                                  |
+| :---: | --------- | ---------------------------- | -------------------------------------------------------------------- |
+|  `U`  | `#58a6b8` | Azul-Petróleo (Teal) Brilho  | Topo iluminado de cadeiras executivas, gráficos e pastas             |
+|  `y`  | `#397f94` | Azul-Petróleo (Teal) Base    | Estofado principal das cadeiras giratórias e poltronas               |
+|  `J`  | `#245566` | Azul-Petróleo (Teal) Sombra  | Encosto inferior e sombra de assento                                 |
+|  `G`  | `#7ca36b` | Verde-Sálvia Claro           | Molduras de tapetes corporativos, LEDs de status e painéis           |
+|  `g`  | `#59804b` | Verde-Sálvia Base            | Armários inferiores da copa e corpo do tapete ornamental             |
+|  `t`  | `#3d5c33` | Verde-Sálvia Escuro          | Painel rebaixado de armário sálvia e borda de tapete                 |
+|  `8`  | `#8478a6` | Lavanda Corporativo Base     | Assento acolchoado de banquetas da copa e puffs de descompressão     |
+|  `9`  | `#5b4e7a` | Lavanda Escuro / Café        | Sombra de banqueta lavanda e interior de xícara de café              |
+|  `j`  | `#8cd668` | Folhagem Viva Brilho         | Topo iluminado de folhas de Ficus, Monstera e suculentas             |
+|  `L`  | `#52ab3a` | Folhagem Viva Base           | Massa principal das plantas de escritório                            |
+|  `T`  | `#2d6e22` | Folhagem Viva Sombra         | Base interna das copas de plantas                                    |
+|  `R`  | `#e05a52` | Vermelho Coral Vibrante      | Cafeteira espresso, pastas/mapas de destaque, post-its, vasos        |
+|  `b`  | `#a33631` | Carmim Sombra                | Sombra da cafeteira, livros e pastas vermelhas                       |
+|  `Y`  | `#f7cf59` | Amarelo Âmbar / Latão        | Cúpula de luminárias, puxadores dourados, post-its, relógio          |
+|  `2`  | `#cc962b` | Bronze / Âmbar Escuro        | Sombra de cúpula de abajur e vasos mostarda                          |
+|  `v`  | `#d9f5ff` | Vidro / Tela Brilho          | Reflexo diagonal em janelas e monitores                              |
+|  `V`  | `#8cd8f5` | Vidro / Tela Celeste         | Vidro de janelas, água de bebedouro e telas                          |
+|  `i`  | `#4fa3c7` | Vidro / Tela Fundo           | Fundo de monitor ligado e sombra de vidro                            |
+| `w/W/m`| `#e8be8e` / `#cfa06e` / `#ab7b4b` | Madeira Freixo Claro | Tampo da ilha de café e detalhes pontuais                  |
+| `n/N/d`| `#9c653e` / `#754728` / `#522f18` | Madeira Nogueira     | Mesa executiva detalhada e prateleiras pontuais            |
+
+---
+
+## 4. Roadmap Completo do que será Criado e Integrado a partir deste Padrão
+
+Tudo o que criarmos de arte no projeto seguirá este catálogo dividido em **5 Fases de Produção**:
+
+### Fase 1 — Atlas Base de Cenário (✅ Concluído em `art/` — 28 Sprites)
+1. **Pisos & Tapetes (`floors`)**:
+   - `floor_porcelain_tech` (`16×16` art px) — Porcelanato técnico cinza-gelo
+   - `floor_office_carpet_slate` (`16×16` art px) — Carpete modular azul-ardósia
+   - `floor_diamond_cream` (`16×16` art px) — Ladrilho diagonal marfim
+   - `floor_dark_slate_entry` (`16×16` art px) — Lajota de ardósia grafite
+   - `rug_geometric_office` (`48×32` art px) — Tapete corporativo sálvia com moldura ornamental
+2. **Paredes, Janelas & Props de Parede (`walls`)**:
+   - `wall_stone_brick_studio` (`16×32` art px) — Parede de bloco arquitetônico cinza com rodapé grafite
+   - `wall_modern_offwhite` (`16×32` art px) — Parede off-white com friso acústico e rodapé metálico
+   - `window_corporate_blinds` (`32×24` art px) — Janela em esquadria grafite com persiana e reflexo
+   - `wall_prop_air_conditioner` (`20×10` art px) — Ar-condicionado Split Inverter com LED
+   - `wall_prop_calendar_grid` (`16×14` art px) — Calendário / Planner mensal em grade
+   - `wall_prop_framed_posters` (`24×12` art px) — Dupla de quadros corporativos emoldurados
+   - `wall_prop_kanbanshelf` (`32×14` art px) — Lousa Dark Mode + prateleira com vasinhos
+3. **Estações de Trabalho, Reunião, Arquivos & Assentos (`furniture`)**:
+   - `desk_tech_white_dual` (`48×22` art px) — Estação tech branca/grafite com 2 monitores, teclado, luminária e gaveteiros
+   - `desk_executive_detailed` (`48×26` art px) — Mesa executiva detalhada com painéis rebaixados, caderno aberto, bandeja A4 e mapa coral
+   - `table_meeting_glass_steel` (`48×30` art px) — Mesa de reunião em aço grafite e vidro jateado com hub central e notebooks
+   - `cabinet_steel_drawers` (`32×24` art px) — Arquivo vertical e armário técnico em aço escovado
+   - `bookshelf_arch_detailed` (`20×30` art px) — Estante corporativa em grafite com topo arqueado e pastas A-Z
+   - `chair_executive_swivel_back` e `chair_executive_swivel_front` (`16×20` art px) — Poltronas giratórias teal com base estrela
+   - `stool_pantry_lavender` (`12×14` art px) — Banqueta estofada lavanda
+   - `sofa_modern_cream_tufted` (`32×18` art px) — Sofá lounge off-white com costuras rebaixadas e pés metálicos
+4. **Copa, Impressão, Iluminação & Paisagismo (`pantry`, `print_area`, `lighting`, `plants`)**:
+   - `pantry_modern_kitchenette` (`48×22` art px) — Bancada de copa em quartzo branco e verde-sálvia com pia, cafeteira coral e louças
+   - `pantry_island_bar` (`48×18` art px) — Ilha de café com 4 painéis brancos rebaixados, caderno, xícara e flores
+   - `pantry_fridge_retro_white` (`16×26` art px) — Geladeira off-white com cantos chanfrados e puxador cromado
+   - `print_corporate_hub` (`32×20` art px) — Central de impressão e copiadora multifuncional em aço e grafite
+   - `plant_rack_two_tier` (`16×22` art px) — Estante metálica de 2 andares com vasos e flores
+   - `plant_ficus_stand` (`14×22` art px) — Ficus escultural em vaso cerâmico cinza com tripé
+   - `light_floor_dome_modern` (`12×24` art px) — Luminária de piso com cúpula âmbar e haste metálica
+
+---
+
+### Fase 2 — Sistema de Mesas Adotáveis e Customizáveis (`art/src/desk-decor.mjs` — ✅ Concluído em `art/` com `tag: "desk-decor"`)
+Todos os 36 ativos de personalização de mesa foram criados em [`art/src/desk-decor.mjs`](./art/src/desk-decor.mjs) e marcados com metadados explícitos (`customizable: true`, `tags: ['desk-decor', ...]`, `slotType`, `itemKey`, `setupKey`, `colorIndex`) para filtragem via `getDeskDecorByTag('desk-decor')` e composição dinâmica via `composeCustomDeskRects(...)`:
+
+1. **6 Acabamentos de Bancada Base (`slotType: "desk-surface"`, `tags: ["desk-decor", "desk-surface", ...]`, `48 × 18` art px)**:
+   - `desk_surface_white_tech` (`colorIndex: 0`) — Laca Off-White & Aço Grafite (Padrão Tech)
+   - `desk_surface_walnut_exec` (`colorIndex: 1`) — Nogueira Executiva & Puxadores em Latão
+   - `desk_surface_ash_nordic` (`colorIndex: 2`) — Freixo Claro & Gaveteiros em Laca Branca
+   - `desk_surface_stealth_dark` (`colorIndex: 3`) — Stealth Grafite & Fita de LED Ciano
+   - `desk_surface_sage_studio` (`colorIndex: 4`) — Verde-Sálvia & Aço Escovado
+   - `desk_surface_teal_petrol` (`colorIndex: 5`) — Azul-Petróleo & Tampo em Quartzo
+2. **6 Setups de Computador (`slotType: "desk-setup"`, `tags: ["desk-decor", "desk-setup", ...]`, `28 × 14` art px)**:
+   - `setup_single_desktop` (`setupKey: 'desktop'`), `setup_dual_monitor` (`setupKey: 'dualMonitor'`), `setup_ultrawide_curved` (`setupKey: 'ultrawide'`), `setup_triple_cockpit` (`setupKey: 'tripleMonitor'`), `setup_laptop_stand` (`setupKey: 'laptop'`), `setup_laptop_plus_monitor` (`setupKey: 'laptopMonitor'`).
+3. **24 Enfeites de Mesa (`slotType: "desk-item"`, `tags: ["desk-decor", "desk-item", ...]`, `10 × 10` art px com contorno `#1e191d`)**:
+   - **14 Core (`tag: "core-14"`, mapeados 1:1 com `DESK_ITEMS`)**: `item_plant` (`plant`), `item_lamp` (`lamp`), `item_mug` (`mug`), `item_books` (`books`), `item_cactus` (`cactus`), `item_duck` (`duck`), `item_headphones` (`headphones`), `item_trophy` (`trophy`), `item_cat` (`cat`), `item_mic` (`mic`), `item_controller` (`controller`), `item_globe` (`globe`), `item_coffee` (`coffee`), `item_frame` (`frame`).
+   - **10 Novos Itens Extras (`tag: "extra"`)**: `item_bonsai` (`bonsai`), `item_hourglass` (`hourglass`), `item_action_figure` (`figure`), `item_desk_fan` (`fan`), `item_moleskine` (`notebook`), `item_lava_lamp` (`lavaLamp`), `item_teapot` (`teapot`), `item_retro_camera` (`camera`), `item_desk_clock` (`clock`), `item_rubiks_cube` (`rubik`).
+
+---
+
+### Fase 3 — Autotiling de Paredes, Divisórias de Vidro, Portas e Sinalização
+1. **Autotile de Paredes Internas e Externas**:
+   - Cantos internos, cantos externos, junções em `T` e topos de parede contínuos em grafite (`#2d313b`) com borda metálica (`#c3ccd9`).
+2. **Salas de Reunião e Cabines Acústicas (*Phone Booths*)**:
+   - Divisórias de vidro com esquadria preta fina e faixa jateada central.
+   - Porta de correr de vidro com puxador tubular em inox e indicador luminoso de sala ocupada/livre (Verde `#7ca36b` / Coral `#e05a52`).
+3. **Portas de Transição entre Andares / Salas (`DoorMat` & Elevador)**:
+   - Porta dupla de vidro corporativa e porta de elevador em aço escovado com painel indicador de andar (`L`, `2`).
+
+---
+
+### Fase 4 — Novos Props de Ambientação Tech & Convivência
+Para popular os mapas (`Recepção / Lobby` e `Andar 2`) sem deixar espaços vazios monótonos:
+1. **Servidor / Rack de Rede (`server_rack_glass`)**: Rack fechado em aço preto com porta de vidro e LEDs de atividade piscantes (azul/verde).
+2. **Televisão / Tela de Dashboard em Pedestal (`tv_dashboard_stand`)**: TV 65" em suporte móvel com gráficos de métricas e sprint.
+3. **Máquina de Snacks / Bebidas (`vending_machine_modern`)**: Máquina iluminada com vitrine de bebidas para a área de descompressão.
+4. **Armários Lockers Pessoais (`office_lockers_steel`)**: Guarda-volumes corporativo em aço com portas numeradas e crachás.
+5. **Lixeiras de Coleta Seletiva & Suporte de Guarda-Chuvas (`waste_bins_duo`)**: Conjunto compacto em inox para copa e entrada.
+
+---
+
+### Fase 5 — Motor Modular de Personagens Vastos (`art/src/characters.mjs` — ✅ Concluído em `art/`)
+Sistema de geração procedural em camadas combinadas com templates artesanais esculpidos à mão (`20 × 28` art px = `40 × 56` map px, `SCALE = 2`), inspirado na referência de grade de personagens (*OMORI / Cozy RPG Chibi*), suportando milhões de combinações com contorno externo unificado `#1e191d`:
+
+1. **Biotipos Corporais e Altura (`bodyType` + `heightType`)**:
+   - **Regra da Cabeça de Tamanho Único**: A cabeça tem **sempre a mesma largura padrão** (`12 art px` frontal nas colunas `4..15`, `11 art px` de perfil e `10 art px` de altura), independentemente do biotipo, evitando deformação do rosto ou dos cabelos.
+   - **Biotipo (Largura Exclusiva do Corpo)**:
+     - `slim` (Magro — tronco de 8px externos, pernas de 3px, silhueta esguia)
+     - `regular` (Médio — tronco de 10px externos, pernas de 3px, proporção clássica)
+     - `chubby` (Gordo / Robusto — **apenas o corpo** alarga para 12–14px com barriga arredondada frontal/perfil e pernas de 4px, mantendo a cabeça no tamanho padrão)
+   - **Estatura (Altura)**:
+     - `short` (Baixo — `headTop = 4`, `torsoH = 6`)
+     - `average` (Estatura média padrão — `headTop = 3`, `torsoH = 7`)
+     - `tall` (Alto — `headTop = 2`, `torsoH = 8`, pernas alongadas até `feetBottom = 26`)
+2. **Regras de Respiro Facial e Legibilidade (Zero Poluição no Rosto)**:
+   - **Proibido Contorno Preto (`O`) Interno na Pele**: As pontas da franja sobre a testa e a borda superior da barba nas bochechas **nunca** usam `O` (`#1e191d`); a transição com a pele é feita exclusivamente com `d` (sombra suave do próprio cabelo/barba).
+   - **Zona de Respiro Obrigatória (`headTop + 4` a `headTop + 7`)**:
+     - As franjas (`HAIR_TEMPLATES_FRONT/SIDE`) terminam em `headTop + 3`, deixando a linha da testa (`headTop + 4`) aberta.
+     - Os olhos ficam em `headTop + 5` e as maçãs do rosto (`headTop + 6` e `+7`) permanecem livres de barba pesada.
+     - As armações de óculos (`glasses`, `round_glasses`, `sunglasses`) têm dimensão compacta `3 × 2 art px` em `eyeY..eyeY+1`, nunca encostando na franja nem no bigode.
+3. **Tons de Pele (`skinTone` — 10 tons inclusivos com 3 níveis cada: base, sombra e rubor)**:
+   - Porcelana, Marfim, Pêssego, Amêndoa, Mel, Oliva, Canela, Bronze, Cacau, Ébano.
+4. **Expressões e Formato de Rosto (`faceStyle` — 8 variações)**:
+   - `happy` (Sorriso amigável + rubor), `calm` (Sereno), `focused` (Sobrancelhas focadas), `wink` (Piscadela + rubor), `blush` (Rubor marcado), `chill` (Olhos semicerrados), `surprised` (Surpreso), `smirk` (Sorriso lateral).
+5. **Cabelos Artesanais: Estilo + Comprimento + Regra de Oclusão de Chapéu (`hairStyle` × `hairLength` + `hairColor` em 14 cores)**:
+   - **Templates Esculpidos à Mão (`HAIR_TEMPLATES_FRONT` e `HAIR_TEMPLATES_SIDE`)**: `parted` (Repartido), `spiky` (Topete/Arrepiado com pontas no topo e testa livre), `curly` (Cacheado/Black Power volumoso), `bangs` (Franja reta Hime/Bob cut), `wavy` (Ondulado repartido ao meio), `bun` (Coque alto com fita `accentColor`), `twintails` (Maria-chiquinha com lacinhos laterais), `mohawk` (Moicano), `buzz` (Raspado), `bald` (Careca).
+   - **Comprimentos (`hairLength`)**: `short` (Curto na nuca), `medium` (Descendo até os ombros atrás), `long` (Longo descendo pelas costas + 2 mechas frontais caindo sobre os ombros).
+   - **Regra de Oclusão por Boné/Touca (`cap` / `beanie`)**: Quando o personagem usa `cap` ou `beanie`, todo o topo e a franja do cabelo desaparecem sob o chapéu; se o cabelo for `short`, ele some por completo, e se for `medium` ou `long`, **apenas a parte de baixo** aparece saindo depois do boné/touca (na nuca e nos ombros).
+   - **Cores (14)**: Preto Ébano, Castanho Escuro, Castanho Mel, Castanho Claro, Ruivo Cobre, Loiro Dourado, Loiro Platinado, Grisalho, Branco Neve, Azul Royal, Azul Celeste, Rosa Sakura, Roxo Lavanda, Verde Menta.
+6. **Barbas Esculpidas à Mão (`BEARD_TEMPLATES_FRONT` e `BEARD_TEMPLATES_SIDE` — 7 opções)**:
+   - `none` (Sem barba), `stubble` (Barba por fazer pontilhada suave), `mustache` (Bigode arqueado), `handlebar` (Bigode imperial com pontas), `goatee` (Cavanhaque no queixo + bigode, bochechas livres), `short_beard` (Barba curta aparada com costeleta fina de 1px e bochechas visíveis), `full_beard` (Barba cheia lenhador com volume projetado abaixo do queixo e maçãs do rosto livres).
+7. **Vestuário Superior (`topStyle` — 10 modelos + 14 cores primárias e secundárias)**:
+   - `tshirt` (Camiseta básica), `polo` (Camisa polo com gola), `hoodie` (Moletom tech com cordões e bolso), `shirt_tie` (Camisa social com gravata), `jacket` (Jaqueta aberta sobre camiseta), `sweater` (Suéter canelado), `suit` (Blazer executivo com gravata), `overalls` (Jardineira/Avental com fivelas douradas), `striped` (Camiseta listrada), `tank` (Regata casual).
+8. **Vestuário Inferior (`bottomStyle` — 6 modelos + 10 cores)**:
+   - `pants` (Calça jeans/sarja comprida), `shorts` (Bermuda acima do joelho mostrando a perna/canela), `cargo_shorts` (Bermuda cargo com bolso lateral), `skirt` (Saia plissada), `joggers` (Calça jogger esportiva com punho), `slacks` (Calça de alfaiataria).
+9. **Calçados / Tênis (`shoeStyle` — 6 modelos + 10 cores)**:
+   - `sneakers` (Tênis street com sola branca e listra colorida), `high_tops` (Tênis cano alto estilo skate/basquete), `running` (Tênis de corrida multicolor), `loafers` (Sapato social/mocassim), `boots` (Coturno/Bota), `slides` (Chinelo slide casual).
+10. **Acessórios (`accessory` — 9 opções)**:
+    - `none`, `glasses` (Óculos de grau `3×2`), `round_glasses` (Óculos redondo `3×2`), `sunglasses` (Óculos escuro `3×2`), `headphones` (Headphone), `beanie` (Touca de lã canelada com pompom), `cap` (Boné com aba curva frontal/lateral), `lanyard` (Crachá corporativo no peito), `hair_bow` (Lacinho no cabelo).
+11. **Direções, Animação e Presets**:
+    - 4 direções (`down`, `up`, `left`, `right`) e 3 quadros de caminhada (`0` parado, `1` passo esquerdo, `2` passo direito), além de **36 Presets Oficiais (`CHARACTER_PRESETS`)** renderizados na prancha `art/preview/characters-sheet.svg`.
+
+---
+
+## 5. Checklist de Qualidade para Todo Novo Sprite
+
+Antes de aprovar qualquer novo sprite em `art/src/`, validar:
+- [ ] **Zero caractere fora da `PALETTE`**: Usa apenas os 36 códigos oficiais de [`art/src/palette.mjs`](./art/src/palette.mjs).
+- [ ] **Silhueta fechada**: Contorno externo `O` (`#1e191d`) sem buracos involuntários, com cantos chanfrados onde aplicável.
+- [ ] **Sem excesso de madeira**: Prioriza aço, laca off-white, grafite, vidro, pedra, azul-petróleo e verde-sálvia.
+- [ ] **Profundidade 3D (Painéis Rebaixados)**: Frentes de móveis possuem molduras internas com `1px` de sombra em cima e `1px` de luz embaixo.
+- [ ] **Validação automatizada**: `node art/scripts/build-preview.mjs` executa sem erros e atualiza `art/preview/index.html`, `atlas-sheet.svg`, `scene-demo.svg` e `atlas.json`.

@@ -10,7 +10,20 @@ export const MapIdSchema = z.enum(MAP_IDS);
 export type MapId = z.infer<typeof MapIdSchema>;
 export const DEFAULT_MAP: MapId = 'lobby';
 
-export type SolidKind = 'table' | 'desk' | 'wall' | 'plant' | 'sofa' | 'shelf';
+export type SolidKind =
+  | 'table'
+  | 'desk'
+  | 'wall'
+  | 'plant'
+  | 'sofa'
+  | 'shelf'
+  | 'pantry'
+  | 'fridge'
+  | 'printer'
+  | 'cabinet'
+  | 'lamp'
+  | 'booth2'
+  | 'booth4';
 export type Solid = Rect & { kind: SolidKind };
 
 /**
@@ -117,6 +130,40 @@ export type MapDef = {
   noDeskZones: Rect[];
 };
 
+/**
+ * Monta as mesas de reunião rápida nas paredes e cantos:
+ * - `booth2` (1:1 com 2 cadeiras): tampo 1x1 em `(col, row)` + zona 3x1 cobrindo as 2 cadeiras laterais (`capacity: 2`).
+ * - `booth4` (Reunião 4 lugares): tampo 1x2 em `(col, row)` + zona 3x2 cobrindo as 4 cadeiras laterais (`capacity: 4`).
+ */
+const makeBooths = (
+  defs: readonly {
+    id: string;
+    name: string;
+    kind: 'booth2' | 'booth4';
+    col: number;
+    row: number;
+  }[],
+): { solids: Solid[]; areas: Area[] } => {
+  const solids: Solid[] = [];
+  const areas: Area[] = [];
+  for (const b of defs) {
+    const rows = b.kind === 'booth4' ? 2 : 1;
+    const capacity = b.kind === 'booth4' ? 4 : 2;
+    solids.push({
+      kind: b.kind,
+      ...tiles(b.col, b.row, 1, rows),
+    });
+    areas.push({
+      id: b.id,
+      name: b.name,
+      ...tiles(b.col - 1, b.row, 3, rows),
+      private: false,
+      capacity,
+    });
+  }
+  return { solids, areas };
+};
+
 const COLS = 30;
 const ROWS = 20;
 
@@ -124,6 +171,43 @@ const solid = (kind: SolidKind, col: number, row: number, cols = 1, rows = 1) =>
   ({ kind, ...tiles(col, row, cols, rows) }) satisfies Solid;
 
 const lobbyDesks = makeDesks([13, 18, 23], [4, 8, 12]);
+const lobbyBooths = makeBooths([
+  {
+    id: 'reuniao-1x1-1',
+    name: 'Mesa 1:1 Norte',
+    kind: 'booth2',
+    col: 18,
+    row: 2,
+  },
+  {
+    id: 'reuniao-1x1-2',
+    name: 'Mesa 1:1 Canto NE',
+    kind: 'booth2',
+    col: 27,
+    row: 2,
+  },
+  {
+    id: 'reuniao-1x1-3',
+    name: 'Mesa 1:1 Sul',
+    kind: 'booth2',
+    col: 10,
+    row: 18,
+  },
+  {
+    id: 'reuniao-4-1',
+    name: 'Mesa 4 Lugares Oeste',
+    kind: 'booth4',
+    col: 2,
+    row: 14,
+  },
+  {
+    id: 'reuniao-4-2',
+    name: 'Mesa 4 Lugares Sudeste',
+    kind: 'booth4',
+    col: 27,
+    row: 16,
+  },
+]);
 
 const LOBBY: MapDef = {
   id: 'lobby',
@@ -145,13 +229,33 @@ const LOBBY: MapDef = {
     solid('wall', 8, 8, 4, 1),
     solid('table', 4, 3, 5, 3),
     ...lobbyDesks.solids,
+    ...lobbyBooths.solids,
+    // Plantas biofílicas nos cantos (com pelo menos 2 quadradinhos de respiro ao redor das mesas)
+    solid('plant', 1, 2),
+    solid('plant', 10, 2),
+    solid('plant', 12, 2),
     solid('plant', 12, 9),
-    solid('plant', 27, 2),
-    solid('plant', 2, 17),
-    solid('shelf', 19, 2, 7, 1),
+    solid('plant', 1, 9),
+    solid('plant', 1, 18),
+    // Estante e central técnica na parede norte
+    solid('printer', 13, 2, 2, 1),
+    solid('cabinet', 15, 2, 2, 1),
+    solid('shelf', 20, 2, 5, 1),
+    // Copa & Café (parede sul, longe das mesas de 1:1 e 4 lugares)
+    solid('pantry', 4, 18, 3, 1),
+    solid('fridge', 7, 18, 1, 1),
+    // Lounge principal (parede sul, com 2 quadradinhos livres de respiro)
+    solid('lamp', 19, 18, 1, 1),
+    solid('sofa', 20, 18, 4, 1),
   ],
   desks: lobbyDesks.desks,
-  rugs: [],
+  rugs: [
+    // Tapetes sob as mesas de reunião de 4 lugares e áreas de convivência
+    { ...tiles(1, 14, 3, 2), color: '#8478a6' },
+    { ...tiles(26, 16, 3, 2), color: '#59804b' },
+    { ...tiles(19, 17, 6, 2), color: '#59804b' },
+    { ...tiles(14, 16, 3, 3), color: '#397f94' },
+  ],
   areas: [
     {
       id: 'sala-reuniao',
@@ -160,6 +264,7 @@ const LOBBY: MapDef = {
       private: true,
     },
     ...lobbyDesks.areas,
+    ...lobbyBooths.areas,
   ],
   doors: [
     {
@@ -179,6 +284,50 @@ const LOBBY: MapDef = {
 };
 
 const andarDesks = makeDesks([13, 18, 23], [5, 10]);
+const andarBooths = makeBooths([
+  {
+    id: 'andar2-1x1-1',
+    name: 'Mesa 1:1 Norte',
+    kind: 'booth2',
+    col: 11,
+    row: 2,
+  },
+  {
+    id: 'andar2-1x1-2',
+    name: 'Mesa 1:1 Canto NE',
+    kind: 'booth2',
+    col: 27,
+    row: 2,
+  },
+  {
+    id: 'andar2-1x1-3',
+    name: 'Mesa 1:1 Sul',
+    kind: 'booth2',
+    col: 11,
+    row: 18,
+  },
+  {
+    id: 'andar2-4-1',
+    name: 'Mesa 4 Lugares Sudoeste',
+    kind: 'booth4',
+    col: 2,
+    row: 13,
+  },
+  {
+    id: 'andar2-4-2',
+    name: 'Mesa 4 Lugares Leste',
+    kind: 'booth4',
+    col: 27,
+    row: 7,
+  },
+  {
+    id: 'andar2-4-3',
+    name: 'Mesa 4 Lugares Sudeste',
+    kind: 'booth4',
+    col: 27,
+    row: 15,
+  },
+]);
 
 const ANDAR_2: MapDef = {
   id: 'andar-2',
@@ -193,16 +342,39 @@ const ANDAR_2: MapDef = {
     solid('wall', 29, 2, 1, 17),
     solid('wall', 0, 2, 1, 6),
     solid('wall', 0, 11, 1, 8),
+    // Lounge norte & Copa do Andar 2
+    solid('pantry', 2, 2, 3, 1),
+    solid('fridge', 5, 2, 1, 1),
     solid('sofa', 6, 3, 4, 2),
+    // Hub de colaboração central-esquerdo (Mesa de reunião aberta com cadeiras)
+    solid('table', 6, 8, 5, 3),
+    // Lounge sul & Biblioteca do Andar 2
     solid('sofa', 6, 14, 4, 2),
+    solid('shelf', 2, 18, 7, 1),
     ...andarDesks.solids,
-    solid('plant', 26, 4),
-    solid('plant', 26, 16),
-    solid('shelf', 22, 2, 6, 1),
+    ...andarBooths.solids,
+    // Hub técnico norte e sul (com 2 quadradinhos de respiro para as mesas nas paredes)
+    solid('printer', 14, 2, 2, 1),
+    solid('cabinet', 16, 2, 2, 1),
+    solid('shelf', 20, 2, 5, 1),
+    solid('lamp', 15, 18, 1, 1),
+    solid('sofa', 16, 18, 4, 1),
+    solid('shelf', 20, 18, 4, 1),
+    // Plantas biofílicas nos cantos
+    solid('plant', 1, 2),
+    solid('plant', 1, 18),
   ],
   desks: andarDesks.desks,
-  rugs: [],
-  areas: andarDesks.areas,
+  rugs: [
+    { ...tiles(1, 13, 3, 2), color: '#59804b' },
+    { ...tiles(26, 7, 3, 2), color: '#8478a6' },
+    { ...tiles(26, 15, 3, 2), color: '#397f94' },
+    { ...tiles(5, 3, 6, 3), color: '#59804b' },
+    { ...tiles(5, 7, 7, 5), color: '#397f94' },
+    { ...tiles(5, 14, 6, 3), color: '#8478a6' },
+    { ...tiles(15, 17, 9, 2), color: '#59804b' },
+  ],
+  areas: [...andarDesks.areas, ...andarBooths.areas],
   doors: [
     {
       label: 'Recepção',
