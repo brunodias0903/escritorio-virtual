@@ -7,6 +7,7 @@ import {
   canViewChannel,
   defaultAppearance,
   effectiveTiersOf,
+  isUnavailableStatus,
   sortPeople,
   type AccountTier,
   type ClientMessage,
@@ -581,8 +582,10 @@ export class Connection {
       }
 
       case 'media': {
-        // No modo Ocupado o usuário não entra em chamadas.
-        if (player.status === 'busy') return send({ type: 'mediaNone' });
+        // Nos status indisponíveis (Ocupado, Tomando um café ou Almoçando) o usuário não entra em chamadas.
+        if (isUnavailableStatus(player.status)) {
+          return send({ type: 'mediaNone' });
+        }
         // Cada zona (mesa ou sala de reunião) tem a sua chamada.
         // Na estrada, só conversa quem está perto; sozinho, nenhuma.
         const zone = callKey(

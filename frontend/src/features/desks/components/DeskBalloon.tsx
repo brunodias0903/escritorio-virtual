@@ -21,11 +21,14 @@ type Props = {
   expanded: boolean;
   /** True durante a animação de minimizar antes de desmontar. */
   closing?: boolean;
+  /** Usuário já está sentado exatamente na cadeira central da mesa. */
+  isSeated?: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   onExpand: () => void;
   onCollapse: () => void;
   onAdopt: () => void;
+  onSit?: () => void;
   onMove: () => void;
   onToggleLock: () => void;
   onEdit: () => void;
@@ -43,6 +46,7 @@ export function DeskBalloon({
   info,
   state,
   isStanding,
+  isSeated = false,
   placeBelow = false,
   expanded,
   closing = false,
@@ -51,6 +55,7 @@ export function DeskBalloon({
   onExpand,
   onCollapse,
   onAdopt,
+  onSit,
   onMove,
   onToggleLock,
   onEdit,
@@ -157,6 +162,18 @@ export function DeskBalloon({
 
             {state.kind === 'mine' ? (
               <div className={styles.actions}>
+                {!isSeated && onSit ? (
+                  <Tip label="Sentar na cadeira">
+                    <button
+                      type="button"
+                      className={styles.iconBtn}
+                      aria-label="Sentar na cadeira"
+                      onClick={onSit}
+                    >
+                      <Icon name="desk" size={15} />
+                    </button>
+                  </Tip>
+                ) : null}
                 <Tip label="Mover mesa">
                   <button
                     type="button"
@@ -205,30 +222,54 @@ export function DeskBalloon({
               </div>
             ) : null}
 
-            {state.kind === 'free' && state.canAdopt && isStanding ? (
-              <div className={styles.actions}>
-                <button
-                  type="button"
-                  className={styles.adoptBtn}
-                  onClick={onAdopt}
-                >
-                  Adotar esta mesa
-                </button>
-              </div>
-            ) : null}
-
-            {state.kind === 'other' && state.canRelease ? (
-              <div className={styles.actions}>
-                <Tip label="Remover mesa (administração)">
+            {state.kind === 'free' ? (
+              state.canAdopt && isStanding ? (
+                <div className={styles.actions}>
                   <button
                     type="button"
-                    className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                    aria-label="Remover mesa (administração)"
-                    onClick={onRelease}
+                    className={styles.adoptBtn}
+                    onClick={onAdopt}
                   >
-                    <Icon name="undo" size={15} />
+                    Adotar esta mesa
                   </button>
-                </Tip>
+                </div>
+              ) : !isStanding && onSit ? (
+                <div className={styles.actions}>
+                  <button
+                    type="button"
+                    className={styles.adoptBtn}
+                    onClick={onSit}
+                  >
+                    Sentar na mesa
+                  </button>
+                </div>
+              ) : null
+            ) : null}
+
+            {state.kind === 'other' &&
+            ((!isStanding && !state.locked && onSit) || state.canRelease) ? (
+              <div className={styles.actions}>
+                {!isStanding && !state.locked && onSit ? (
+                  <button
+                    type="button"
+                    className={styles.adoptBtn}
+                    onClick={onSit}
+                  >
+                    Sentar na mesa
+                  </button>
+                ) : null}
+                {state.canRelease ? (
+                  <Tip label="Remover mesa (administração)">
+                    <button
+                      type="button"
+                      className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                      aria-label="Remover mesa (administração)"
+                      onClick={onRelease}
+                    >
+                      <Icon name="undo" size={15} />
+                    </button>
+                  </Tip>
+                ) : null}
               </div>
             ) : null}
           </div>

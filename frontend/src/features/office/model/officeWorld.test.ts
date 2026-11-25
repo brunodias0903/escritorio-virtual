@@ -1,6 +1,7 @@
 import { defaultAppearance, getMap, type Player } from '@/shared/domain';
 import { describe, expect, it } from 'vitest';
 import { EMOTE_DURATION_MS, OfficeWorld } from './officeWorld';
+import { isInPantryArea } from './pathfind';
 
 const appearance = defaultAppearance('x');
 const player = (
@@ -438,5 +439,14 @@ describe('OfficeWorld: ir andando até a mesa', () => {
     // Com vaga, entra na mesa de 4 lugares
     world.goTo({ map: 'lobby', areaId: 'reuniao-4-1' });
     expect(world.autoWalking).toBe(true);
+
+    // Ao pedir para ir à copa (status Tomando café / Almoçando), caminha até a bancada da copa
+    world.goToPantry();
+    expect(world.autoWalking).toBe(true);
+    run(world, 4);
+    expect(world.autoWalking).toBe(false);
+    expect(world.me()!.y).toBe(17 * 32 + 16);
+    expect(isInPantryArea(getMap('lobby'), world.me()!)).toBe(true);
+    expect(isInPantryArea(getMap('lobby'), { x: 496, y: 560 })).toBe(false);
   });
 });

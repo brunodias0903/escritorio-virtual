@@ -9,6 +9,7 @@ import {
   EMOTES,
   STATUSES,
   STATUS_LABELS,
+  isUnavailableStatus,
   type Appearance,
   type Emote,
   type Status,
@@ -22,6 +23,8 @@ import { FaceAvatar } from './FaceAvatar';
 const STATUS_COLORS: Record<Status, string> = {
   available: 'var(--status-available)',
   busy: 'var(--status-busy)',
+  coffee: '#e07a4b',
+  lunch: '#f39c12',
   away: 'var(--status-away)',
 };
 
@@ -33,7 +36,7 @@ const HINTS: Record<CallState['status'], string> = {
 };
 
 const BUSY_HINT =
-  'Você está Ocupado. Clique em "Ficar online" para liberar áudio, microfone, câmera e tela.';
+  'Você está indisponível (Ocupado, Tomando café ou Almoçando). Clique em "Ficar online" para liberar áudio, microfone, câmera e tela.';
 
 /** Tempo com o mouse sobre fone/mic/câmera para abrir as opções de dispositivo (2,2s). */
 const DEVICE_HOVER_MS = 2200;
@@ -218,7 +221,7 @@ export function BottomBar({
   };
 
   const live = call.status === 'on';
-  const busy = me?.status === 'busy';
+  const busy = isUnavailableStatus(me?.status);
   const showMutedPopup =
     live &&
     !busy &&

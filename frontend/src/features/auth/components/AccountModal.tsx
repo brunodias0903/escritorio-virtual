@@ -43,6 +43,8 @@ type Tab = 'profile' | 'security' | 'preferences' | 'privacy';
 const STATUS_COLORS: Record<Status, string> = {
   available: '#31e0c1',
   busy: '#ff6b81',
+  coffee: '#e07a4b',
+  lunch: '#f39c12',
   away: '#f1c40f',
 };
 

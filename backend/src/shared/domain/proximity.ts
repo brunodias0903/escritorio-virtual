@@ -1,3 +1,4 @@
+import { isUnavailableStatus, type Status } from './appearance.js';
 import { areaAt, type MapDef, type Point } from './maps.js';
 import { TILE } from './tile.js';
 
@@ -21,13 +22,14 @@ export const NEAR_PREFIX = 'perto-';
 export const isNear = (a: Point, b: Point): boolean =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= NEAR_TILES * TILE;
 
-type Someone = Point & { id: string };
+type Someone = Point & { id: string; status?: Status };
 
 /**
  * A chamada em que a pessoa deve estar:
+ * - se estiver indisponível (`busy`, `coffee` ou `lunch`), nenhuma (`null`);
  * - numa zona (mesa ou sala), a chamada da zona (mesmo sozinha);
- * - na estrada, a conversa com quem está perto. Vale em corrente: se A está
- *   perto de B e B perto de C, os três conversam juntos;
+ * - na estrada, a conversa com quem está perto e disponível. Vale em corrente:
+ *   se A está perto de B e B perto de C, os três conversam juntos;
  * - sozinha na estrada, nenhuma (null).
  * O app e o servidor usam a mesma regra, com as posições de todos na sala.
  */
@@ -36,11 +38,15 @@ export const callKey = (
   me: Someone,
   everyone: readonly Someone[],
 ): string | null => {
+  if (isUnavailableStatus(me.status)) return null;
   const zone = callZoneId(map, me);
   if (zone) return zone;
 
   const road = everyone.filter(
-    (p) => p.id !== me.id && callZoneId(map, p) === null,
+    (p) =>
+      p.id !== me.id &&
+      !isUnavailableStatus(p.status) &&
+      callZoneId(map, p) === null,
   );
   const group = new Set([me.id]);
   const queue: Someone[] = [me];

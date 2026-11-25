@@ -9,6 +9,8 @@ import {
 export const PERSON_STATUS_COLORS: Record<PersonStatus, string> = {
   available: '#31e0c1',
   busy: '#ff6b81',
+  coffee: '#e07a4b',
+  lunch: '#f39c12',
   away: '#f1c40f',
   offline: '#6b72a8',
 };

@@ -148,11 +148,10 @@ export function MapLayer({ mapId, desks, myEmail, onHoverDesk }: Props) {
       {/* Decoração arquitetônica da parede superior (Janelas com persiana, Ar-condicionado Split, Calendário e Quadros) */}
       <TopWallDecor mapId={mapId} />
 
-      {map.desks.map((desk, index) => (
+      {map.desks.map((desk) => (
         <DeskArt
           key={desk.id}
           desk={desk}
-          variantIndex={index}
           config={desks[deskKey(mapId, desk.id)]?.config ?? null}
           owner={desks[deskKey(mapId, desk.id)]?.owner ?? null}
           showLabel={false}
@@ -458,7 +457,8 @@ function AreaFloor({
           ? '#ff6b81'
           : ownerKind === 'other'
             ? 'var(--status-away)'
-            : '#58a6b8';
+            : '#48d0a8';
+    // Marca a área da mesinha: borda destacada em volta dos 3 lugares onde a pessoa senta.
     return (
       <rect
         x={area.x + 1}
@@ -466,17 +466,17 @@ function AreaFloor({
         width={area.w - 2}
         height={area.h - 2}
         fill={color}
-        fillOpacity={ownerKind === 'mine' ? 0.18 : locked ? 0.16 : 0.11}
+        fillOpacity={ownerKind === 'mine' ? 0.22 : locked ? 0.18 : 0.16}
         stroke={color}
         strokeWidth={ownerKind === 'mine' ? 2.5 : 2}
-        strokeOpacity={ownerKind === 'mine' ? 0.95 : locked ? 0.85 : 0.65}
+        strokeOpacity={ownerKind === 'mine' ? 0.95 : locked ? 0.85 : 0.78}
       />
     );
   }
 
   // Mesas de reunião rápida nas paredes/cantos (capacity = 2 ou 4 lugares)
   if (!area.private && area.capacity !== undefined) {
-    const boothColor = area.capacity === 2 ? '#58a6b8' : '#8cd668';
+    const boothColor = area.capacity === 2 ? '#48d0a8' : '#8cd668';
     return (
       <rect
         x={area.x + 1}
@@ -485,11 +485,11 @@ function AreaFloor({
         height={area.h - 2}
         rx={3}
         fill={boothColor}
-        fillOpacity={0.11}
+        fillOpacity={0.15}
         stroke={boothColor}
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeDasharray="4 3"
-        strokeOpacity={0.62}
+        strokeOpacity={0.75}
       />
     );
   }

@@ -4,20 +4,123 @@ import { DeskBalloon } from '@/features/desks/components/DeskBalloon';
 import { deskCardState } from '@/features/desks/model/deskCard';
 import { useDeskStore } from '@/features/desks/model/deskStore';
 import {
+  CHAIR_COLORS,
   DESK_HEIGHT,
   DESK_WIDTH,
   TILE,
+  areaAt,
   callZoneId,
   canPlaceDesk,
   deskKey,
   getMap,
   resolveMap,
+  type DeskInfo,
+  type MapDef,
 } from '@/shared/domain';
 
 import { computeViewBox, type Size } from '../model/camera';
-import type { WorldSnapshot } from '../model/officeWorld';
+import type { RenderPlayer, WorldSnapshot } from '../model/officeWorld';
 import { MapLayer } from './MapLayer';
-import { PixelAvatar } from './PixelAvatar';
+import { PixelAvatar, type SeatedPose } from './PixelAvatar';
+
+/**
+ * Detecta se o jogador está exatamente na cadeira de uma mesa de trabalho ou em
+ * uma poltrona das mesas de reunião (1:1, 4 lugares ou sala de reunião), para
+ * renderizá-lo sentado trabalhando / reunido.
+ */
+function resolveSeatedPose(
+  map: MapDef,
+  desks: Record<string, DeskInfo>,
+  player: RenderPlayer,
+): SeatedPose | null {
+  if (player.moving) return null;
+
+  // 1. Cadeira central de uma estação de trabalho (`desk`): fica no meio da zona logo abaixo do tampo
+  for (const desk of map.desks) {
+    const chairX = desk.x + desk.w / 2;
+    const chairY = desk.y + desk.h + TILE / 2;
+    if (player.x === chairX && player.y === chairY) {
+      const info = desks[deskKey(map.id, desk.id)];
+      const chairIdx = info?.config.chair ?? 0;
+      const chairColor = CHAIR_COLORS[chairIdx] ?? CHAIR_COLORS[0];
+      return {
+        facing: 'up',
+        chairColor,
+        offsetY: -5,
+      };
+    }
+  }
+
+  // 2. Mesas de reunião rápida nas paredes/cantos (`booth2` = 2 lugares e `booth4` = 4 lugares)
+  const area = areaAt(map, player);
+  if (area && !area.desk && !area.private && area.capacity !== undefined) {
+    const midX = area.x + area.w / 2;
+    if (player.x < midX) {
+      return { facing: 'right', offsetX: 6, offsetY: -2 };
+    }
+    if (player.x > midX) {
+      return { facing: 'left', offsetX: -6, offsetY: -2 };
+    }
+  }
+
+  // 3. Poltronas ao redor das grandes mesas de reunião (`table` 5x3)
+  for (const s of map.solids) {
+    if (s.kind !== 'table') continue;
+    // Fileira de cima da mesa (olhando para baixo)
+    if (
+      player.y === s.y - TILE / 2 &&
+      player.x >= s.x &&
+      player.x <= s.x + s.w
+    ) {
+      return { facing: 'down', offsetY: 6 };
+    }
+    // Fileira de baixo da mesa (olhando para cima, com encosto de cadeira)
+    if (
+      player.y === s.y + s.h + TILE / 2 &&
+      player.x >= s.x &&
+      player.x <= s.x + s.w
+    ) {
+      return {
+        facing: 'up',
+        chairColor: '#397f94',
+        offsetY: -5,
+      };
+    }
+    // Cabeceira esquerda
+    if (
+      player.x === s.x - TILE / 2 &&
+      player.y >= s.y &&
+      player.y <= s.y + s.h
+    ) {
+      return { facing: 'right', offsetX: 6, offsetY: -2 };
+    }
+    // Cabeceira direita
+    if (
+      player.x === s.x + s.w + TILE / 2 &&
+      player.y >= s.y &&
+      player.y <= s.y + s.h
+    ) {
+      return { facing: 'left', offsetX: -6, offsetY: -2 };
+    }
+  }
+
+  // 4. Em frente à bancada da copa/cafeteria com status "coffee" ou "lunch": vira para a bancada
+  if (player.status === 'coffee' || player.status === 'lunch') {
+    for (const s of map.solids) {
+      if (s.kind !== 'pantry' && s.kind !== 'fridge') continue;
+      if (player.x >= s.x && player.x <= s.x + s.w) {
+        if (player.y === s.y - TILE / 2) {
+          return { facing: 'down' };
+        }
+        if (player.y === s.y + s.h + TILE / 2) {
+          return { facing: 'up' };
+        }
+      }
+    }
+  }
+
+  return null;
+}
 
 type Props = {
   snapshot: WorldSnapshot;
@@ -42,6 +145,7 @@ type Props = {
   /** Mesa para focar suavemente com a câmera (ex.: hover no botão "Ir até a mesa"). */
   previewDeskId?: string | null;
   onAdoptDesk: (deskId: string) => void;
+  onSitDesk?: (deskId: string) => void;
   onMoveDesk: (deskId: string) => void;
   onToggleDeskLock: (deskId: string) => void;
   onEditDesk: (deskId: string) => void;
@@ -66,6 +170,7 @@ export function OfficeMap({
   inCall = false,
   previewDeskId = null,
   onAdoptDesk,
+  onSitDesk,
   onMoveDesk,
   onToggleDeskLock,
   onEditDesk,
@@ -201,7 +306,10 @@ export function OfficeMap({
   const visibleBalloons = movingDeskId
     ? []
     : map.desks.filter(
-        (desk) => desk.id === hoveredDeskId || desk.id === closingDeskId,
+        (desk) =>
+          desk.id === activeDeskId ||
+          desk.id === hoveredDeskId ||
+          desk.id === closingDeskId,
       );
   const view = computeViewBox(map, viewport, zoom, camCenter);
 
@@ -291,6 +399,7 @@ export function OfficeMap({
               player={player}
               isMe={player.id === snapshot.meId}
               speaking={speakingSet.has(player.id)}
+              seated={resolveSeatedPose(map, desks, player)}
               time={time}
             />
           ))}
@@ -396,8 +505,14 @@ export function OfficeMap({
           isAdmin,
         });
         const isStanding = desk.id === activeDeskId;
+        const isSeated = Boolean(
+          me &&
+          !me.moving &&
+          me.x === desk.x + desk.w / 2 &&
+          me.y === desk.y + desk.h + TILE / 2,
+        );
         const isClosing = desk.id === closingDeskId && !isStanding;
-        const expanded = desk.id === hoveredDeskId || isClosing;
+        const expanded = isStanding || desk.id === hoveredDeskId || isClosing;
         const screenX =
           ((desk.x + desk.w / 2 - view.x) / view.w) * viewport.width;
         const screenY = ((desk.y - view.y) / view.h) * viewport.height;
@@ -414,6 +529,7 @@ export function OfficeMap({
             info={info}
             state={state}
             isStanding={isStanding}
+            isSeated={isSeated}
             expanded={expanded}
             closing={isClosing}
             onMouseEnter={() => enterDesk(desk.id)}
@@ -421,6 +537,7 @@ export function OfficeMap({
             onExpand={() => enterDesk(desk.id)}
             onCollapse={() => collapseDesk(desk.id)}
             onAdopt={() => onAdoptDesk(desk.id)}
+            onSit={onSitDesk ? () => onSitDesk(desk.id) : undefined}
             onMove={() => onMoveDesk(desk.id)}
             onToggleLock={() => onToggleDeskLock(desk.id)}
             onEdit={() => onEditDesk(desk.id)}

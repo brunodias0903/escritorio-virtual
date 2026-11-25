@@ -561,82 +561,10 @@ function Computer({
   );
 }
 
-/** Presets variados e humanos para mesas livres no mapa (tampo, cadeira, tapete, setup e enfeites). */
-const FREE_DESK_VARIANTS: readonly DeskConfig[] = [
-  {
-    color: 1, // Nogueira Executiva
-    rug: 0, // Verde-Sálvia
-    rugPattern: 'bordered',
-    chair: 0,
-    items: ['plant', 'mug', 'lamp'],
-    label: '',
-    computer: 'dualMonitor',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 2, // Freixo Claro Nórdico
-    rug: 1, // Azul-Petróleo
-    rugPattern: 'bordered',
-    chair: 2,
-    items: ['bonsai', 'notebook', 'coffee'],
-    label: '',
-    computer: 'laptopMonitor',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 4, // Verde-Sálvia Studio
-    rug: 4, // Âmbar
-    rugPattern: 'bordered',
-    chair: 5,
-    items: ['duck', 'headphones', 'cactus'],
-    label: '',
-    computer: 'ultrawide',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 5, // Azul-Petróleo Corporativo
-    rug: 3, // Lavanda
-    rugPattern: 'striped',
-    chair: 0,
-    items: ['lavaLamp', 'rubik', 'cat'],
-    label: '',
-    computer: 'desktop',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 7, // Carvalho Clássico
-    rug: 0, // Verde-Sálvia
-    rugPattern: 'bordered',
-    chair: 4,
-    items: ['books', 'teapot', 'hourglass'],
-    label: '',
-    computer: 'dualMonitor',
-    locked: false,
-    position: null,
-  },
-  {
-    color: 3, // Stealth Grafite Escuro
-    rug: 1, // Azul-Petróleo
-    rugPattern: 'bordered',
-    chair: 1,
-    items: ['controller', 'figure', 'mic'],
-    label: '',
-    computer: 'tripleMonitor',
-    locked: false,
-    position: null,
-  },
-];
-
 type Props = {
   desk: DeskDef;
   /** `null` para mesa livre. */
   config: DeskConfig | null;
-  /** Índice opcional para dar identidade e vida às mesas livres no mapa. */
-  variantIndex?: number;
   /** Nome na plaquinha acima da mesa (usado na prévia do editor). */
   showLabel?: boolean;
   /** Mesa livre: mostra o convite para adotar (usado fora do mapa). */
@@ -654,18 +582,12 @@ type Props = {
 export function DeskArt({
   desk,
   config,
-  variantIndex,
   showLabel = true,
   freeHint = true,
   owner = null,
   onHoverChange,
 }: Props) {
-  const look =
-    config ??
-    (variantIndex !== undefined
-      ? (FREE_DESK_VARIANTS[variantIndex % FREE_DESK_VARIANTS.length] ??
-        FREE_DESK_CONFIG)
-      : FREE_DESK_CONFIG);
+  const look = config ?? FREE_DESK_CONFIG;
   const setup = resolveDeskSetup(look);
   const { x, y, w, h } = desk;
   const top = DESK_COLORS[look.color] ?? DESK_COLORS[0];

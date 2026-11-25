@@ -51,6 +51,8 @@ const DURATION_OPTIONS = [
 const STATUS_DOT_COLORS: Record<ManagedAccount['status'], string> = {
   available: '#31e0c1',
   busy: '#ff6b81',
+  coffee: '#e07a4b',
+  lunch: '#f39c12',
   away: '#f1c40f',
   offline: '#6b7280',
 };
