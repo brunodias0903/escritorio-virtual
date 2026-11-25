@@ -14,7 +14,7 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
+  deployments: write
 
 jobs:
   preview:
@@ -85,7 +85,41 @@ jobs:
           PORT="${DEV_VPS_PORT:-22}"
           ssh-keyscan -p "$PORT" -H "$DEV_VPS_HOST" >> ~/.ssh/known_hosts
 
+      - name: Iniciar deployment de preview no GitHub
+        if: steps.check.outputs.ready == 'true' && github.event.action != 'closed'
+        id: deploy_meta
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PREVIEW_URL: ${{ steps.meta.outputs.preview_url }}
+        with:
+          script: |
+            const environment = `preview-pr-${process.env.PR_NUMBER}`;
+            const { data: deployment } = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: process.env.HEAD_SHA,
+              environment,
+              auto_merge: false,
+              required_contexts: [],
+              transient_environment: true,
+              description: `Preview da MR #${process.env.PR_NUMBER}`,
+            });
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.id,
+              state: 'in_progress',
+              environment,
+              environment_url: process.env.PREVIEW_URL,
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: 'Construindo e atualizando preview da MR...',
+            });
+            core.setOutput('deployment_id', String(deployment.id));
+
       - name: Subir preview isolado da MR
+        id: ssh_deploy
         if: steps.check.outputs.ready == 'true' && github.event.action != 'closed'
         env:
           DEV_VPS_HOST: ${{ secrets.DEV_VPS_HOST }}
@@ -298,40 +332,52 @@ jobs:
             fi
           EOF
 
-      - name: Comentar link de preview na MR
-        if: steps.check.outputs.ready == 'true'
+      - name: Finalizar deployment de preview no GitHub
+        if: always() && steps.deploy_meta.outputs.deployment_id != ''
         uses: actions/github-script@v7
         env:
+          DEPLOYMENT_ID: ${{ steps.deploy_meta.outputs.deployment_id }}
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
           PREVIEW_URL: ${{ steps.meta.outputs.preview_url }}
-          PR_ACTION: ${{ github.event.action }}
-          SHORT_SHA: ${{ github.event.pull_request.head.sha }}
+          SSH_OUTCOME: ${{ steps.ssh_deploy.outcome || 'success' }}
         with:
           script: |
-            const marker = '<!-- preview-deploy-comment -->';
-            const shortSha = process.env.SHORT_SHA.slice(0, 7);
-            const body = process.env.PR_ACTION === 'closed'
-              ? `${marker}\n🧹 **Preview removido:** a MR foi fechada/mergeada e o ambiente isolado foi encerrado.`
-              : `${marker}\n🚀 **Preview da MR disponível:** ${process.env.PREVIEW_URL}\n\n- Commit: \`${shortSha}\`\n- O ambiente principal (\`main\`) não foi alterado.`;
-
-            const { data: comments } = await github.rest.issues.listComments({
+            const environment = `preview-pr-${process.env.PR_NUMBER}`;
+            const ok = process.env.SSH_OUTCOME === 'success';
+            await github.rest.repos.createDeploymentStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              deployment_id: Number(process.env.DEPLOYMENT_ID),
+              state: ok ? 'success' : 'failure',
+              environment,
+              environment_url: process.env.PREVIEW_URL,
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: ok
+                ? 'Preview pronta para testes.'
+                : 'Falha ao subir preview da MR.',
             });
-            const existing = comments.find((c) => c.body?.includes(marker));
 
-            if (existing) {
-              await github.rest.issues.updateComment({
+      - name: Encerrar deployments da MR fechada
+        if: steps.check.outputs.ready == 'true' && github.event.action == 'closed'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
+        with:
+          script: |
+            const environment = `preview-pr-${process.env.PR_NUMBER}`;
+            const { data: deployments } = await github.rest.repos.listDeployments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              environment,
+              per_page: 20,
+            });
+            for (const dep of deployments) {
+              await github.rest.repos.createDeploymentStatus({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
+                deployment_id: dep.id,
+                state: 'inactive',
+                environment,
+                description: 'Preview encerrada após fechamento/merge da MR.',
               });
             }
