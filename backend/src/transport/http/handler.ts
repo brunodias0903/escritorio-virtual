@@ -100,7 +100,8 @@ export const createHttpHandler = ({
       return;
     }
 
-    const path = new URL(req.url ?? '/', 'http://localhost').pathname;
+    const parsedUrl = new URL(req.url ?? '/', 'http://localhost');
+    const path = parsedUrl.pathname;
     if (path === '/healthz') {
       sendJson(res, 200, { ok: true });
       return;
@@ -110,6 +111,7 @@ export const createHttpHandler = ({
       const apiReq = {
         method: req.method ?? 'GET',
         path,
+        query: parsedUrl.searchParams,
         authorization: req.headers.authorization,
         body: await readJsonBody(req),
         ip: extractClientIp(req, trustProxy),

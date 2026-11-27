@@ -433,3 +433,87 @@ export const ModerateAccountResponseSchema = z.object({
 export type ModerateAccountResponse = z.infer<
   typeof ModerateAccountResponseSchema
 >;
+
+// --- Multi-servidor e Convites (Fase 3) -------------------------------------
+
+export const SERVER_VISIBILITIES = ['invite', 'open'] as const;
+export type ServerVisibility = (typeof SERVER_VISIBILITIES)[number];
+
+export const SERVER_MEMBER_ROLES = ['owner', 'admin', 'member'] as const;
+export type ServerMemberRole = (typeof SERVER_MEMBER_ROLES)[number];
+
+export const SERVER_PLAN_TIERS = [
+  'free',
+  'starter',
+  'intermediate',
+  'pro',
+  'unlimited',
+] as const;
+export type ServerPlanTier = (typeof SERVER_PLAN_TIERS)[number];
+
+export const WorkspaceServerSchema = z.object({
+  id: z.string(),
+  name: z.string().trim().min(2).max(40),
+  description: z.string().trim().max(160).default(''),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default('#5b6cff'),
+  visibility: z.enum(SERVER_VISIBILITIES).default('invite'),
+  ownerEmail: z.string(),
+  planTier: z.enum(SERVER_PLAN_TIERS).default('starter'),
+  maxMembers: z.number().int().min(1).nullable().default(null),
+  maxPendingInvites: z.number().int().min(1).nullable().default(null),
+  createdAt: z.number(),
+});
+export type WorkspaceServer = z.infer<typeof WorkspaceServerSchema>;
+
+export const CreateServerSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Informe um nome com pelo menos 2 caracteres.')
+    .max(40, 'O nome do servidor deve ter no máximo 40 caracteres.'),
+  description: z.string().trim().max(160).optional().default(''),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional()
+    .default('#5b6cff'),
+  visibility: z.enum(SERVER_VISIBILITIES).optional().default('invite'),
+});
+export type CreateServerInput = z.infer<typeof CreateServerSchema>;
+
+export const ServerInviteSchema = z.object({
+  code: z.string(),
+  serverId: z.string(),
+  createdBy: z.string(),
+  maxUses: z.number().int().min(1).nullable(),
+  uses: z.number().int().min(0),
+  expiresAt: z.number().nullable(),
+  revoked: z.boolean(),
+  createdAt: z.number(),
+});
+export type ServerInvite = z.infer<typeof ServerInviteSchema>;
+
+export const CreateServerInviteSchema = z.object({
+  maxUses: z.number().int().min(1).max(500).nullable().optional().default(null),
+  expiresInHours: z
+    .number()
+    .int()
+    .min(1)
+    .max(720)
+    .nullable()
+    .optional()
+    .default(168),
+});
+export type CreateServerInviteInput = z.infer<typeof CreateServerInviteSchema>;
+
+export const JoinServerInviteSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(4, 'Informe um código de convite válido.')
+    .max(64),
+});
+export type JoinServerInviteInput = z.infer<typeof JoinServerInviteSchema>;

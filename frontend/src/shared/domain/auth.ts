@@ -50,8 +50,10 @@ export const accountKindOf = (
 ): AccountKind | undefined => {
   const normalized = normalizeEmail(email);
   const parts = normalized.split('@');
-  if (parts.length !== 2 || parts[0] === '') return undefined;
+  if (parts.length !== 2 || parts[0] === '' || parts[1] === '')
+    return undefined;
   if (access.emails.includes(normalized)) return 'company';
+  if (access.domains.length === 0) return 'company';
   return access.domains.find((d) => d.domain === parts[1])?.kind;
 };
 
@@ -131,6 +133,29 @@ export const VerifyEmailSchema = z.object({
 });
 export type VerifyEmail = z.infer<typeof VerifyEmailSchema>;
 
+/** Verificação de elegibilidade de e-mail na 1ª etapa do cadastro. */
+export const RegisterEligibilitySchema = z.object({
+  email: EmailSchema,
+});
+export type RegisterEligibility = z.infer<typeof RegisterEligibilitySchema>;
+
+/** Início da troca segura de e-mail (envia códigos ao e-mail antigo e ao novo). */
+export const EmailChangeStartSchema = z.object({
+  newEmail: EmailSchema,
+  password: z.string().min(1, 'Informe a senha atual.').max(200),
+});
+export type EmailChangeStart = z.infer<typeof EmailChangeStartSchema>;
+
+/** Confirmação da troca segura de e-mail com códigos e TOTP quando ativo. */
+export const EmailChangeConfirmSchema = z.object({
+  newEmail: EmailSchema,
+  password: z.string().min(1, 'Informe a senha atual.').max(200),
+  oldCode: z.string().trim().max(12).optional().default(''),
+  newCode: z.string().trim().max(12).optional().default(''),
+  mfaCode: z.string().trim().max(32).optional().default(''),
+});
+export type EmailChangeConfirm = z.infer<typeof EmailChangeConfirmSchema>;
+
 export const MFA_METHODS = ['none', 'email', 'totp'] as const;
 export type MfaMethod = (typeof MFA_METHODS)[number];
 
@@ -169,7 +194,20 @@ const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /** Preferência de tema/cores da interface salva na conta do usuário. */
 export const UiThemeSchema = z.object({
-  presetId: z.enum(['default', 'games', 'fantasy', 'scifi']),
+  presetId: z.enum([
+    'default',
+    'games',
+    'fantasy',
+    'scifi',
+    'violet',
+    'emerald',
+    'sapphire',
+    'sunset',
+    'amethyst',
+    'rose',
+    'monochrome',
+  ]),
+  mode: z.enum(['light', 'dark']).optional(),
   colors: z.object({
     rail: HexColorSchema,
     surface: HexColorSchema,
@@ -504,6 +542,13 @@ export const ERROR_MESSAGES: Record<string, string> = {
   invalid_desk: 'Mesa não encontrada.',
   invalid_desk_position: 'Não é possível colocar a mesa nesse lugar.',
   zone_full: 'A mesa está cheia (3 de 3).',
+  server_member_limit_reached:
+    'Este servidor atingiu o limite de membros do plano atual.',
+  server_invite_limit_reached:
+    'Este servidor atingiu o limite de convites ativos do plano atual.',
+  invite_required:
+    'Este e-mail não está na lista de convidados nem possui assinatura ativa.',
+  same_email: 'O novo e-mail precisa ser diferente do e-mail atual.',
   network: 'Não foi possível falar com o servidor.',
 };
 

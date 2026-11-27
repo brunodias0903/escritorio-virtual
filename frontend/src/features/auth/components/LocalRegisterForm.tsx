@@ -71,6 +71,24 @@ export function LocalRegisterForm({ emailCodes, domains, onBack }: Props) {
   >([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [emailEligible, setEmailEligible] = useState(false);
+
+  const checkEligibility = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes('@')) {
+      return setError('Informe um e-mail válido.');
+    }
+    setBusy(true);
+    setError('');
+    const res = await authApi.checkRegisterEmail(trimmed);
+    setBusy(false);
+    if (!res.ok) {
+      setError(errorMessage(res.error));
+      return;
+    }
+    setEmailEligible(true);
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -114,12 +132,76 @@ export function LocalRegisterForm({ emailCodes, domains, onBack }: Props) {
     else setError(errorMessage(result.error));
   };
 
+  if (!emailEligible) {
+    return (
+      <form
+        className={styles.form}
+        onSubmit={(e) => void checkEligibility(e)}
+        noValidate
+      >
+        <div className={styles.header}>
+          <h2 className={styles.title}>Criar conta</h2>
+          <p className={styles.subtitle}>
+            Etapa 1: verifique se seu e-mail possui convite ou acesso liberado
+          </p>
+        </div>
+
+        <Field
+          label="E-mail"
+          value={email}
+          onChange={setEmail}
+          type="email"
+          autoComplete="email"
+          placeholder="seu.nome@gmail.com"
+          leadingIcon={<MailIcon />}
+          hint={domainsHint?.text}
+          hintTitle={domainsHint?.title}
+          variant="auth"
+          fullWidth
+        />
+
+        {error ? (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className={styles.actions}>
+          <Button
+            type="button"
+            title="Voltar para o login"
+            variant="secondary"
+            onClick={onBack}
+            fullWidth
+          />
+          <Button
+            type="submit"
+            title={busy ? 'Verificando…' : 'Continuar'}
+            variant="gradient"
+            disabled={busy || !email.trim()}
+            fullWidth
+          />
+        </div>
+      </form>
+    );
+  }
+
   return (
     <form className={styles.form} onSubmit={(e) => void submit(e)} noValidate>
       <div className={styles.header}>
         <h2 className={styles.title}>Criar conta</h2>
         <p className={styles.subtitle}>
-          Preencha seus dados para entrar no escritório
+          Preencha seus dados para entrar no escritório ·{' '}
+          <button
+            type="button"
+            className={styles.inlineLink}
+            onClick={() => {
+              setEmailEligible(false);
+              setError('');
+            }}
+          >
+            Trocar e-mail
+          </button>
         </p>
       </div>
 
@@ -136,7 +218,7 @@ export function LocalRegisterForm({ emailCodes, domains, onBack }: Props) {
           fullWidth
         />
         <Field
-          label="Apelido (nickname)"
+          label="Nome de usuário"
           value={nickname}
           onChange={setNickname}
           autoComplete="username"

@@ -9,20 +9,26 @@ import {
   FeedbackItemSchema,
   ManagedAccountSchema,
   ModerateAccountResponseSchema,
+  ServerInviteSchema,
   ServerSettingsSchema,
+  WorkspaceServerSchema,
   type CreateChannelConfig,
   type CreateFeedback,
   type CreateFeedbackComment,
+  type CreateServerInput,
+  type CreateServerInviteInput,
   type FeedbackComment,
   type FeedbackItem,
   type ManagedAccount,
   type ModerateAccount,
   type ReorderChannels,
+  type ServerInvite,
   type ServerSettings,
   type UpdateAccountRoles,
   type UpdateChannelConfig,
   type UpdateFeedback,
   type UpdateServerSettings,
+  type WorkspaceServer,
 } from '@/shared/domain';
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -196,8 +202,100 @@ export function createWorkspaceApi({ baseUrl }: { baseUrl: string }) {
         z.object({ desk: DeskInfoSchema }),
         { method: 'DELETE', token },
       ),
+
+    listServers: (token: string) =>
+      request(
+        baseUrl,
+        '/api/servers',
+        z.object({ servers: z.array(WorkspaceServerSchema) }),
+        { token },
+      ),
+
+    createServer: (token: string, body: CreateServerInput) =>
+      request(
+        baseUrl,
+        '/api/servers',
+        z.object({ server: WorkspaceServerSchema }),
+        { method: 'POST', token, body },
+      ),
+
+    joinServerByInvite: (token: string, code: string) =>
+      request(
+        baseUrl,
+        '/api/servers/join',
+        z.object({ server: WorkspaceServerSchema }),
+        { method: 'POST', token, body: { code } },
+      ),
+
+    listServerInvites: (token: string, serverId: string) =>
+      request(
+        baseUrl,
+        `/api/servers/${encodeURIComponent(serverId)}/invites`,
+        z.object({ invites: z.array(ServerInviteSchema) }),
+        { token },
+      ),
+
+    createServerInvite: (
+      token: string,
+      serverId: string,
+      body: CreateServerInviteInput = { maxUses: null, expiresInHours: 168 },
+    ) =>
+      request(
+        baseUrl,
+        `/api/servers/${encodeURIComponent(serverId)}/invites`,
+        z.object({ invite: ServerInviteSchema }),
+        { method: 'POST', token, body },
+      ),
+
+    revokeServerInvite: (token: string, serverId: string, code: string) =>
+      request(
+        baseUrl,
+        `/api/servers/${encodeURIComponent(serverId)}/invites/${encodeURIComponent(code)}`,
+        z.object({ ok: z.literal(true) }),
+        { method: 'DELETE', token },
+      ),
+
+    listInvitedEmails: (token: string, serverId: string) =>
+      request(
+        baseUrl,
+        `/api/servers/${encodeURIComponent(serverId)}/email-invites`,
+        z.object({
+          emails: z.array(
+            z.object({
+              serverId: z.string(),
+              email: z.string(),
+              invitedBy: z.string(),
+              createdAt: z.number(),
+            }),
+          ),
+        }),
+        { token },
+      ),
+
+    addInvitedEmail: (token: string, serverId: string, email: string) =>
+      request(
+        baseUrl,
+        `/api/servers/${encodeURIComponent(serverId)}/email-invites`,
+        z.object({
+          invite: z.object({
+            serverId: z.string(),
+            email: z.string(),
+            invitedBy: z.string(),
+            createdAt: z.number(),
+          }),
+        }),
+        { method: 'POST', token, body: { email } },
+      ),
+
+    removeInvitedEmail: (token: string, serverId: string, email: string) =>
+      request(
+        baseUrl,
+        `/api/servers/${encodeURIComponent(serverId)}/email-invites/${encodeURIComponent(email)}`,
+        z.object({ ok: z.literal(true) }),
+        { method: 'DELETE', token },
+      ),
   };
 }
 
 export type WorkspaceApi = ReturnType<typeof createWorkspaceApi>;
-export type { FeedbackItem, ManagedAccount };
+export type { FeedbackItem, ManagedAccount, ServerInvite, WorkspaceServer };

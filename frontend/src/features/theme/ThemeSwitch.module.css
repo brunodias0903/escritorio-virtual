@@ -1,0 +1,163 @@
+.track {
+  position: relative;
+  width: 58px;
+  height: 28px;
+  border-radius: 999px;
+  padding: 3px;
+  border: 1px solid var(--border-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 240ms ease;
+}
+
+.trackLight {
+  background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
+  border-color: rgba(217, 119, 6, 0.45);
+}
+
+.trackDark {
+  background: linear-gradient(135deg, #171a36 0%, #0b0e24 100%);
+  border-color: rgba(165, 180, 252, 0.28);
+}
+
+.thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.thumbDark {
+  transform: translateX(30px);
+  background: #1e244d;
+}
+
+.iconSlot {
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+/* Animação do Sol ao ativar modo claro */
+.sunSvg {
+  color: #b45309;
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease;
+}
+
+.sunActive {
+  color: #d97706;
+  animation: sunShine 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sunInactive {
+  color: rgba(255, 255, 255, 0.48);
+  transform: scale(0.84);
+}
+
+@keyframes sunShine {
+  0% {
+    transform: scale(0.75) rotate(-45deg);
+  }
+  55% {
+    transform: scale(1.16) rotate(20deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* Animação da Lua minguante/crescente + estrelinhas ao ativar modo escuro */
+.moonSvg {
+  color: rgba(120, 53, 15, 0.55);
+  transition:
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 240ms ease;
+}
+
+.moonActive {
+  color: #e0e7ff;
+  animation: moonPhase 540ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.moonInactive {
+  transform: scale(0.84) rotate(12deg);
+}
+
+@keyframes moonPhase {
+  0% {
+    transform: scale(0.72) rotate(36deg);
+  }
+  55% {
+    transform: scale(1.14) rotate(-14deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.star {
+  opacity: 0;
+  transform-origin: center;
+}
+
+.moonActive .star1 {
+  animation: starTwinkle 600ms 80ms ease forwards;
+}
+
+.moonActive .star2 {
+  animation: starTwinkle 650ms 160ms ease forwards;
+}
+
+.moonActive .star3 {
+  animation: starTwinkle 700ms 240ms ease forwards;
+}
+
+@keyframes starTwinkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  100% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track,
+  .thumb,
+  .sunSvg,
+  .moonSvg,
+  .sunActive,
+  .moonActive,
+  .moonActive .star1,
+  .moonActive .star2,
+  .moonActive .star3 {
+    animation: none;
+    transition: none;
+  }
+  .moonActive .star {
+    opacity: 0.95;
+  }
+}

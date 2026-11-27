@@ -199,8 +199,8 @@
   width: 34px;
   height: 34px;
   border-radius: 11px;
-  border: 1px dashed rgba(255, 255, 255, 0.25);
-  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--border-accent);
+  background-color: var(--bg-control);
   display: inline-flex;
   align-items: center;
   justify-content: center;

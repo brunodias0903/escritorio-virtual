@@ -15,6 +15,8 @@ const SUBJECTS: Record<CodePurpose, string> = {
   reset: `Seu código para trocar a senha do ${APP_NAME}`,
   verify: `Seu código para verificar seu e-mail no ${APP_NAME}`,
   mfa: `Seu código de acesso (2FA) no ${APP_NAME}`,
+  email_change_old: `Confirme a troca de e-mail da sua conta no ${APP_NAME}`,
+  email_change_new: `Confirme seu novo e-mail no ${APP_NAME}`,
 };
 
 const ACTIONS: Record<CodePurpose, string> = {
@@ -22,6 +24,8 @@ const ACTIONS: Record<CodePurpose, string> = {
   reset: 'trocar a sua senha',
   verify: 'verificar o seu e-mail',
   mfa: 'confirmar seu login (2FA)',
+  email_change_old: 'autorizar a troca do e-mail atual',
+  email_change_new: 'confirmar o seu novo endereço de e-mail',
 };
 
 type Deps = {

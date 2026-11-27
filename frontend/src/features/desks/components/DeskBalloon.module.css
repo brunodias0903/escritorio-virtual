@@ -149,7 +149,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--bg-hover-overlay);
   flex-shrink: 0;
   animation: hintPulse 2.4s ease-in-out infinite;
 }
@@ -237,7 +237,7 @@
   gap: 4px;
   font-size: 11px;
   font-weight: 600;
-  color: #ff99a8;
+  color: var(--danger-text);
 }
 
 .actions {
@@ -247,16 +247,16 @@
   gap: 8px;
   padding-top: 6px;
   margin-top: 2px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .iconBtn {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
-  color: #f4f6ff;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-control);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -269,13 +269,14 @@
 }
 
 .iconBtn:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--bg-control-hover);
   transform: translateY(-1px);
 }
 
 .iconBtnPrimary {
   background: var(--accent);
   border-color: var(--border-accent);
+  color: #ffffff;
 }
 
 .iconBtnPrimary:hover {
@@ -283,17 +284,19 @@
 }
 
 .iconBtnLocked {
-  background: rgba(232, 65, 92, 0.24);
-  border-color: rgba(255, 107, 129, 0.55);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
 }
 
 .iconBtnLocked:hover {
-  background: rgba(232, 65, 92, 0.36);
+  background: var(--danger-bg);
 }
 
 .iconBtnDanger:hover {
-  background: rgba(232, 65, 92, 0.28);
-  border-color: rgba(255, 107, 129, 0.55);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
 }
 
 .adoptBtn {

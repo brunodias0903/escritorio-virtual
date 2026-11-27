@@ -696,10 +696,10 @@ export function BottomBar({
                     size={18}
                     color={
                       call.screen
-                        ? '#9af5e6'
+                        ? 'var(--call-on-icon)'
                         : !busy && live
-                          ? '#c9cff5'
-                          : '#7b83bd'
+                          ? 'var(--text-icon)'
+                          : 'var(--text-icon-idle)'
                     }
                   />
                 </button>
@@ -774,7 +774,7 @@ export function BottomBar({
                 <Icon
                   name="smile"
                   size={18}
-                  color={menu === 'emotes' ? '#ffffff' : '#c9cff5'}
+                  color={menu === 'emotes' ? '#ffffff' : 'var(--text-icon)'}
                 />
               </button>
             </Tip>
@@ -799,7 +799,7 @@ export function BottomBar({
                 <Icon
                   name="desk"
                   size={18}
-                  color={hasDesk ? '#c9cff5' : '#5c6396'}
+                  color={hasDesk ? 'var(--text-icon)' : 'var(--text-disabled)'}
                 />
               </button>
             </Tip>
@@ -812,7 +812,11 @@ export function BottomBar({
                   onClick={onOpenSidebar}
                   className={`${styles.menuTrigger} ${styles.quickIconBtn}`}
                 >
-                  <Icon name="chevronRight" size={18} color="#c9cff5" />
+                  <Icon
+                    name="chevronRight"
+                    size={18}
+                    color="var(--text-icon)"
+                  />
                   {mentions > 0 || unread > 0 ? (
                     <span
                       className={`${styles.badge} ${mentions > 0 ? styles.badgeAlert : ''}`}

@@ -53,9 +53,9 @@ export class DeskService {
     this.now = now;
   }
 
-  /** Todas as mesinhas que têm dono. As que não aparecem estão livres. */
-  async list(): Promise<DeskInfo[]> {
-    return (await this.desks.all()).map(toInfo);
+  /** Todas as mesinhas que têm dono no servidor. As que não aparecem estão livres. */
+  async list(serverId = 'default'): Promise<DeskInfo[]> {
+    return (await this.desks.all(serverId)).map(toInfo);
   }
 
   /** Adota a mesinha em que a pessoa está parada. */

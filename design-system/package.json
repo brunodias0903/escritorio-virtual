@@ -6,6 +6,7 @@
   "description": "Design System compartilhado (tokens, temas e utilitários de cor) para Web (React) e Mobile (React Native).",
   "exports": {
     ".": "./src/index.ts",
-    "./web": "./src/web/applyCssVariables.ts"
+    "./web": "./src/web/applyCssVariables.ts",
+    "./tamagui": "./src/tamagui.config.ts"
   }
 }

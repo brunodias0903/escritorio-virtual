@@ -35,9 +35,11 @@ export class MemoryChannelRepository implements ChannelRepository {
     return this.channels.get(id);
   }
 
-  async listPublic() {
+  async listPublic(serverId = 'default') {
     return [...this.channels.values()]
-      .filter((c) => c.kind === 'public')
+      .filter(
+        (c) => c.kind === 'public' && (c.serverId ?? 'default') === serverId,
+      )
       .sort(
         (a, b) =>
           (a.position ?? 0) - (b.position ?? 0) ||

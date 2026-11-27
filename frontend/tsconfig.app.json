@@ -18,7 +18,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@design-system": ["../design-system/src/index.ts"],
-      "@design-system/*": ["../design-system/src/*"]
+      "@design-system/*": ["../design-system/src/*"],
+      "tamagui": ["./node_modules/tamagui"]
     },
 
     "strict": true,

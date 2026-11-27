@@ -67,12 +67,12 @@ export function LocalLoginForm({ onRegister, onForgot }: Props) {
       <div className={styles.header}>
         <h2 className={styles.title}>Entrar</h2>
         <p className={styles.subtitle}>
-          Acesse com seu e-mail ou nickname e senha
+          Acesse com seu nome de usuário ou e-mail e senha
         </p>
       </div>
 
       <Field
-        label="Nickname ou e-mail"
+        label="Nome de usuário ou e-mail"
         value={login}
         onChange={setLogin}
         autoComplete="username"
@@ -95,20 +95,37 @@ export function LocalLoginForm({ onRegister, onForgot }: Props) {
       />
 
       {mfaMode !== 'none' ? (
-        <Field
-          label={
-            mfaMode === 'email'
-              ? 'Código de 6 dígitos enviado no seu e-mail'
-              : 'Código de autenticação (2FA)'
-          }
-          value={mfaCode}
-          onChange={setMfaCode}
-          autoComplete="one-time-code"
-          placeholder={mfaMode === 'email' ? '000000' : '000000 ou XXXX-XXXX'}
-          leadingIcon={<LockIcon />}
-          variant="auth"
-          fullWidth
-        />
+        <>
+          <Field
+            label={
+              mfaMode === 'email'
+                ? 'Código de 6 dígitos enviado no seu e-mail'
+                : 'Código de autenticação (2FA)'
+            }
+            value={mfaCode}
+            onChange={setMfaCode}
+            autoComplete="one-time-code"
+            placeholder={mfaMode === 'email' ? '000000' : '000000 ou XXXX-XXXX'}
+            leadingIcon={<LockIcon />}
+            variant="auth"
+            fullWidth
+          />
+          <div className={styles.inlineAction}>
+            <button
+              type="button"
+              onClick={() => {
+                setMfaMode(mfaMode === 'totp' ? 'email' : 'totp');
+                setMfaCode('');
+                setError('');
+              }}
+              className={styles.inlineLink}
+            >
+              {mfaMode === 'totp'
+                ? 'Perdeu acesso ao aplicativo? Usar código por e-mail'
+                : 'Prefere usar o aplicativo autenticador?'}
+            </button>
+          </div>
+        </>
       ) : null}
 
       {onForgot ? (

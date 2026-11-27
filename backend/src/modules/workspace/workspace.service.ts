@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import {
   ACCOUNT_TIERS,
   CHANNEL_NAME_PATTERN,
@@ -6,7 +6,6 @@ import {
   canManageDesks,
   canManageMembers,
   canManageServer,
-  canModerateAccounts,
   canProgressFeedback,
   canResolveFeedback,
   canSeeFeedbackMr,
@@ -16,6 +15,8 @@ import {
   type CreateChannelConfig,
   type CreateFeedback,
   type CreateFeedbackComment,
+  type CreateServerInput,
+  type CreateServerInviteInput,
   type DeskInfo,
   type FeedbackComment,
   type FeedbackItem,
@@ -23,12 +24,14 @@ import {
   type ModerateAccount,
   type ModerateAccountResponse,
   type ReorderChannels,
+  type ServerInvite,
   type ServerSettings,
   type Status,
   type UpdateAccountRoles,
   type UpdateChannelConfig,
   type UpdateFeedback,
   type UpdateServerSettings,
+  type WorkspaceServer,
 } from '../../shared/domain/index.js';
 import { httpFail, ok, type HttpResult } from '../../shared/result.js';
 import type {
@@ -40,6 +43,8 @@ import type { ChannelRepository, ChannelRow } from '../chat/chat.repository.js';
 import type { DeskService } from '../desks/desks.service.js';
 import type {
   FeedbackRepository,
+  ServerInviteRepository,
+  ServerRepository,
   ServerSettingsRepository,
 } from './workspace.repository.js';
 
@@ -59,6 +64,8 @@ type Deps = {
   feedback: FeedbackRepository;
   channels: ChannelRepository;
   accounts: LocalAccountRepository;
+  servers?: ServerRepository;
+  invites?: ServerInviteRepository;
   desks?: DeskService;
   adminEmails?: string[];
   getOnlinePlayers?: () => readonly OnlinePlayerSummary[];
@@ -584,7 +591,12 @@ export class WorkspaceService {
     input: ModerateAccount,
   ): Promise<HttpResult<ModerateAccountResponse>> {
     const actorTiers = await this.tiersOf(claims);
-    if (!canModerateAccounts(actorTiers)) return httpFail(403, 'forbidden');
+    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+
+    const actorIsMaster = actorTiers.includes('master');
+    if (!actorIsMaster && input.action === 'remove') {
+      return httpFail(403, 'forbidden');
+    }
 
     const targetEmail = normalizeEmail(targetEmailRaw);
     if (targetEmail === claims.email) {
@@ -593,8 +605,12 @@ export class WorkspaceService {
 
     const target = await this.deps.accounts.byEmail(targetEmail);
     if (!target) return httpFail(404, 'not_found');
-    if (this.resolveTier(target) === 'master') {
+    const targetTiers = this.effectiveTiersOfAccount(target);
+    if (targetTiers.includes('master')) {
       return httpFail(403, 'cannot_moderate_master');
+    }
+    if (!actorIsMaster && targetTiers.includes('admin')) {
+      return httpFail(403, 'cannot_manage_higher_role');
     }
 
     const reason = input.reason?.trim() ?? '';
@@ -692,5 +708,245 @@ export class WorkspaceService {
     const freed = await this.releaseUserDesk(targetEmail);
     if (!freed) return httpFail(404, 'invalid_desk');
     return ok({ desk: freed });
+  }
+
+  // --- Multi-servidor e Convites (Fase 3) -----------------------------------
+
+  async listServers(claims: SessionClaims): Promise<WorkspaceServer[]> {
+    if (!this.deps.servers) return [];
+    return this.deps.servers.listForUser(claims.email);
+  }
+
+  async createServer(
+    claims: SessionClaims,
+    input: CreateServerInput,
+  ): Promise<HttpResult<WorkspaceServer>> {
+    if (!this.deps.servers) return httpFail(501, 'not_implemented');
+    const actorTiers = await this.tiersOf(claims);
+    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+
+    const server: WorkspaceServer = {
+      id: `srv-${this.newId().slice(0, 8)}`,
+      name: input.name.trim(),
+      description: input.description?.trim() ?? '',
+      accentColor: input.accentColor ?? '#5b6cff',
+      visibility: input.visibility ?? 'invite',
+      ownerEmail: normalizeEmail(claims.email),
+      planTier: 'starter',
+      maxMembers: null,
+      maxPendingInvites: null,
+      createdAt: this.now(),
+    };
+    const created = await this.deps.servers.create(server, claims.email);
+    return ok(created);
+  }
+
+  async listServerInvites(
+    claims: SessionClaims,
+    serverId: string,
+  ): Promise<HttpResult<ServerInvite[]>> {
+    if (!this.deps.invites || !this.deps.servers) {
+      return httpFail(501, 'not_implemented');
+    }
+    const actorTiers = await this.tiersOf(claims);
+    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+    const srv = await this.deps.servers.get(serverId);
+    if (!srv) return httpFail(404, 'server_not_found');
+
+    if (srv.maxPendingInvites !== null) {
+      const existing = await this.deps.invites.listByServer(serverId);
+      const activeCount = existing.filter((i) => !i.revoked).length;
+      if (activeCount >= srv.maxPendingInvites) {
+        return httpFail(403, 'server_invite_limit_reached');
+      }
+    }
+    return ok(await this.deps.invites.listByServer(serverId));
+  }
+
+  async createServerInvite(
+    claims: SessionClaims,
+    serverId: string,
+    input: CreateServerInviteInput,
+  ): Promise<HttpResult<ServerInvite>> {
+    if (!this.deps.invites || !this.deps.servers) {
+      return httpFail(501, 'not_implemented');
+    }
+    const actorTiers = await this.tiersOf(claims);
+    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+    const srv = await this.deps.servers.get(serverId);
+    if (!srv) return httpFail(404, 'server_not_found');
+
+    if (srv.maxPendingInvites !== null) {
+      const existing = await this.deps.invites.listByServer(serverId);
+      const activeCount = existing.filter((i) => !i.revoked).length;
+      if (activeCount >= srv.maxPendingInvites) {
+        return httpFail(403, 'server_invite_limit_reached');
+      }
+    }
+
+    const now = this.now();
+    const code = randomBytes(4).toString('hex').toUpperCase();
+    const expiresAt =
+      input.expiresInHours !== null && input.expiresInHours !== undefined
+        ? now + input.expiresInHours * 3_600_000
+        : null;
+
+    const invite: ServerInvite = {
+      code,
+      serverId,
+      createdBy: normalizeEmail(claims.email),
+      maxUses: input.maxUses ?? null,
+      uses: 0,
+      expiresAt,
+      revoked: false,
+      createdAt: now,
+    };
+    return ok(await this.deps.invites.create(invite));
+  }
+
+  async revokeServerInvite(
+    claims: SessionClaims,
+    serverId: string,
+    code: string,
+  ): Promise<HttpResult<{ ok: true }>> {
+    if (!this.deps.invites) return httpFail(501, 'not_implemented');
+    const actorTiers = await this.tiersOf(claims);
+    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+    const revoked = await this.deps.invites.revoke(code, serverId);
+    if (!revoked) return httpFail(404, 'invite_not_found');
+    return ok({ ok: true });
+  }
+
+  async joinServerByInvite(
+    claims: SessionClaims,
+    code: string,
+  ): Promise<HttpResult<WorkspaceServer>> {
+    if (!this.deps.invites || !this.deps.servers) {
+      return httpFail(501, 'not_implemented');
+    }
+    const invite = await this.deps.invites.getByCode(code);
+    if (!invite || invite.revoked) {
+      return httpFail(404, 'invite_invalid');
+    }
+    if (invite.expiresAt !== null && this.now() > invite.expiresAt) {
+      return httpFail(410, 'invite_expired');
+    }
+    if (invite.maxUses !== null && invite.uses >= invite.maxUses) {
+      return httpFail(410, 'invite_exhausted');
+    }
+    const server = await this.deps.servers.get(invite.serverId);
+    if (!server) return httpFail(404, 'server_not_found');
+
+    const alreadyMember = await this.deps.servers.isMember(
+      server.id,
+      claims.email,
+    );
+    if (!alreadyMember) {
+      if (server.maxMembers !== null) {
+        const count = await this.deps.servers.countMembers(server.id);
+        if (count >= server.maxMembers) {
+          return httpFail(403, 'server_member_limit_reached');
+        }
+      }
+      await this.deps.servers.addMember(
+        server.id,
+        claims.email,
+        'member',
+        this.now(),
+      );
+      await this.deps.invites.incrementUse(invite.code);
+    }
+    return ok(server);
+  }
+
+  async listInvitedEmails(
+    claims: SessionClaims,
+    serverId: string,
+  ): Promise<
+    HttpResult<
+      Array<{
+        serverId: string;
+        email: string;
+        invitedBy: string;
+        createdAt: number;
+      }>
+    >
+  > {
+    if (!this.deps.invites?.listInvitedEmails || !this.deps.servers) {
+      return httpFail(501, 'not_implemented');
+    }
+    const actorTiers = await this.tiersOf(claims);
+    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+    const srv = await this.deps.servers.get(serverId);
+    if (!srv) return httpFail(404, 'server_not_found');
+    return ok(await this.deps.invites.listInvitedEmails(serverId));
+  }
+
+  async addInvitedEmail(
+    claims: SessionClaims,
+    serverId: string,
+    emailRaw: string,
+  ): Promise<
+    HttpResult<{
+      serverId: string;
+      email: string;
+      invitedBy: string;
+      createdAt: number;
+    }>
+  > {
+    if (
+      !this.deps.invites?.addInvitedEmail ||
+      !this.deps.invites?.listInvitedEmails ||
+      !this.deps.servers
+    ) {
+      return httpFail(501, 'not_implemented');
+    }
+    const actorTiers = await this.tiersOf(claims);
+    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+    const srv = await this.deps.servers.get(serverId);
+    if (!srv) return httpFail(404, 'server_not_found');
+
+    const email = normalizeEmail(emailRaw);
+    if (srv.maxPendingInvites !== null) {
+      const existing = await this.deps.invites.listInvitedEmails(serverId);
+      if (
+        !existing.some((e) => e.email === email) &&
+        existing.length >= srv.maxPendingInvites
+      ) {
+        return httpFail(403, 'server_invite_limit_reached');
+      }
+    }
+
+    const createdAt = this.now();
+    await this.deps.invites.addInvitedEmail(
+      serverId,
+      email,
+      normalizeEmail(claims.email),
+      createdAt,
+    );
+    return ok({
+      serverId,
+      email,
+      invitedBy: normalizeEmail(claims.email),
+      createdAt,
+    });
+  }
+
+  async removeInvitedEmail(
+    claims: SessionClaims,
+    serverId: string,
+    emailRaw: string,
+  ): Promise<HttpResult<{ ok: true }>> {
+    if (!this.deps.invites?.removeInvitedEmail) {
+      return httpFail(501, 'not_implemented');
+    }
+    const actorTiers = await this.tiersOf(claims);
+    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+    const removed = await this.deps.invites.removeInvitedEmail(
+      serverId,
+      normalizeEmail(emailRaw),
+    );
+    if (!removed) return httpFail(404, 'invite_not_found');
+    return ok({ ok: true });
   }
 }

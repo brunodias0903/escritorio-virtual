@@ -2,6 +2,7 @@ import type { AccountTier, ChatMessage } from '../../shared/domain/index.js';
 
 export type ChannelRow = {
   id: string;
+  serverId?: string;
   name: string;
   kind: 'public' | 'dm';
   archived: boolean;
@@ -19,7 +20,7 @@ export type ChannelRow = {
 export interface ChannelRepository {
   get(id: string): Promise<ChannelRow | undefined>;
   /** Canais públicos (inclusive arquivados). Conversas diretas ficam de fora. */
-  listPublic(): Promise<ChannelRow[]>;
+  listPublic(serverId?: string): Promise<ChannelRow[]>;
   /** Conversas diretas que têm este e-mail como uma das pessoas. */
   listDirect(email: string): Promise<ChannelRow[]>;
   /** Cria o canal. Devolve false se o id ou o nome já existe. */

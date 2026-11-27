@@ -7,5 +7,7 @@ export { PgProfileRepository } from './profile.repository.js';
 export { PgReadStateRepository } from './read-state.repository.js';
 export {
   PgFeedbackRepository,
+  PgServerInviteRepository,
+  PgServerRepository,
   PgServerSettingsRepository,
 } from './workspace.repository.js';

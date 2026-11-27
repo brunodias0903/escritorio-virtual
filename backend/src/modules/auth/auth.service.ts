@@ -1,5 +1,6 @@
 import {
   AccessibilityPrefsSchema,
+  NicknameSchema,
   UiThemeSchema,
   accountKindOf,
   canManageServer,
@@ -10,6 +11,7 @@ import {
   type AccountAccess,
   type AccountTier,
   type AuthOptions,
+  type EmailChangeConfirm,
   type MfaEnableResponse,
   type MfaSetupResponse,
   type Register,
@@ -62,6 +64,14 @@ type Deps = {
   verifyCodes?: CodeService | null;
   /** Permite criação de novas contas. False em ambientes de preview. */
   allowRegistration?: boolean;
+  /** Verifica se o e-mail foi convidado na lista de algum servidor. */
+  isEmailInvited?: (email: string) => Promise<boolean>;
+  /** Verifica se o e-mail possui assinatura ativa. */
+  isSubscriber?: (email: string) => Promise<boolean>;
+  /** Executado após a criação da conta para associar servidores convidados. */
+  onRegistered?: (email: string) => Promise<void>;
+  /** Permite cadastro aberto quando o servidor padrão está com registro público ativo. */
+  isPublicRegistrationOpen?: () => Promise<boolean>;
   /** Chamado após excluir a conta (para liberar mesa e encerrar conexões ativas). */
   onAccountDeleted?: (email: string) => Promise<void> | void;
   now?: () => number;
@@ -109,7 +119,17 @@ export class AuthService {
       if (this.deps.allowRegistration === false) {
         return httpFail(403, 'registration_disabled');
       }
-      if (!accountKindOf(email, this.deps.access)) {
+      if (this.deps.isEmailInvited) {
+        const whitelisted =
+          this.deps.adminEmails.includes(email) ||
+          this.deps.access.emails.includes(email);
+        const invited = whitelisted || (await this.deps.isEmailInvited(email));
+        const subscriber =
+          invited || ((await this.deps.isSubscriber?.(email)) ?? false);
+        if (!invited && !subscriber) {
+          return httpFail(403, 'invite_required');
+        }
+      } else if (!accountKindOf(email, this.deps.access)) {
         return httpFail(403, 'email_not_allowed');
       }
       const existing = await accounts.byEmail(email);
@@ -170,8 +190,19 @@ export class AuthService {
       return httpFail(429, 'too_many_attempts');
     }
     const email = normalizeEmail(input.email);
-    const kind = accountKindOf(email, this.deps.access);
-    if (!kind) {
+    let kind = accountKindOf(email, this.deps.access);
+    if (this.deps.isEmailInvited) {
+      const whitelisted =
+        this.deps.adminEmails.includes(email) ||
+        this.deps.access.emails.includes(email);
+      const invited = whitelisted || (await this.deps.isEmailInvited(email));
+      const subscriber =
+        invited || ((await this.deps.isSubscriber?.(email)) ?? false);
+      if (!invited && !subscriber) {
+        return httpFail(403, 'invite_required');
+      }
+      kind = kind ?? 'company';
+    } else if (!kind) {
       return httpFail(403, 'email_not_allowed');
     }
     if (input.acceptedTerms === false) {
@@ -209,6 +240,7 @@ export class AuthService {
     const created = await accounts.create(account);
     if (created !== 'ok') return httpFail(409, created);
     await codes?.consume(email, 'register');
+    await this.deps.onRegistered?.(email);
     return ok(this.createSession(account));
   }
 
@@ -655,6 +687,205 @@ export class AuthService {
       return 'account_restricted';
     }
     return null;
+  }
+
+  /** Verifica disponibilidade de nome de usuário (com rate limit). */
+  async checkUsernameAvailable(
+    rawUsername: string,
+    currentEmail: string | undefined,
+    ip: string,
+  ): Promise<HttpResult<{ available: boolean }>> {
+    const { accounts, loginLimiter } = this.deps;
+    if (!(await loginLimiter.attempt(`username-check|${ip}`))) {
+      return httpFail(429, 'too_many_attempts');
+    }
+    const parsed = NicknameSchema.safeParse(rawUsername);
+    if (!parsed.success) return httpFail(400, 'invalid_request');
+    const existing = await accounts.byNickname(parsed.data);
+    const normalizedCurrent = currentEmail ? normalizeEmail(currentEmail) : '';
+    return ok({
+      available: !existing || existing.email === normalizedCurrent,
+    });
+  }
+
+  /** Verifica elegibilidade do e-mail na 1ª etapa do cadastro. */
+  async checkRegisterEmail(
+    rawEmail: string,
+    ip: string,
+  ): Promise<HttpResult<{ eligible: boolean }>> {
+    if (this.deps.allowRegistration === false) {
+      return httpFail(403, 'registration_disabled');
+    }
+    if (!(await this.deps.loginLimiter.attempt(`register-check|${ip}`))) {
+      return httpFail(429, 'too_many_attempts');
+    }
+    const email = normalizeEmail(rawEmail);
+    if (this.deps.isEmailInvited) {
+      const whitelisted =
+        this.deps.adminEmails.includes(email) ||
+        this.deps.access.emails.includes(email);
+      const invited = whitelisted || (await this.deps.isEmailInvited(email));
+      const subscriber =
+        invited || ((await this.deps.isSubscriber?.(email)) ?? false);
+      if (!invited && !subscriber) {
+        return httpFail(403, 'invite_required');
+      }
+      return ok({ eligible: true });
+    }
+    const kind = accountKindOf(email, this.deps.access);
+    const publicOpen = (await this.deps.isPublicRegistrationOpen?.()) ?? false;
+    if (!kind && !publicOpen) {
+      return httpFail(403, 'invite_required');
+    }
+    return ok({ eligible: true });
+  }
+
+  /** Provisiona conta direta para assinantes (dispensa tela de registro, vai direto ao login). */
+  async provisionSubscriberAccount(input: {
+    email: string;
+    fullName: string;
+    nickname: string;
+    password: string;
+    role?: string;
+  }): Promise<HttpResult<Session>> {
+    const email = normalizeEmail(input.email);
+    const account: LocalAccount = {
+      nickname: input.nickname,
+      fullName: input.fullName,
+      email,
+      role: input.role ?? 'Assinante',
+      passwordHash: await hashPassword(input.password),
+      createdAt: this.now(),
+      tier: 'admin',
+      emailVerified: true,
+      emailMarketingOptIn: false,
+      uiTheme: null,
+    };
+    const created = await this.deps.accounts.create(account);
+    if (created !== 'ok') return httpFail(409, created);
+    return ok(this.createSession(account));
+  }
+
+  /** Inicia troca segura de e-mail: valida senha e envia códigos ao e-mail antigo e ao novo. */
+  async startEmailChange(
+    claims: SessionClaims,
+    newEmailRaw: string,
+    password: string,
+    ip: string,
+  ): Promise<
+    HttpResult<{
+      ok: true;
+      codesRequired: boolean;
+      mfaRequired: boolean;
+    }>
+  > {
+    const { accounts, loginLimiter } = this.deps;
+    if (!(await loginLimiter.attempt(`email-change|${ip}`))) {
+      return httpFail(429, 'too_many_attempts');
+    }
+    const account = await accounts.byEmail(claims.email);
+    if (!account) return httpFail(404, 'no_account');
+    if (!(await verifyPassword(password, account.passwordHash))) {
+      return httpFail(401, 'wrong_password');
+    }
+    const newEmail = normalizeEmail(newEmailRaw);
+    if (newEmail === account.email) return httpFail(400, 'same_email');
+    if (await accounts.byEmail(newEmail)) return httpFail(409, 'email_taken');
+
+    const codeService = this.deps.codes ?? this.deps.verifyCodes ?? null;
+    if (codeService) {
+      const sentOld = await codeService.send(account.email, 'email_change_old');
+      if (sentOld === 'wait') return httpFail(429, 'code_wait');
+      if (sentOld === 'mail_failed') return httpFail(502, 'mail_failed');
+      const sentNew = await codeService.send(newEmail, 'email_change_new');
+      if (sentNew === 'wait') return httpFail(429, 'code_wait');
+      if (sentNew === 'mail_failed') return httpFail(502, 'mail_failed');
+    }
+    return ok({
+      ok: true,
+      codesRequired: Boolean(codeService),
+      mfaRequired: Boolean(account.mfaEnabled && account.mfaMethod === 'totp'),
+    });
+  }
+
+  /** Confirma troca de e-mail com códigos (antigo + novo), MFA TOTP se ativo e desvincula MFA por e-mail. */
+  async confirmEmailChange(
+    claims: SessionClaims,
+    input: EmailChangeConfirm,
+    ip: string,
+  ): Promise<HttpResult<Session>> {
+    const { accounts, loginLimiter, revocations } = this.deps;
+    if (!(await loginLimiter.attempt(`email-change-confirm|${ip}`))) {
+      return httpFail(429, 'too_many_attempts');
+    }
+    const account = await accounts.byEmail(claims.email);
+    if (!account) return httpFail(404, 'no_account');
+    if (!(await verifyPassword(input.password, account.passwordHash))) {
+      return httpFail(401, 'wrong_password');
+    }
+    const newEmail = normalizeEmail(input.newEmail);
+    if (newEmail === account.email) return httpFail(400, 'same_email');
+    if (await accounts.byEmail(newEmail)) return httpFail(409, 'email_taken');
+
+    const codeService = this.deps.codes ?? this.deps.verifyCodes ?? null;
+    if (codeService) {
+      if (
+        !input.oldCode ||
+        !(await codeService.check(
+          account.email,
+          'email_change_old',
+          input.oldCode,
+        ))
+      ) {
+        return httpFail(400, 'invalid_code');
+      }
+      if (
+        !input.newCode ||
+        !(await codeService.check(newEmail, 'email_change_new', input.newCode))
+      ) {
+        return httpFail(400, 'invalid_code');
+      }
+    }
+
+    if (account.mfaEnabled && account.mfaMethod === 'totp') {
+      const mfaCode = input.mfaCode.trim();
+      if (!mfaCode) return httpFail(400, 'mfa_required');
+      const secret = account.mfaSecretEnc
+        ? decryptTotpSecret(account.mfaSecretEnc, this.deps.secret)
+        : null;
+      const totpOk = Boolean(secret && verifyTotpCode(secret, mfaCode));
+      const recoveryHash = hashRecoveryCode(mfaCode, this.deps.secret);
+      const recoveryOk = Boolean(
+        account.mfaRecoveryHashes?.includes(recoveryHash),
+      );
+      if (!totpOk && !recoveryOk) {
+        return httpFail(401, 'invalid_mfa_code');
+      }
+    }
+
+    const unlinkEmailMfa = account.mfaMethod === 'email';
+    const updated = accounts.changeEmail
+      ? await accounts.changeEmail(account.email, newEmail, unlinkEmailMfa)
+      : 'ok';
+    if (updated === 'email_taken') return httpFail(409, 'email_taken');
+    if (updated === 'not_found') return httpFail(404, 'no_account');
+
+    if (codeService) {
+      await codeService.consume(account.email, 'email_change_old');
+      await codeService.consume(newEmail, 'email_change_new');
+    }
+
+    const ttl = Math.max(1, claims.exp - Math.floor(this.now() / 1000));
+    await revocations.revoke(claims.jti, ttl);
+
+    return ok(
+      this.createSession({
+        ...account,
+        email: newEmail,
+        emailVerified: true,
+        ...(unlinkEmailMfa ? { mfaEnabled: false, mfaMethod: 'none' } : {}),
+      }),
+    );
   }
 
   private resolveTier(account: LocalAccount): AccountTier {

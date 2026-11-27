@@ -8,7 +8,7 @@
 /* --- Avisos flutuantes discretos acima da barra de chamada (livres do joystick à direita) --- */
 .notices {
   position: absolute;
-  bottom: calc(58px + min(20px, env(safe-area-inset-bottom)) + 66px);
+  bottom: calc(82px + env(safe-area-inset-bottom) + 64px);
   left: calc(env(safe-area-inset-left) + 12px);
   right: calc(env(safe-area-inset-right) + 136px);
   display: flex;
@@ -35,7 +35,7 @@
 
 .toastError {
   border-color: var(--status-busy);
-  color: #ffd5dc;
+  color: var(--status-busy);
 }
 
 .mutedPill {
@@ -167,7 +167,7 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(58px + min(20px, env(safe-area-inset-bottom)) + 10px);
+  bottom: calc(82px + env(safe-area-inset-bottom) + 8px);
   z-index: calc(var(--z-bar) + 3);
   pointer-events: auto;
   max-width: calc(100vw - 16px);
@@ -180,10 +180,10 @@
   padding: 5px 8px;
   border-radius: 999px;
   background-color: var(--bg-bar-glass);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 10px 26px rgba(6, 8, 22, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-bar);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .btnWrap {

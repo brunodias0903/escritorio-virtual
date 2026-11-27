@@ -43,6 +43,7 @@ export const applyThemeCssVariables = (tokens: ResolvedThemeTokens): void => {
     '--text-placeholder': tokens.text.placeholder,
     '--text-icon': tokens.text.icon,
     '--text-icon-idle': tokens.text.iconIdle,
+    '--text-disabled': tokens.text.disabled ?? '#5c6396',
 
     '--accent': tokens.accent.main,
     '--accent-hover': tokens.accent.hover,
@@ -62,11 +63,14 @@ export const applyThemeCssVariables = (tokens: ResolvedThemeTokens): void => {
     '--presence-glow': tokens.presence.glow,
     '--call-on-bg': tokens.presence.callOnBg,
     '--call-on-icon': tokens.presence.callOnIcon,
+    '--call-off-bg': tokens.presence.callOffBg ?? '#55212f',
+    '--call-off-icon': tokens.presence.callOffIcon ?? '#ffb3bf',
     '--zone-pill-bg': tokens.presence.zonePillBg,
     '--info-text': tokens.presence.infoText,
 
     '--danger-bg': tokens.feedback.dangerBg,
     '--danger-border': tokens.feedback.dangerBorder,
+    '--danger-text': tokens.feedback.dangerText ?? '#ff9aa8',
     '--warning-bg': tokens.feedback.warningBg,
     '--warning-border': tokens.feedback.warningBorder,
 

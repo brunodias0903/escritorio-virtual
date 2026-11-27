@@ -223,10 +223,40 @@ describe('OfficeService.leave', () => {
   it('remove o jogador e avisa a sala', () => {
     const { office } = withAna();
     expect(office.leave('a')).toEqual([
-      { to: 'all', map: 'lobby', message: { type: 'left', id: 'a' } },
+      {
+        to: 'all',
+        map: 'lobby',
+        serverId: 'default',
+        message: { type: 'left', id: 'a' },
+      },
     ]);
     expect(office.players.size).toBe(0);
     expect(office.emailOf('a')).toBeUndefined();
+  });
+
+  it('isola jogadores por serverId no init', () => {
+    const office = newOffice();
+    office.join(
+      'a',
+      'Ana',
+      'ana@x',
+      defaultAppearance('ana@x'),
+      null,
+      'default',
+    );
+    const out = office.join(
+      'b',
+      'Bia',
+      'bia@x',
+      defaultAppearance('bia@x'),
+      null,
+      'srv-2',
+    );
+    const init = out[0];
+    expect(init?.message.type).toBe('init');
+    if (init?.message.type === 'init') {
+      expect(init.message.players.map((p) => p.id)).toEqual(['b']);
+    }
   });
 
   it('ignora quem nunca entrou', () => {

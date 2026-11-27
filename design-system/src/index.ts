@@ -30,11 +30,18 @@ export {
   isMobileViewport,
   type MobileNavTab,
 } from './tokens/mobileLayout';
-export { adjustHex, hexToRgba, isHexColor } from './themes/colorMath';
+export {
+  adjustHex,
+  contrastRatio,
+  ensureContrast,
+  hexToRgba,
+  isHexColor,
+} from './themes/colorMath';
 export {
   THEME_PRESETS,
   findPreset,
   type ThemeColors,
+  type ThemeMode,
   type ThemePreset,
   type ThemePresetId,
 } from './themes/presets';

@@ -2,7 +2,11 @@ import {
   CreateChannelConfigSchema,
   CreateFeedbackCommentSchema,
   CreateFeedbackSchema,
+  CreateServerInviteSchema,
+  CreateServerSchema,
+  JoinServerInviteSchema,
   ModerateAccountSchema,
+  RegisterEligibilitySchema,
   ReorderChannelsSchema,
   UpdateAccountRolesSchema,
   UpdateChannelConfigSchema,
@@ -221,6 +225,119 @@ export const handleWorkspaceRoutes = async (
     return respond(
       await workspace.updateFeedback(claims, feedbackId, parsed.data),
       (item) => json(200, { item }),
+    );
+  }
+
+  // --- Multi-servidor e Convites (Fase 3) -----------------------------------
+
+  if (path === '/api/servers') {
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    if (method === 'GET') {
+      const servers = await workspace.listServers(claims);
+      return json(200, { servers });
+    }
+    if (method === 'POST') {
+      const parsed = CreateServerSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await workspace.createServer(claims, parsed.data),
+        (server) => json(201, { server }),
+      );
+    }
+    return error(405, 'method_not_allowed');
+  }
+
+  if (path === '/api/servers/join') {
+    if (method !== 'POST') return error(405, 'method_not_allowed');
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const parsed = JoinServerInviteSchema.safeParse(body);
+    if (!parsed.success) return error(400, 'invalid_request');
+    return respond(
+      await workspace.joinServerByInvite(claims, parsed.data.code),
+      (server) => json(200, { server }),
+    );
+  }
+
+  const serverInvitesMatch = /^\/api\/servers\/([^/]+)\/invites$/.exec(path);
+  if (serverInvitesMatch) {
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const serverId = decodeURIComponent(serverInvitesMatch[1]!);
+    if (method === 'GET') {
+      return respond(
+        await workspace.listServerInvites(claims, serverId),
+        (invites) => json(200, { invites }),
+      );
+    }
+    if (method === 'POST') {
+      const parsed = CreateServerInviteSchema.safeParse(body ?? {});
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await workspace.createServerInvite(claims, serverId, parsed.data),
+        (invite) => json(201, { invite }),
+      );
+    }
+    return error(405, 'method_not_allowed');
+  }
+
+  const revokeInviteMatch = /^\/api\/servers\/([^/]+)\/invites\/([^/]+)$/.exec(
+    path,
+  );
+  if (revokeInviteMatch) {
+    if (method !== 'DELETE') return error(405, 'method_not_allowed');
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const serverId = decodeURIComponent(revokeInviteMatch[1]!);
+    const code = decodeURIComponent(revokeInviteMatch[2]!);
+    return respond(
+      await workspace.revokeServerInvite(claims, serverId, code),
+      (res) => json(200, res),
+    );
+  }
+
+  const emailInvitesMatch = /^\/api\/servers\/([^/]+)\/email-invites$/.exec(
+    path,
+  );
+  if (emailInvitesMatch) {
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const serverId = decodeURIComponent(emailInvitesMatch[1]!);
+    if (method === 'GET') {
+      return respond(
+        await workspace.listInvitedEmails(claims, serverId),
+        (emails) => json(200, { emails }),
+      );
+    }
+    if (method === 'POST') {
+      const parsed = RegisterEligibilitySchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await workspace.addInvitedEmail(claims, serverId, parsed.data.email),
+        (invite) => json(201, { invite }),
+      );
+    }
+    return error(405, 'method_not_allowed');
+  }
+
+  const removeEmailInviteMatch =
+    /^\/api\/servers\/([^/]+)\/email-invites\/([^/]+)$/.exec(path);
+  if (removeEmailInviteMatch) {
+    if (method !== 'DELETE') return error(405, 'method_not_allowed');
+    const token = bearer(req.authorization);
+    const claims = token ? await auth.authenticate(token) : null;
+    if (!claims) return error(401, 'unauthorized');
+    const serverId = decodeURIComponent(removeEmailInviteMatch[1]!);
+    const email = decodeURIComponent(removeEmailInviteMatch[2]!);
+    return respond(
+      await workspace.removeInvitedEmail(claims, serverId, email),
+      (res) => json(200, res),
     );
   }
 

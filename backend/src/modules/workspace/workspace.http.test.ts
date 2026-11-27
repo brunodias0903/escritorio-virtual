@@ -7,10 +7,14 @@ import {
   MemoryLocalAccountRepository,
   MemoryRateLimiter,
   MemoryRevocations,
+  MemoryServerInviteRepository,
+  MemoryServerRepository,
   MemoryServerSettingsRepository,
 } from '../../infra/persistence/memory/index.js';
 import {
   PgFeedbackRepository,
+  PgServerInviteRepository,
+  PgServerRepository,
   PgServerSettingsRepository,
 } from '../../infra/persistence/postgres/index.js';
 import type { SqlClient } from '../../infra/database/sql-client.js';
@@ -67,12 +71,16 @@ const createHarness = async () => {
   if (devAccount) devAccount.tier = 'developer';
 
   const desks = new DeskService(new MemoryDeskRepository());
+  const servers = new MemoryServerRepository();
+  const invites = new MemoryServerInviteRepository();
   const workspace = new WorkspaceService({
     settings,
     feedback,
     channels,
     accounts,
     desks,
+    servers,
+    invites,
     adminEmails: ['master@setter.app'],
     onChannelsChanged: () => {},
   });
@@ -609,5 +617,290 @@ describe('handleWorkspaceRoutes', () => {
       reordered?.body as { channels: Array<{ id: string }> }
     ).channels.map((c) => c.id);
     expect(ids).toEqual(['diretoria', 'projetos', 'geral', 'aleatorio']);
+  });
+
+  it('cobre endpoints HTTP de servidores e convites', async () => {
+    const { auth, workspace, masterToken, devToken } = await createHarness();
+
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'GET',
+          path: '/api/servers',
+          authorization: undefined,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(401);
+
+    const listInit = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'GET',
+      path: '/api/servers',
+      authorization: `Bearer ${masterToken}`,
+      body: undefined,
+      ip: '127.0.0.1',
+    });
+    expect(listInit?.status).toBe(200);
+
+    const created = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'POST',
+      path: '/api/servers',
+      authorization: `Bearer ${masterToken}`,
+      body: {
+        name: 'Squad Produto',
+        description: 'Time de produto',
+        accentColor: '#10b981',
+        visibility: 'invite',
+      },
+      ip: '127.0.0.1',
+    });
+    expect(created?.status).toBe(201);
+    const serverId = (created?.body as { server: { id: string } }).server.id;
+
+    const invCreated = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'POST',
+      path: `/api/servers/${serverId}/invites`,
+      authorization: `Bearer ${masterToken}`,
+      body: { maxUses: 2, expiresInHours: 24 },
+      ip: '127.0.0.1',
+    });
+    expect(invCreated?.status).toBe(201);
+    const code = (invCreated?.body as { invite: { code: string } }).invite.code;
+
+    const invList = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'GET',
+      path: `/api/servers/${serverId}/invites`,
+      authorization: `Bearer ${masterToken}`,
+      body: undefined,
+      ip: '127.0.0.1',
+    });
+    expect(invList?.status).toBe(200);
+
+    const joined = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'POST',
+      path: '/api/servers/join',
+      authorization: `Bearer ${devToken}`,
+      body: { code },
+      ip: '127.0.0.1',
+    });
+    expect(joined?.status).toBe(200);
+
+    const revoked = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'DELETE',
+      path: `/api/servers/${serverId}/invites/${code}`,
+      authorization: `Bearer ${masterToken}`,
+      body: undefined,
+      ip: '127.0.0.1',
+    });
+    expect(revoked?.status).toBe(200);
+
+    // E-mails convidados
+    const addedEmail = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'POST',
+      path: `/api/servers/${serverId}/email-invites`,
+      authorization: `Bearer ${masterToken}`,
+      body: { email: 'vmns50@gmail.com' },
+      ip: '127.0.0.1',
+    });
+    expect(addedEmail?.status).toBe(201);
+    const listedEmails = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'GET',
+      path: `/api/servers/${serverId}/email-invites`,
+      authorization: `Bearer ${masterToken}`,
+      body: undefined,
+      ip: '127.0.0.1',
+    });
+    expect(listedEmails?.status).toBe(200);
+    expect(
+      (listedEmails?.body as { emails: Array<{ email: string }> }).emails.map(
+        (e) => e.email,
+      ),
+    ).toEqual(['vmns50@gmail.com']);
+    const removedEmail = await handleWorkspaceRoutes(auth, workspace, {
+      method: 'DELETE',
+      path: `/api/servers/${serverId}/email-invites/vmns50@gmail.com`,
+      authorization: `Bearer ${masterToken}`,
+      body: undefined,
+      ip: '127.0.0.1',
+    });
+    expect(removedEmail?.status).toBe(200);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'PUT',
+          path: `/api/servers/${serverId}/email-invites`,
+          authorization: `Bearer ${masterToken}`,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(405);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'POST',
+          path: `/api/servers/${serverId}/email-invites`,
+          authorization: `Bearer ${masterToken}`,
+          body: { email: 'invalido' },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(400);
+
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'POST',
+          path: '/api/servers',
+          authorization: `Bearer ${devToken}`,
+          body: { name: 'Sem Permissão' },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(403);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'POST',
+          path: '/api/servers',
+          authorization: `Bearer ${masterToken}`,
+          body: { name: '' },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(400);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'POST',
+          path: '/api/servers/join',
+          authorization: `Bearer ${devToken}`,
+          body: { code: '' },
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(400);
+    expect(
+      (
+        await handleWorkspaceRoutes(auth, workspace, {
+          method: 'PUT',
+          path: '/api/servers',
+          authorization: `Bearer ${masterToken}`,
+          body: undefined,
+          ip: '127.0.0.1',
+        })
+      )?.status,
+    ).toBe(405);
+  });
+
+  it('cobre PgServerRepository e PgServerInviteRepository com SqlClient mockado', async () => {
+    const serverRow = {
+      id: 'srv-1',
+      name: 'Equipe',
+      description: 'Desc',
+      accent_color: '#5b6cff',
+      visibility: 'invite',
+      owner_email: 'a@x',
+      plan_tier: null,
+      max_members: 10,
+      max_pending_invites: 5,
+      created_at: '10',
+    };
+    const inviteRow = {
+      code: 'ABCD1234',
+      server_id: 'srv-1',
+      created_by: 'a@x',
+      max_uses: null,
+      uses: 0,
+      expires_at: '9999999',
+      revoked: false,
+      created_at: '10',
+    };
+    let emptyMode = false;
+    const db: SqlClient = {
+      query: async (sql: string) => {
+        if (emptyMode) return { rows: [], rowCount: 0 };
+        if (sql.includes('COUNT(*)'))
+          return { rows: [{ total: 3 }], rowCount: 1 };
+        if (sql.includes('FROM servers'))
+          return { rows: [serverRow], rowCount: 1 };
+        if (sql.includes('FROM server_members'))
+          return { rows: [{ '?column?': 1 }], rowCount: 1 };
+        if (sql.includes('FROM server_invites'))
+          return { rows: [inviteRow], rowCount: 1 };
+        if (sql.includes('FROM server_email_invites'))
+          return {
+            rows: [
+              {
+                server_id: 'srv-1',
+                email: 'vmns50@gmail.com',
+                invited_by: 'a@x',
+                created_at: '10',
+              },
+            ],
+            rowCount: 1,
+          };
+        return { rows: [], rowCount: 1 };
+      },
+    };
+    const pgServers = new PgServerRepository(db);
+    const pgInvites = new PgServerInviteRepository(db);
+
+    expect(await pgServers.listForUser('a@x')).toHaveLength(1);
+    expect((await pgServers.get('srv-1'))?.planTier).toBe('starter');
+    await pgServers.create(
+      {
+        id: 'srv-1',
+        name: 'Equipe',
+        description: 'Desc',
+        accentColor: '#5b6cff',
+        visibility: 'invite',
+        ownerEmail: 'a@x',
+        planTier: 'starter',
+        maxMembers: null,
+        maxPendingInvites: null,
+        createdAt: 10,
+      },
+      'a@x',
+    );
+    expect(await pgServers.isMember('default', 'a@x')).toBe(true);
+    expect(await pgServers.isMember('srv-1', 'a@x')).toBe(true);
+    expect(await pgServers.countMembers('srv-1')).toBe(3);
+
+    expect(await pgInvites.listByServer('srv-1')).toHaveLength(1);
+    expect((await pgInvites.getByCode('abcd1234'))?.code).toBe('ABCD1234');
+    await pgInvites.create({
+      code: 'ABCD1234',
+      serverId: 'srv-1',
+      createdBy: 'a@x',
+      maxUses: 5,
+      uses: 0,
+      expiresAt: null,
+      revoked: false,
+      createdAt: 10,
+    });
+    await pgInvites.incrementUse('ABCD1234');
+    expect(await pgInvites.revoke('ABCD1234', 'srv-1')).toBe(true);
+    await pgInvites.addInvitedEmail('srv-1', 'vmns50@gmail.com', 'a@x', 10);
+    expect(await pgInvites.listInvitedEmails('srv-1')).toHaveLength(1);
+    expect(await pgInvites.isEmailInvited('vmns50@gmail.com')).toBe(true);
+    expect(await pgInvites.invitedServersForEmail('vmns50@gmail.com')).toEqual([
+      'srv-1',
+    ]);
+    expect(
+      await pgInvites.removeInvitedEmail('srv-1', 'vmns50@gmail.com'),
+    ).toBe(true);
+
+    emptyMode = true;
+    expect(await pgServers.get('missing')).toBeUndefined();
+    expect(await pgServers.isMember('srv-1', 'a@x')).toBe(false);
+    expect(await pgServers.countMembers('srv-1')).toBe(0);
+    expect(await pgInvites.getByCode('missing')).toBeUndefined();
+    expect(await pgInvites.revoke('missing', 'srv-1')).toBe(false);
+    expect(await pgInvites.isEmailInvited('vmns50@gmail.com')).toBe(false);
+    expect(
+      await pgInvites.removeInvitedEmail('srv-1', 'vmns50@gmail.com'),
+    ).toBe(false);
   });
 });

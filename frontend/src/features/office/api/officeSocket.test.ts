@@ -43,7 +43,11 @@ describe('connectOffice', () => {
     const { socket, statuses } = setup();
     socket.onopen?.();
     expect(statuses).toEqual(['connecting', 'open']);
-    expect(JSON.parse(socket.sent[0]!)).toEqual({ type: 'join', token: 'tok' });
+    expect(JSON.parse(socket.sent[0]!)).toEqual({
+      type: 'join',
+      token: 'tok',
+      serverId: 'default',
+    });
   });
 
   it('só envia pedidos depois de abrir e para de enviar ao fechar', () => {

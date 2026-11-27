@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Button, Switch, Text, XStack, YStack } from 'tamagui';
 
 import {
   ACCESSIBILITY_NEEDS,
@@ -9,8 +9,8 @@ import {
   type AccessibilityPrefs,
   type ColorblindMode,
 } from '@/shared/domain';
+import { ActionButton, ModalFrame, SurfaceCard } from '@/shared/ui/tamagui';
 
-import styles from './AccessibilityModal.module.css';
 import {
   recommendedPrefsForNeeds,
   useAccessibilityStore,
@@ -32,9 +32,65 @@ type Props = {
   onClose: () => void;
 };
 
+function ToggleRow({
+  title,
+  description,
+  checked,
+  onCheckedChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (next: boolean) => void;
+}) {
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+      padding="$3"
+      borderRadius="$lg"
+      backgroundColor="$bgSurface"
+      borderColor="$borderSubtle"
+      borderWidth={1}
+    >
+      <YStack flex={1} gap="$0.5">
+        <Text
+          fontFamily="$body"
+          fontSize="$4"
+          fontWeight="600"
+          color="$textPrimary"
+        >
+          {title}
+        </Text>
+        <Text fontFamily="$body" fontSize="$2" color="$textMuted">
+          {description}
+        </Text>
+      </YStack>
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        backgroundColor={checked ? '$accent' : '$bgControl'}
+        borderColor="$borderSubtle"
+        borderWidth={1}
+        width={44}
+        height={24}
+        padding={2}
+      >
+        <Switch.Thumb
+          backgroundColor="#ffffff"
+          width={18}
+          height={18}
+          borderRadius="$pill"
+        />
+      </Switch>
+    </XStack>
+  );
+}
+
 /**
- * Painel de Acessibilidade (WCAG / LBI):
- * Permite ativar recursos reais em tempo real e registrar necessidades privadas (LGPD Art. 11).
+ * Painel de Acessibilidade (WCAG / LBI) construído com Tamagui:
+ * permite ativar recursos em tempo real e registrar necessidades privadas (LGPD Art. 11).
  */
 export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
   const prefs = useAccessibilityStore((s) => s.prefs);
@@ -61,186 +117,166 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
     onClose();
   };
 
-  return createPortal(
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Recursos de acessibilidade"
-      data-scroll-lock="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+  return (
+    <ModalFrame
+      title="Acessibilidade"
+      subtitle="Ajuste a interface em tempo real para o seu conforto visual, auditivo, motor e cognitivo."
+      maxWidth={600}
+      onClose={onClose}
     >
-      <div className={styles.modal}>
-        <div className={styles.header}>
-          <div>
-            <h2 className={styles.title}>♿ Acessibilidade & Inclusão</h2>
-            <p className={styles.subtitle}>
-              Ajuste a interface em tempo real para o seu conforto visual,
-              auditivo, motor e cognitivo.
-            </p>
-          </div>
-          <button
-            type="button"
-            className={styles.closeBtn}
-            aria-label="Fechar"
-            onClick={onClose}
+      <YStack gap="$4">
+        <YStack gap="$2">
+          <Text
+            fontFamily="$heading"
+            fontSize="$4"
+            fontWeight="700"
+            color="$textPrimary"
           >
-            ✕
-          </button>
-        </div>
+            Recursos ativos na tela
+          </Text>
 
-        <div className={styles.body}>
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Recursos ativos na tela</h3>
+          <ToggleRow
+            title="Alto contraste e foco reforçado"
+            description="Aumenta o contraste de bordas, textos e navegação por teclado."
+            checked={prefs.highContrast}
+            onCheckedChange={(highContrast) => setPrefs({ highContrast })}
+          />
+          <ToggleRow
+            title="Reduzir animações e movimento"
+            description="Desativa transições, pulsações e giro 3D (conforto sensorial)."
+            checked={prefs.reducedMotion}
+            onCheckedChange={(reducedMotion) => setPrefs({ reducedMotion })}
+          />
+          <ToggleRow
+            title="Texto ampliado"
+            description="Aumenta o tamanho base dos textos em toda a interface."
+            checked={prefs.largeText}
+            onCheckedChange={(largeText) => setPrefs({ largeText })}
+          />
+          <ToggleRow
+            title="Leitura facilitada (dislexia / TDAH)"
+            description="Amplia espaçamento entre letras, palavras e linhas."
+            checked={prefs.dyslexiaFont}
+            onCheckedChange={(dyslexiaFont) => setPrefs({ dyslexiaFont })}
+          />
+          <ToggleRow
+            title="Alertas visuais para mensagens e menções"
+            description="Exibe avisos visuais destacados além de notificações sonoras."
+            checked={prefs.visualAlerts}
+            onCheckedChange={(visualAlerts) => setPrefs({ visualAlerts })}
+          />
 
-            <label className={styles.toggleRow}>
-              <div>
-                <strong>Alto contraste e foco reforçado</strong>
-                <span>
-                  Aumenta o contraste de bordas, textos e navegação por teclado.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={prefs.highContrast}
-                onChange={(e) => setPrefs({ highContrast: e.target.checked })}
-              />
-            </label>
-
-            <label className={styles.toggleRow}>
-              <div>
-                <strong>Reduzir animações e movimento</strong>
-                <span>
-                  Desativa transições, pulsações e giro 3D (conforto sensorial).
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={prefs.reducedMotion}
-                onChange={(e) => setPrefs({ reducedMotion: e.target.checked })}
-              />
-            </label>
-
-            <label className={styles.toggleRow}>
-              <div>
-                <strong>Texto ampliado</strong>
-                <span>
-                  Aumenta o tamanho base dos textos em toda a interface.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={prefs.largeText}
-                onChange={(e) => setPrefs({ largeText: e.target.checked })}
-              />
-            </label>
-
-            <label className={styles.toggleRow}>
-              <div>
-                <strong>Leitura facilitada (dislexia / TDAH)</strong>
-                <span>Amplia espaçamento entre letras, palavras e linhas.</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={prefs.dyslexiaFont}
-                onChange={(e) => setPrefs({ dyslexiaFont: e.target.checked })}
-              />
-            </label>
-
-            <label className={styles.toggleRow}>
-              <div>
-                <strong>Alertas visuais para mensagens e menções</strong>
-                <span>
-                  Exibe avisos visuais destacados além de notificações sonoras.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={prefs.visualAlerts}
-                onChange={(e) => setPrefs({ visualAlerts: e.target.checked })}
-              />
-            </label>
-
-            <label className={styles.selectRow}>
-              <span>Filtro para daltonismo</span>
-              <select
-                value={prefs.colorblindMode}
-                onChange={(e) =>
-                  setPrefs({ colorblindMode: e.target.value as ColorblindMode })
-                }
-                className={styles.select}
-              >
-                {COLORBLIND_MODES.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {COLORBLIND_LABELS[mode]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </section>
-
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>
-              Necessidades de acessibilidade (opcional e privado)
-            </h3>
-            <p className={styles.privacyNote}>
-              🔒 Informação estritamente privada (LGPD Art. 11) — nunca exibida
-              publicamente a outros usuários. Serve apenas para sugerir os
-              melhores recursos para você.
-            </p>
-            <div className={styles.chips}>
-              {ACCESSIBILITY_NEEDS.map((need) => {
-                const active = needs.includes(need);
+          <YStack gap="$2" marginTop="$1">
+            <Text
+              fontFamily="$body"
+              fontSize="$3"
+              fontWeight="600"
+              color="$textSecondary"
+            >
+              Filtro para daltonismo
+            </Text>
+            <XStack flexWrap="wrap" gap="$2">
+              {COLORBLIND_MODES.map((mode) => {
+                const active = prefs.colorblindMode === mode;
                 return (
-                  <button
-                    key={need}
+                  <Button
+                    key={mode}
                     type="button"
                     aria-pressed={active}
-                    className={`${styles.chip} ${active ? styles.chipActive : ''}`}
-                    onClick={() => toggleNeed(need)}
+                    paddingHorizontal="$3"
+                    paddingVertical="$2"
+                    borderRadius="$lg"
+                    backgroundColor={active ? '$accent' : '$bgControl'}
+                    borderColor={active ? '$accent' : '$borderSubtle'}
+                    borderWidth={1}
+                    onPress={() => setPrefs({ colorblindMode: mode })}
+                  >
+                    <Text
+                      fontFamily="$body"
+                      fontSize="$2"
+                      fontWeight="600"
+                      color={active ? '#ffffff' : '$textSecondary'}
+                    >
+                      {COLORBLIND_LABELS[mode]}
+                    </Text>
+                  </Button>
+                );
+              })}
+            </XStack>
+          </YStack>
+        </YStack>
+
+        <SurfaceCard gap="$2.5">
+          <Text
+            fontFamily="$heading"
+            fontSize="$4"
+            fontWeight="700"
+            color="$textPrimary"
+          >
+            Necessidades de acessibilidade (opcional e privado)
+          </Text>
+          <Text fontFamily="$body" fontSize="$2" color="$textMuted">
+            🔒 Informação estritamente privada (LGPD Art. 11) — nunca exibida
+            publicamente a outros usuários. Serve apenas para sugerir os
+            melhores recursos para você.
+          </Text>
+          <XStack flexWrap="wrap" gap="$2">
+            {ACCESSIBILITY_NEEDS.map((need) => {
+              const active = needs.includes(need);
+              return (
+                <Button
+                  key={need}
+                  type="button"
+                  aria-pressed={active}
+                  paddingHorizontal="$3"
+                  paddingVertical="$2"
+                  borderRadius="$pill"
+                  backgroundColor={active ? '$accentChip' : '$bgControl'}
+                  borderColor={active ? '$accent' : '$borderSubtle'}
+                  borderWidth={1}
+                  onPress={() => toggleNeed(need)}
+                >
+                  <Text
+                    fontFamily="$body"
+                    fontSize="$2"
+                    fontWeight="600"
+                    color={active ? '#ffffff' : '$textSecondary'}
                   >
                     {active ? '✓ ' : ''}
                     {ACCESSIBILITY_NEED_LABELS[need]}
-                  </button>
-                );
-              })}
-            </div>
-            {needs.length > 0 ? (
-              <button
-                type="button"
-                className={styles.suggestBtn}
-                onClick={applyRecommended}
-              >
-                ✨ Ativar recursos recomendados para minhas seleções
-              </button>
-            ) : null}
-          </section>
-        </div>
+                  </Text>
+                </Button>
+              );
+            })}
+          </XStack>
+          {needs.length > 0 ? (
+            <ActionButton variant="secondary" onPress={applyRecommended}>
+              ✨ Ativar recursos recomendados para minhas seleções
+            </ActionButton>
+          ) : null}
+        </SurfaceCard>
 
-        <div className={styles.footer}>
-          <button
-            type="button"
-            className={styles.ghostBtn}
-            onClick={() => {
+        <XStack
+          justifyContent="space-between"
+          alignItems="center"
+          paddingTop="$2"
+          borderTopWidth={1}
+          borderTopColor="$borderSubtle"
+        >
+          <ActionButton
+            variant="ghost"
+            onPress={() => {
               reset();
               setNeeds([]);
             }}
           >
             Restaurar padrão
-          </button>
-          <button
-            type="button"
-            className={styles.primaryBtn}
-            disabled={saving}
-            onClick={() => void handleSave()}
-          >
+          </ActionButton>
+          <ActionButton loading={saving} onPress={() => void handleSave()}>
             {saving ? 'Salvando…' : 'Salvar na conta'}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+          </ActionButton>
+        </XStack>
+      </YStack>
+    </ModalFrame>
   );
 }
