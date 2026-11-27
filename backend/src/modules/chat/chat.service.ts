@@ -69,11 +69,30 @@ export class ChatService {
     tiers?: readonly AccountTier[],
     serverId = 'default',
   ): Promise<ChannelInfo[]> {
-    const [publicRows, directRows, reads] = await Promise.all([
+    const [initialPublicRows, directRows, reads] = await Promise.all([
       this.deps.channels.listPublic(serverId),
       this.deps.channels.listDirect(email, serverId),
       this.deps.reads.all(email),
     ]);
+    let publicRows = initialPublicRows;
+    if (serverId !== 'default' && publicRows.length === 0) {
+      await this.deps.channels.create({
+        id: `${serverId}:geral`,
+        serverId,
+        name: 'geral',
+        kind: 'public',
+        archived: false,
+        position: 0,
+        topic: 'Canal principal do servidor',
+        viewTiers: [...ACCOUNT_TIERS],
+        writeTiers: [...ACCOUNT_TIERS],
+        allowedEmails: [],
+        blockedEmails: [],
+        createdBy: email,
+        createdAt: this.now(),
+      });
+      publicRows = await this.deps.channels.listPublic(serverId);
+    }
     const visiblePublic = publicRows.filter(
       (c) => !c.archived && (!tiers || canViewChannel(c, tiers, email)),
     );

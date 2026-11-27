@@ -226,40 +226,44 @@ export function WorkspaceSidebar({
         : undefined;
 
   const myAppearance = appearance ?? defaultAppearance(session.user.email);
-  const channelsActive = open && tab === 'channels';
   const headerLabel = tab === 'people' ? 'Pessoas' : serverName;
+  const defaultServer = servers.find((s) => s.id === 'default');
+  const defaultServerName =
+    defaultServer?.name ??
+    (activeServerId === 'default' ? serverName : 'Setter');
+  const isDefaultSelected = activeServerId === 'default';
 
   const rail = (
     <nav className={styles.rail} aria-label="Servidores e navegação">
       {/* Topo: servidor (canais e DMs) e pessoas */}
       <div className={styles.railGroup}>
-        <Tip
-          label={`${serverName} · Canais e conversas diretas`}
-          placement="right"
-        >
+        <Tip label={defaultServerName} placement="right">
           <button
             type="button"
-            aria-label={`${serverName} — Canais e conversas diretas`}
-            aria-pressed={channelsActive}
-            className={`${styles.serverBadge} ${channelsActive ? styles.serverBadgeOpen : ''}`}
-            onClick={() => onSelectTab('channels')}
+            aria-label={`Servidor ${defaultServerName}`}
+            aria-pressed={isDefaultSelected}
+            className={`${styles.serverBadge} ${isDefaultSelected ? styles.serverBadgeOpen : ''}`}
+            onClick={() => {
+              if (!isDefaultSelected) onSelectServer?.('default');
+              onSelectTab('channels');
+            }}
           >
             <span
-              className={`${styles.serverPill} ${channelsActive ? styles.serverPillActive : ''}`}
+              className={`${styles.serverPill} ${isDefaultSelected ? styles.serverPillActive : ''}`}
               aria-hidden="true"
             />
-            {serverIcon ? (
+            {isDefaultSelected && serverIcon ? (
               <img
                 src={serverIcon}
-                alt={serverName}
+                alt={defaultServerName}
                 className={styles.serverIconImg}
               />
             ) : (
               <span className={styles.serverLetter}>
-                {serverName.charAt(0).toUpperCase()}
+                {defaultServerName.charAt(0).toUpperCase()}
               </span>
             )}
-            {serverBadge ? (
+            {isDefaultSelected && serverBadge ? (
               <span
                 className={`${styles.badge} ${totalMentions > 0 ? styles.badgeAlert : ''}`}
               >
@@ -281,7 +285,10 @@ export function WorkspaceSidebar({
                   aria-pressed={isSelected}
                   className={`${styles.serverBadge} ${isSelected ? styles.serverBadgeOpen : ''}`}
                   style={{ background: srv.accentColor }}
-                  onClick={() => onSelectServer?.(srv.id)}
+                  onClick={() => {
+                    onSelectServer?.(srv.id);
+                    onSelectTab('channels');
+                  }}
                 >
                   <span
                     className={`${styles.serverPill} ${isSelected ? styles.serverPillActive : ''}`}
