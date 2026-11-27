@@ -83,7 +83,11 @@ export type ChannelInfo = z.infer<typeof ChannelInfoSchema>;
 // --- Cliente -> servidor ----------------------------------------------------------
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('join'), token: z.string().max(2048) }),
+  z.object({
+    type: z.literal('join'),
+    token: z.string().max(2048),
+    serverId: z.string().max(64).optional().default('default'),
+  }),
   z.object({ type: z.literal('move'), x: z.number(), y: z.number() }),
   z.object({
     type: z.literal('chat'),

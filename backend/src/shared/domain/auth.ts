@@ -50,8 +50,10 @@ export const accountKindOf = (
 ): AccountKind | undefined => {
   const normalized = normalizeEmail(email);
   const parts = normalized.split('@');
-  if (parts.length !== 2 || parts[0] === '') return undefined;
+  if (parts.length !== 2 || parts[0] === '' || parts[1] === '')
+    return undefined;
   if (access.emails.includes(normalized)) return 'company';
+  if (access.domains.length === 0) return 'company';
   return access.domains.find((d) => d.domain === parts[1])?.kind;
 };
 
@@ -75,7 +77,7 @@ const PasswordSchema = z
 /** Nickname (o "username"): letras, números, ponto, hífen ou sublinhado. */
 export const NICKNAME_PATTERN = /^[A-Za-z0-9._-]{3,20}$/;
 
-const NicknameSchema = z
+export const NicknameSchema = z
   .string()
   .trim()
   .regex(
@@ -116,7 +118,14 @@ const CodeSchema = z
 const AccountEmailSchema = EmailSchema;
 
 /** Para que serve o código: criar conta, trocar senha esquecida, verificar e-mail ou login 2FA. */
-export const CODE_PURPOSES = ['register', 'reset', 'verify', 'mfa'] as const;
+export const CODE_PURPOSES = [
+  'register',
+  'reset',
+  'verify',
+  'mfa',
+  'email_change_old',
+  'email_change_new',
+] as const;
 export type CodePurpose = (typeof CODE_PURPOSES)[number];
 
 export const RequestCodeSchema = z.object({
@@ -130,6 +139,29 @@ export const VerifyEmailSchema = z.object({
   code: CodeSchema,
 });
 export type VerifyEmail = z.infer<typeof VerifyEmailSchema>;
+
+/** Verificação de elegibilidade de e-mail na 1ª etapa do cadastro. */
+export const RegisterEligibilitySchema = z.object({
+  email: EmailSchema,
+});
+export type RegisterEligibility = z.infer<typeof RegisterEligibilitySchema>;
+
+/** Início da troca segura de e-mail (envia códigos ao e-mail antigo e ao novo). */
+export const EmailChangeStartSchema = z.object({
+  newEmail: EmailSchema,
+  password: z.string().min(1, 'Informe a senha atual.').max(200),
+});
+export type EmailChangeStart = z.infer<typeof EmailChangeStartSchema>;
+
+/** Confirmação da troca segura de e-mail com códigos e TOTP quando ativo. */
+export const EmailChangeConfirmSchema = z.object({
+  newEmail: EmailSchema,
+  password: z.string().min(1, 'Informe a senha atual.').max(200),
+  oldCode: z.string().trim().max(12).optional().default(''),
+  newCode: z.string().trim().max(12).optional().default(''),
+  mfaCode: z.string().trim().max(32).optional().default(''),
+});
+export type EmailChangeConfirm = z.infer<typeof EmailChangeConfirmSchema>;
 
 export const MFA_METHODS = ['none', 'email', 'totp'] as const;
 export type MfaMethod = (typeof MFA_METHODS)[number];
@@ -169,7 +201,20 @@ const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /** Preferência de tema/cores da interface salva na conta do usuário. */
 export const UiThemeSchema = z.object({
-  presetId: z.enum(['default', 'games', 'fantasy', 'scifi']),
+  presetId: z.enum([
+    'default',
+    'games',
+    'fantasy',
+    'scifi',
+    'violet',
+    'emerald',
+    'sapphire',
+    'sunset',
+    'amethyst',
+    'rose',
+    'monochrome',
+  ]),
+  mode: z.enum(['light', 'dark']).optional(),
   colors: z.object({
     rail: HexColorSchema,
     surface: HexColorSchema,

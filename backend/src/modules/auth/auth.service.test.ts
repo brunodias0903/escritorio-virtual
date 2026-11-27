@@ -565,4 +565,337 @@ describe('sessão', () => {
       error: 'registration_disabled',
     });
   });
+
+  it('verifica disponibilidade de username, elegibilidade de cadastro e troca segura de e-mail', async () => {
+    const { service, codeIn } = setup();
+    await service.requestCode(
+      { email: ana.email, purpose: 'register' },
+      '1.1.1.1',
+    );
+    const regCode = codeIn(ana.email);
+    const reg = await service.register({ ...ana, code: regCode }, '1.1.1.1');
+    expect(reg.ok).toBe(true);
+    if (!reg.ok) return;
+
+    const claims = await service.authenticate(reg.value.token);
+    expect(claims).not.toBeNull();
+    if (!claims) return;
+
+    expect(
+      await service.checkUsernameAvailable('ab', undefined, '1.1.1.1'),
+    ).toMatchObject({ ok: false, status: 400, error: 'invalid_request' });
+    for (let i = 0; i < 5; i += 1) {
+      await service.checkUsernameAvailable('livre', undefined, '5.5.5.5');
+    }
+    expect(
+      await service.checkUsernameAvailable('livre', undefined, '5.5.5.5'),
+    ).toMatchObject({ ok: false, status: 429, error: 'too_many_attempts' });
+    expect(
+      await service.checkUsernameAvailable('anas', undefined, '1.1.1.1'),
+    ).toMatchObject({ ok: true, value: { available: false } });
+    expect(
+      await service.checkUsernameAvailable('anas', ana.email, '1.1.1.1'),
+    ).toMatchObject({ ok: true, value: { available: true } });
+    expect(
+      await service.checkUsernameAvailable('novo.user', ana.email, '1.1.1.1'),
+    ).toMatchObject({ ok: true, value: { available: true } });
+
+    expect(
+      await service.checkRegisterEmail('alguem@empresa.com', '1.1.1.1'),
+    ).toMatchObject({ ok: true, value: { eligible: true } });
+    expect(
+      await service.checkRegisterEmail('estranho@externo.com', '1.1.1.1'),
+    ).toMatchObject({ ok: false, status: 403, error: 'invite_required' });
+
+    // Erros de início de troca de e-mail
+    expect(
+      await service.startEmailChange(
+        claims,
+        'ana.novo@empresa.com',
+        'errada',
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: false, status: 401, error: 'wrong_password' });
+    expect(
+      await service.startEmailChange(claims, ana.email, PASSWORD, '1.1.1.1'),
+    ).toMatchObject({ ok: false, status: 400, error: 'same_email' });
+    expect(
+      await service.checkRegisterEmail('alguem@empresa.com', '3.3.3.3'),
+    ).toMatchObject({ ok: true, value: { eligible: true } });
+    const { service: closedService } = setup(false);
+    expect(
+      await closedService.checkRegisterEmail('alguem@empresa.com', '3.3.3.3'),
+    ).toMatchObject({
+      ok: false,
+      status: 403,
+      error: 'registration_disabled',
+    });
+    // E-mail já em uso na troca de e-mail -> 409 email_taken
+    await service.register(
+      {
+        ...ana,
+        nickname: 'outra',
+        email: 'outra@empresa.com',
+        code:
+          (await service.requestCode(
+            { email: 'outra@empresa.com', purpose: 'register' },
+            '4.4.4.4',
+          ),
+          codeIn('outra@empresa.com')),
+      },
+      '4.4.4.4',
+    );
+    expect(
+      await service.startEmailChange(
+        claims,
+        'outra@empresa.com',
+        PASSWORD,
+        '4.4.4.4',
+      ),
+    ).toMatchObject({ ok: false, status: 409, error: 'email_taken' });
+
+    // Ativa MFA por e-mail e inicia troca para novo e-mail
+    await service.setEmailMfa(claims, true);
+    const started = await service.startEmailChange(
+      claims,
+      'ana.novo@empresa.com',
+      PASSWORD,
+      '1.1.1.1',
+    );
+    expect(started).toMatchObject({
+      ok: true,
+      value: { ok: true, codesRequired: true, mfaRequired: false },
+    });
+
+    const oldCode = codeIn(ana.email);
+    const newCode = codeIn('ana.novo@empresa.com');
+
+    expect(
+      await service.confirmEmailChange(
+        claims,
+        {
+          newEmail: 'ana.novo@empresa.com',
+          password: ['err', 'ada'].join(''),
+          oldCode,
+          newCode,
+          mfaCode: '',
+        },
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: false, status: 401, error: 'wrong_password' });
+    expect(
+      await service.confirmEmailChange(
+        claims,
+        {
+          newEmail: 'ana.novo@empresa.com',
+          password: PASSWORD,
+          oldCode: '000000',
+          newCode,
+          mfaCode: '',
+        },
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: false, status: 400, error: 'invalid_code' });
+    expect(
+      await service.confirmEmailChange(
+        claims,
+        {
+          newEmail: 'ana.novo@empresa.com',
+          password: PASSWORD,
+          oldCode,
+          newCode: '000000',
+          mfaCode: '',
+        },
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: false, status: 400, error: 'invalid_code' });
+
+    const confirmed = await service.confirmEmailChange(
+      claims,
+      {
+        newEmail: 'ana.novo@empresa.com',
+        password: PASSWORD,
+        oldCode,
+        newCode,
+        mfaCode: '',
+      },
+      '1.1.1.1',
+    );
+    expect(confirmed.ok).toBe(true);
+    if (confirmed.ok) {
+      expect(confirmed.value.user.email).toBe('ana.novo@empresa.com');
+      const nextClaims = (await service.authenticate(confirmed.value.token))!;
+      const acc = await service.account(nextClaims);
+      if (acc.ok) {
+        expect(acc.value.mfaEnabled).toBe(false);
+      }
+
+      // Ativa TOTP e testa troca de e-mail exigindo código TOTP/recuperação
+      const totpSetup = await service.startMfaSetup(nextClaims);
+      expect(totpSetup.ok).toBe(true);
+      if (totpSetup.ok) {
+        const { generateTotpCode } = await import('./totp.js');
+        const enabled = await service.enableMfa(
+          nextClaims,
+          generateTotpCode(totpSetup.value.secret, 1_800_000_000_000),
+        );
+        expect(enabled.ok).toBe(true);
+        if (enabled.ok) {
+          await service.startEmailChange(
+            nextClaims,
+            'ana.totp@empresa.com',
+            PASSWORD,
+            '2.2.2.2',
+          );
+          const oc = codeIn('ana.novo@empresa.com');
+          const nc = codeIn('ana.totp@empresa.com');
+          expect(
+            await service.confirmEmailChange(
+              nextClaims,
+              {
+                newEmail: 'ana.totp@empresa.com',
+                password: PASSWORD,
+                oldCode: oc,
+                newCode: nc,
+                mfaCode: '',
+              },
+              '2.2.2.2',
+            ),
+          ).toMatchObject({ ok: false, status: 400, error: 'mfa_required' });
+          expect(
+            await service.confirmEmailChange(
+              nextClaims,
+              {
+                newEmail: 'ana.totp@empresa.com',
+                password: PASSWORD,
+                oldCode: oc,
+                newCode: nc,
+                mfaCode: '000000',
+              },
+              '2.2.2.2',
+            ),
+          ).toMatchObject({
+            ok: false,
+            status: 401,
+            error: 'invalid_mfa_code',
+          });
+          const okTotp = await service.confirmEmailChange(
+            nextClaims,
+            {
+              newEmail: 'ana.totp@empresa.com',
+              password: PASSWORD,
+              oldCode: oc,
+              newCode: nc,
+              mfaCode: enabled.value.recoveryCodes[0]!,
+            },
+            '2.2.2.2',
+          );
+          expect(okTotp.ok).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('bloqueia e-mail não convidado (ex.: vmns50@gmail.com) quando lista de convites está ativa e provisiona assinantes direto', async () => {
+    const accounts = new MemoryLocalAccountRepository();
+    const invited = new Set<string>();
+    const gated = new AuthService({
+      accounts,
+      secret: SECRET,
+      adminEmails: ['admin@gmail.com'],
+      access: parseAccountAccess('gmail.com', ''),
+      loginLimiter: new MemoryRateLimiter(20, 60_000),
+      revocations: new MemoryRevocations(),
+      codes: null,
+      isEmailInvited: async (email) => invited.has(email),
+    });
+
+    expect(
+      await gated.checkRegisterEmail('vmns50@gmail.com', '1.1.1.1'),
+    ).toMatchObject({ ok: false, status: 403, error: 'invite_required' });
+    expect(
+      await gated.register(
+        { ...ana, nickname: 'vmns50', email: 'vmns50@gmail.com' },
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: false, status: 403, error: 'invite_required' });
+
+    invited.add('vmns50@gmail.com');
+    expect(
+      await gated.checkRegisterEmail('vmns50@gmail.com', '1.1.1.1'),
+    ).toMatchObject({ ok: true, value: { eligible: true } });
+    expect(
+      (
+        await gated.register(
+          { ...ana, nickname: 'vmns50', email: 'vmns50@gmail.com' },
+          '1.1.1.1',
+        )
+      ).ok,
+    ).toBe(true);
+
+    const sub = await gated.provisionSubscriberAccount({
+      email: 'assinante@gmail.com',
+      fullName: 'Assinante Teste',
+      nickname: 'assinante1',
+      password: PASSWORD,
+    });
+    expect(sub.ok).toBe(true);
+    expect(
+      (await gated.login('assinante@gmail.com', PASSWORD, '1.1.1.1')).ok,
+    ).toBe(true);
+
+    // Sem restrição de domínio (ACCOUNT_DOMAINS vazio), qualquer domínio convidado é aceito
+    const openMails: Mail[] = [];
+    const openDomains = new AuthService({
+      accounts: new MemoryLocalAccountRepository(),
+      secret: SECRET,
+      adminEmails: ['admin@empresa.com'],
+      access: parseAccountAccess('', ''),
+      loginLimiter: new MemoryRateLimiter(20, 60_000),
+      revocations: new MemoryRevocations(),
+      codes: new CodeService({
+        codes: new MemoryEmailCodeRepository(),
+        mailer: { send: async (mail) => void openMails.push(mail) },
+        secret: SECRET,
+      }),
+      isEmailInvited: async (email) => email === 'pessoa@qualquerdominio.io',
+    });
+    expect(
+      await openDomains.requestCode(
+        { email: 'ninguem@qualquerdominio.io', purpose: 'register' },
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: false, status: 403, error: 'invite_required' });
+    expect(
+      await openDomains.requestCode(
+        { email: 'pessoa@qualquerdominio.io', purpose: 'register' },
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: true });
+    expect(
+      await openDomains.checkRegisterEmail(
+        'ninguem@qualquerdominio.io',
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: false, status: 403, error: 'invite_required' });
+    expect(
+      await openDomains.checkRegisterEmail(
+        'pessoa@qualquerdominio.io',
+        '1.1.1.1',
+      ),
+    ).toMatchObject({ ok: true, value: { eligible: true } });
+    expect(
+      (
+        await openDomains.register(
+          {
+            ...ana,
+            nickname: 'pessoa1',
+            email: 'pessoa@qualquerdominio.io',
+            code: codeIn(openMails, 'pessoa@qualquerdominio.io'),
+          },
+          '1.1.1.1',
+        )
+      ).ok,
+    ).toBe(true);
+  });
 });

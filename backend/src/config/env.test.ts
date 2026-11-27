@@ -23,7 +23,7 @@ describe('loadConfig', () => {
       trustProxy: false,
     });
     expect(config.sessionSecret.length).toBeGreaterThanOrEqual(32);
-    expect(config.warnings).toHaveLength(3);
+    expect(config.warnings).toHaveLength(2);
     expect(config.smtp).toBeNull();
     expect(config.emailCodes).toBe(false);
   });
@@ -40,9 +40,9 @@ describe('loadConfig', () => {
       ],
       emails: ['ana@gmail.com'],
     });
-    expect(() => loadConfig({ ...PRODUCTION, ACCOUNT_DOMAINS: '' })).toThrow(
-      'ACCOUNT_DOMAINS',
-    );
+    expect(() =>
+      loadConfig({ ...PRODUCTION, ACCOUNT_DOMAINS: '' }),
+    ).not.toThrow();
     expect(() =>
       loadConfig({
         ...PRODUCTION,
@@ -55,7 +55,7 @@ describe('loadConfig', () => {
   it('com EMAIL_CODES=true em desenvolvimento, avisa que falta SMTP', () => {
     const config = loadConfig({ EMAIL_CODES: 'true' });
     expect(config.emailCodes).toBe(true);
-    expect(config.warnings).toHaveLength(4);
+    expect(config.warnings).toHaveLength(3);
   });
 
   it('lê as listas e os endereços do ambiente', () => {

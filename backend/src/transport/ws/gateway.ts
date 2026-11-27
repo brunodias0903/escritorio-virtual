@@ -14,6 +14,7 @@ import type {
 import type { ProfileRepository } from '../../modules/office/profile.repository.js';
 import type { Cluster } from '../../modules/realtime/cluster.js';
 import { Connection } from '../../modules/realtime/connection.js';
+import type { ServerRepository } from '../../modules/workspace/workspace.repository.js';
 import type { ServerMessage } from '../../shared/domain/index.js';
 
 const MAX_WS_PAYLOAD_BYTES = 65_536;
@@ -27,6 +28,7 @@ export type WsGatewayDeps = {
   media: MediaService;
   profiles: ProfileRepository;
   accounts: LocalAccountRepository;
+  servers?: ServerRepository;
   allowedOrigins: readonly string[];
   onError?: (error: unknown) => void;
 };
@@ -74,9 +76,13 @@ export class WsGateway {
       return;
     }
     const { office } = this.deps;
+    const targetServerId = outgoing.serverId ?? office.serverIdOf(sender);
     for (const [id, socket] of this.sockets) {
       if (outgoing.to === 'self' && id !== sender) continue;
       if (outgoing.to === 'others' && id === sender) continue;
+      if (outgoing.to !== 'self' && office.serverIdOf(id) !== targetServerId) {
+        continue;
+      }
       if (outgoing.map && office.players.get(id)?.map !== outgoing.map) {
         continue;
       }
@@ -109,6 +115,7 @@ export class WsGateway {
         media: this.deps.media,
         profiles: this.deps.profiles,
         accounts: this.deps.accounts,
+        ...(this.deps.servers ? { servers: this.deps.servers } : {}),
         send: (message) => send(socket, message),
         close: (code, reason) => socket.close(code, reason),
         attach: () => this.sockets.set(id, socket),

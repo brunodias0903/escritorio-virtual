@@ -55,7 +55,11 @@ function Action({
       onMouseLeave={onMouseLeave}
       className={styles.action}
     >
-      <Icon name={icon} size={16} color={disabled ? '#5c6396' : '#ffffff'} />
+      <Icon
+        name={icon}
+        size={16}
+        color={disabled ? 'var(--text-disabled)' : 'var(--text-primary)'}
+      />
       <span className={styles.actionText}>{text}</span>
     </button>
   );

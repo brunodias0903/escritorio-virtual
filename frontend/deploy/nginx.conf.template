@@ -30,13 +30,13 @@ server {
         proxy_read_timeout 3600s;
     }
 
-    # API de login e administração.
+    # API de login e administração (permite upload de avatar/ícone comprimido).
     location /api/ {
         proxy_pass http://${WS_UPSTREAM};
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 16k;
+        client_max_body_size 512k;
     }
 
     # Voz e vídeo (LiveKit): o navegador abre o WebSocket em /livekit/rtc.
@@ -54,6 +54,11 @@ server {
         try_files $uri =404;
         expires 1y;
         add_header Cache-Control "public, immutable";
+    }
+
+    location = /sw.js {
+        try_files $uri =404;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
     location / {

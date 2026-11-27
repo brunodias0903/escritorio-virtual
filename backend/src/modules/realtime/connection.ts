@@ -24,6 +24,7 @@ import type { DeskService } from '../desks/desks.service.js';
 import type { MediaService } from '../media/media.service.js';
 import type { OfficeService } from '../office/office.service.js';
 import type { ProfileRepository } from '../office/profile.repository.js';
+import type { ServerRepository } from '../workspace/workspace.repository.js';
 import type { Cluster } from './cluster.js';
 
 export type ConnectionDeps = {
@@ -38,6 +39,7 @@ export type ConnectionDeps = {
   profiles: ProfileRepository;
   /** Contas: nome, nickname e cargo de quem já se cadastrou (lista de pessoas). */
   accounts: LocalAccountRepository;
+  servers?: ServerRepository;
   /** Envia uma mensagem só a esta ligação. */
   send: (message: ServerMessage) => void;
   close: (code: number, reason: string) => void;
@@ -63,6 +65,7 @@ export const POSITION_SAVE_MS = 5000;
 export class Connection {
   private state: State = 'new';
   private claims: SessionClaims | null = null;
+  private serverId = 'default';
   private savedAt = 0;
   private readonly deps: ConnectionDeps;
   private readonly now: () => number;
@@ -87,7 +90,9 @@ export class Connection {
     const message = parsed.data;
 
     if (message.type === 'join') {
-      if (this.state === 'new') await this.join(message.token);
+      if (this.state === 'new') {
+        await this.join(message.token, message.serverId);
+      }
       return;
     }
     if (message.type === 'takeover') {
@@ -234,10 +239,18 @@ export class Connection {
     ]);
   }
 
-  private async join(sessionToken: string): Promise<void> {
+  private async join(
+    sessionToken: string,
+    serverId = 'default',
+  ): Promise<void> {
     const claims = await this.deps.auth.authenticate(sessionToken);
     if (!claims) return this.deps.close(4401, 'unauthorized');
+    if (serverId !== 'default' && this.deps.servers) {
+      const allowed = await this.deps.servers.isMember(serverId, claims.email);
+      if (!allowed) return this.deps.close(4403, 'forbidden');
+    }
     this.claims = claims;
+    this.serverId = serverId;
     await this.activate(claims);
   }
 
@@ -258,19 +271,23 @@ export class Connection {
       claims.email,
       profile?.appearance ?? defaultAppearance(claims.email),
       profile?.position,
+      this.serverId,
     );
     this.state = 'joined';
 
     const tiers = await this.effectiveTiers(claims);
     this.deps.send({
       type: 'channels',
-      channels: await chat.channelsFor(claims.email, tiers),
+      channels: await chat.channelsFor(claims.email, tiers, this.serverId),
     });
     this.deps.send({
       type: 'history',
-      messages: await chat.history(claims.email, tiers),
+      messages: await chat.history(claims.email, tiers, this.serverId),
     });
-    this.deps.send({ type: 'desks', desks: await this.deps.desks.list() });
+    this.deps.send({
+      type: 'desks',
+      desks: await this.deps.desks.list(this.serverId),
+    });
     await cluster.dispatch(id, outgoing);
     await cluster.playerChanged(office.players.get(id)!);
     if (hadOther) {

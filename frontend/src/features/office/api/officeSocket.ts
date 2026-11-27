@@ -26,6 +26,8 @@ type Options = {
   url: string;
   /** Token de sessão (JWT) devolvido pelo login. */
   token: string;
+  /** Servidor ativo cujo escritório esta conexão deve escopar. */
+  serverId?: string;
   onMessage: (message: ServerMessage) => void;
   onStatus: (status: SocketStatus) => void;
   createSocket?: (url: string) => SocketLike;
@@ -37,6 +39,7 @@ const defaultCreateSocket = (url: string): SocketLike =>
 export const connectOffice = ({
   url,
   token,
+  serverId = 'default',
   onMessage,
   onStatus,
   createSocket = defaultCreateSocket,
@@ -52,7 +55,7 @@ export const connectOffice = ({
   socket.onopen = () => {
     open = true;
     onStatus('open');
-    send({ type: 'join', token });
+    send({ type: 'join', token, serverId });
   };
 
   socket.onclose = () => {

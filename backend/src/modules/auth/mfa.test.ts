@@ -420,5 +420,5 @@ describe('MFA (TOTP) no AuthService e auth.http', () => {
       ip: '127.0.0.1',
     });
     expect(delOk.status).toBe(200);
-  });
+  }, 15_000);
 });

@@ -11,6 +11,7 @@ import {
   type DeskInfo,
   type Session,
   type Status,
+  type WorkspaceServer,
 } from '@/shared/domain';
 import { useI18n } from '@/shared/i18n';
 import { Icon, type IconName } from '@/shared/ui/Icon';
@@ -40,6 +41,9 @@ type Props = {
   serverName: string;
   /** Ícone/foto customizada do servidor (opcional). */
   serverIcon?: string | null;
+  servers?: WorkspaceServer[];
+  activeServerId?: string;
+  onSelectServer?: (id: string) => void;
   session: Session;
   status: Status;
   appearance: Appearance | undefined;
@@ -65,6 +69,7 @@ type Props = {
   accountOpen?: boolean;
   onOpenAccount: () => void;
   onOpenServerSettings?: () => void;
+  onOpenCreateServer?: () => void;
   onExit: () => void;
   onNotify: (text: string) => void;
   send: OfficeSend;
@@ -104,7 +109,13 @@ function RailButton({
           <Icon
             name={icon}
             size={20}
-            color={danger ? '#ff9aa8' : active ? '#ffffff' : 'var(--text-icon)'}
+            color={
+              danger
+                ? 'var(--danger-text)'
+                : active
+                  ? '#ffffff'
+                  : 'var(--text-icon)'
+            }
           />
         </span>
         {badge ? (
@@ -128,6 +139,9 @@ function RailButton({
 export function WorkspaceSidebar({
   serverName,
   serverIcon,
+  servers = [],
+  activeServerId = 'default',
+  onSelectServer,
   session,
   status,
   appearance,
@@ -152,6 +166,7 @@ export function WorkspaceSidebar({
   accountOpen = false,
   onOpenAccount,
   onOpenServerSettings,
+  onOpenCreateServer,
   onExit,
   onNotify,
   send,
@@ -254,22 +269,55 @@ export function WorkspaceSidebar({
           </button>
         </Tip>
 
-        {session.user.admin ? (
-          <Tip label="Novo servidor (disponível na Fase 3)" placement="right">
-            <button
-              type="button"
-              aria-label="Criar novo servidor"
-              className={styles.addServerBtn}
-              onClick={() =>
-                onNotify(
-                  'Criação de novos servidores e convites chega na próxima etapa (Fase 3).',
-                )
+        {servers
+          .filter((srv) => srv.id !== 'default')
+          .map((srv) => {
+            const isSelected = srv.id === activeServerId;
+            return (
+              <Tip key={srv.id} label={srv.name} placement="right">
+                <button
+                  type="button"
+                  aria-label={`Servidor ${srv.name}`}
+                  aria-pressed={isSelected}
+                  className={`${styles.serverBadge} ${isSelected ? styles.serverBadgeOpen : ''}`}
+                  style={{ background: srv.accentColor }}
+                  onClick={() => onSelectServer?.(srv.id)}
+                >
+                  <span
+                    className={`${styles.serverPill} ${isSelected ? styles.serverPillActive : ''}`}
+                    aria-hidden="true"
+                  />
+                  <span className={styles.serverLetter}>
+                    {srv.name.charAt(0).toUpperCase()}
+                  </span>
+                </button>
+              </Tip>
+            );
+          })}
+
+        <Tip
+          label={
+            canConfigureServer
+              ? 'Criar servidor ou entrar com convite'
+              : 'Entrar em servidor com convite'
+          }
+          placement="right"
+        >
+          <button
+            type="button"
+            aria-label="Criar novo servidor"
+            className={styles.addServerBtn}
+            onClick={() => {
+              if (onOpenCreateServer) {
+                onOpenCreateServer();
+              } else {
+                onNotify('Criação de servidor indisponível neste contexto.');
               }
-            >
-              <Icon name="plus" size={16} color="var(--accent-link)" />
-            </button>
-          </Tip>
-        ) : null}
+            }}
+          >
+            <Icon name="plus" size={16} color="var(--accent-link)" />
+          </button>
+        </Tip>
 
         <div className={styles.railDivider} />
 

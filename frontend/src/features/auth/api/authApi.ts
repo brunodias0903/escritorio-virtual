@@ -7,6 +7,8 @@ import {
   SessionSchema,
   type Account,
   type AuthOptions,
+  type EmailChangeConfirm,
+  type EmailChangeStart,
   type Login,
   type Register,
   type RequestCode,
@@ -186,6 +188,42 @@ export const createAuthApi = ({ baseUrl, fetchImpl = fetch }: Options) => {
       call('/api/auth/account', z.object({ deleted: z.literal(true) }), {
         method: 'DELETE',
         body: { password },
+        token,
+      }),
+
+    /** Verifica se um nome de usuário está disponível em tempo real. */
+    checkUsernameAvailable: (username: string, token?: string) =>
+      call(
+        `/api/auth/username-available?username=${encodeURIComponent(username)}`,
+        z.object({ available: z.boolean() }),
+        { method: 'GET', ...(token ? { token } : {}) },
+      ),
+
+    /** Verifica na 1ª etapa do cadastro se o e-mail possui convite ou acesso liberado. */
+    checkRegisterEmail: (email: string) =>
+      call('/api/auth/register/check', z.object({ eligible: z.boolean() }), {
+        body: { email },
+      }),
+
+    /** Inicia troca segura de e-mail enviando códigos ao e-mail atual e ao novo. */
+    startEmailChange: (token: string, input: EmailChangeStart) =>
+      call(
+        '/api/auth/email-change/start',
+        z.object({
+          ok: z.literal(true),
+          codesRequired: z.boolean(),
+          mfaRequired: z.boolean(),
+        }),
+        { body: input, token },
+      ),
+
+    /** Confirma troca segura de e-mail com códigos e MFA (TOTP) se ativo. */
+    confirmEmailChange: (
+      token: string,
+      input: EmailChangeConfirm,
+    ): Promise<ApiResult<Session>> =>
+      call('/api/auth/email-change/confirm', SessionSchema, {
+        body: input,
         token,
       }),
 

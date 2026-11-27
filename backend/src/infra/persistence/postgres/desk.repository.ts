@@ -52,9 +52,10 @@ export class PgDeskRepository implements DeskRepository {
     this.db = db;
   }
 
-  async all() {
+  async all(serverId = 'default') {
     const { rows } = await this.db.query(
-      `SELECT ${DESK_COLUMNS} FROM desks ORDER BY map_id, desk_id`,
+      `SELECT ${DESK_COLUMNS} FROM desks WHERE server_id = $1 ORDER BY map_id, desk_id`,
+      [serverId],
     );
     return (rows as DeskDbRow[]).map(toDesk);
   }
@@ -78,11 +79,12 @@ export class PgDeskRepository implements DeskRepository {
   async adopt(record: DeskRecord) {
     try {
       await this.db.query(
-        `INSERT INTO desks (map_id, desk_id, owner_email, owner_name, owner_role, config, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        `INSERT INTO desks (map_id, desk_id, server_id, owner_email, owner_name, owner_role, config, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           record.map,
           record.deskId,
+          record.serverId ?? 'default',
           record.ownerEmail,
           record.ownerName,
           record.ownerRole,

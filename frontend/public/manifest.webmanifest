@@ -1,15 +1,17 @@
 {
-  "name": "Escritório Virtual",
-  "short_name": "Escritório",
+  "id": "/",
+  "name": "Setter — Escritório Virtual",
+  "short_name": "Setter",
   "description": "Escritório virtual interativo em tempo real para equipes remotas: mesas personalizáveis, chamadas por proximidade e chat.",
   "start_url": "/",
   "scope": "/",
-  "display": "fullscreen",
-  "display_override": ["fullscreen", "standalone"],
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#121222",
   "theme_color": "#191836",
   "lang": "pt-BR",
+  "categories": ["business", "productivity", "communication"],
   "icons": [
     {
       "src": "/icon-192.png",

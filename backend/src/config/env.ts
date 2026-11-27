@@ -81,8 +81,6 @@ export const loadConfig = (
   const emailCodes = env.EMAIL_CODES === 'true';
   const allowRegistration = env.ALLOW_REGISTRATION !== 'false';
   const access = parseAccountAccess(env.ACCOUNT_DOMAINS, env.ALLOWED_EMAILS);
-  const nobodyAllowed =
-    access.domains.length === 0 && access.emails.length === 0;
   const warnings: string[] = [];
   let sessionSecret = env.SESSION_SECRET ?? '';
 
@@ -92,11 +90,6 @@ export const loadConfig = (
     }
     if (!env.DATABASE_URL) {
       throw new Error('DATABASE_URL é obrigatório em produção.');
-    }
-    if (nobodyAllowed) {
-      throw new Error(
-        'Defina ACCOUNT_DOMAINS ou ALLOWED_EMAILS (quem pode criar conta).',
-      );
     }
     if (emailCodes && !env.SMTP_HOST) {
       throw new Error(
@@ -118,11 +111,6 @@ export const loadConfig = (
     if (!env.DATABASE_URL) {
       warnings.push(
         'DATABASE_URL ausente: contas e chat ficam em memória e somem ao reiniciar.',
-      );
-    }
-    if (nobodyAllowed) {
-      warnings.push(
-        'ACCOUNT_DOMAINS e ALLOWED_EMAILS vazios: ninguém consegue criar conta.',
       );
     }
   }

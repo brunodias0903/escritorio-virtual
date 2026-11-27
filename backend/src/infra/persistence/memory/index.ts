@@ -9,5 +9,7 @@ export { MemoryReadStateRepository } from './read-state.repository.js';
 export { MemoryRevocations } from './revocations.js';
 export {
   MemoryFeedbackRepository,
+  MemoryServerInviteRepository,
+  MemoryServerRepository,
   MemoryServerSettingsRepository,
 } from './workspace.repository.js';

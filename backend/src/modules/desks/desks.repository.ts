@@ -4,6 +4,7 @@ import type { DeskConfig } from '../../shared/domain/index.js';
 export type DeskRecord = {
   map: string;
   deskId: string;
+  serverId?: string;
   ownerEmail: string;
   ownerName: string;
   /** Cargo do dono (pode ficar em branco). */
@@ -14,7 +15,7 @@ export type DeskRecord = {
 
 /** Mesinhas adotadas. Mesinha livre é a que não tem registro. */
 export interface DeskRepository {
-  all(): Promise<DeskRecord[]>;
+  all(serverId?: string): Promise<DeskRecord[]>;
   get(map: string, deskId: string): Promise<DeskRecord | undefined>;
   byOwner(email: string): Promise<DeskRecord | undefined>;
   /** Adota. Devolve false se a mesa já tem dono ou se a pessoa já tem outra mesa. */

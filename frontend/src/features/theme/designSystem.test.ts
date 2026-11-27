@@ -14,6 +14,7 @@ import {
   TYPOGRAPHY,
   Z_INDEX,
   applyThemeCssVariables,
+  contrastRatio,
   findPreset,
   resolveThemeTokens,
 } from '@design-system';
@@ -67,6 +68,40 @@ describe('Design System (@voffice/design-system)', () => {
     );
     expect(custom.accent.main).toBe('#ff5500');
     expect(custom.gradient.server).toContain('#ff5500');
+  });
+
+  it('garante contraste WCAG AA (>= 4.5:1) em todos os presets nos modos claro e escuro', () => {
+    for (const preset of THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        const tokens = resolveThemeTokens(
+          preset.id,
+          preset.colors,
+          false,
+          mode,
+        );
+        expect(
+          contrastRatio(tokens.text.primary, tokens.bg.surface),
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(tokens.text.primary, tokens.bg.control),
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(tokens.text.primary, tokens.bg.input),
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(tokens.text.muted, tokens.bg.surfaceElevated),
+        ).toBeGreaterThanOrEqual(4.5);
+
+        if (mode === 'light') {
+          expect(
+            contrastRatio('#ffffff', tokens.accent.main),
+          ).toBeGreaterThanOrEqual(4.5);
+          expect(
+            contrastRatio(tokens.accent.link, tokens.bg.surfaceElevated),
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
   });
 
   it('aplica variáveis CSS de cores, tipografia, movimento e sombras em :root', () => {

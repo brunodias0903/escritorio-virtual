@@ -6,7 +6,7 @@ import {
   MemoryRevocations,
 } from '../../infra/persistence/memory/index.js';
 import { parseAccountAccess } from '../../shared/domain/index.js';
-import { handleAuthRoutes, type ApiRequest } from './auth.http.js';
+import { handleAuthRoutes } from './auth.http.js';
 import { AuthService } from './auth.service.js';
 import { CodeService } from './codes.service.js';
 import type { Mail } from './mailer.js';
@@ -48,14 +48,17 @@ const call = async (
   body?: unknown,
   authorization?: string,
 ) => {
-  const send = (p: string, b: unknown) =>
-    handleAuthRoutes(service, {
+  const send = (p: string, b: unknown) => {
+    const parsedUrl = new URL(p, 'http://localhost');
+    return handleAuthRoutes(service, {
       method,
-      path: p,
+      path: parsedUrl.pathname,
+      query: parsedUrl.searchParams,
       body: b,
       authorization,
       ip: '1.1.1.1',
     });
+  };
   // Cadastro sem código: pede um e usa o que "chegou" no e-mail.
   const fields = body as { email?: string; code?: string } | undefined;
   if (path === '/api/auth/register' && fields?.email && !fields.code) {
@@ -63,8 +66,7 @@ const call = async (
     const email = fields.email.trim().toLowerCase();
     return send(path, { ...fields, code: lastCode(service, email) });
   }
-  const req: ApiRequest = { method, path, body, authorization, ip: '1.1.1.1' };
-  return handleAuthRoutes(service, req);
+  return send(path, body);
 };
 
 const register = {
@@ -340,5 +342,117 @@ describe('logout', () => {
         )
       ).status,
     ).toBe(401);
+  });
+
+  it('cobre username-available, register/check e email-change via HTTP', async () => {
+    const service = newService();
+    const created = await call(service, 'POST', '/api/auth/register', register);
+    const bearer = `Bearer ${(created.body as { token: string }).token}`;
+
+    expect(
+      await call(service, 'GET', '/api/auth/username-available?username=anas'),
+    ).toEqual({ status: 200, body: { available: false } });
+    expect(
+      await call(
+        service,
+        'GET',
+        '/api/auth/username-available?username=anas',
+        undefined,
+        bearer,
+      ),
+    ).toEqual({ status: 200, body: { available: true } });
+    expect(
+      (await call(service, 'POST', '/api/auth/username-available')).status,
+    ).toBe(405);
+
+    expect(
+      await call(service, 'POST', '/api/auth/register/check', {
+        email: 'alguem@empresa.com',
+      }),
+    ).toEqual({ status: 200, body: { eligible: true } });
+    expect(
+      (
+        await call(service, 'POST', '/api/auth/register/check', {
+          email: 'nao@externo.com',
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (await call(service, 'GET', '/api/auth/register/check')).status,
+    ).toBe(405);
+
+    expect(
+      (
+        await call(service, 'POST', '/api/auth/email-change/start', {
+          newEmail: 'novo@empresa.com',
+          password: register.password,
+        })
+      ).status,
+    ).toBe(401);
+
+    const started = await call(
+      service,
+      'POST',
+      '/api/auth/email-change/start',
+      {
+        newEmail: 'ana.nova@empresa.com',
+        password: register.password,
+      },
+      bearer,
+    );
+    expect(started.status).toBe(200);
+
+    expect(
+      (
+        await call(
+          service,
+          'POST',
+          '/api/auth/email-change/start',
+          {
+            newEmail: 'invalido',
+            password: register.password,
+          },
+          bearer,
+        )
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await call(service, 'POST', '/api/auth/email-change/confirm', {
+          newEmail: 'ana.nova@empresa.com',
+          password: register.password,
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await call(
+          service,
+          'POST',
+          '/api/auth/email-change/confirm',
+          { newEmail: 'invalido', password: register.password },
+          bearer,
+        )
+      ).status,
+    ).toBe(400);
+
+    const oldCode = lastCode(service, 'ana@parceiro.com');
+    const newCode = lastCode(service, 'ana.nova@empresa.com');
+    const confirmed = await call(
+      service,
+      'POST',
+      '/api/auth/email-change/confirm',
+      {
+        newEmail: 'ana.nova@empresa.com',
+        password: register.password,
+        oldCode,
+        newCode,
+      },
+      bearer,
+    );
+    expect(confirmed.status).toBe(200);
+    expect((confirmed.body as { user: { email: string } }).user.email).toBe(
+      'ana.nova@empresa.com',
+    );
   });
 });

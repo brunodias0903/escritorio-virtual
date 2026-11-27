@@ -117,7 +117,7 @@ export function DeskBalloon({
             ) : null}
             <span className={styles.compactLabel}>{compactTitle}</span>
             <span className={styles.expandHint} aria-hidden="true">
-              <Icon name="chevronUp" size={11} color="#9aa6db" />
+              <Icon name="chevronUp" size={11} color="var(--text-muted)" />
             </span>
           </div>
         ) : (
@@ -125,7 +125,7 @@ export function DeskBalloon({
             <div className={styles.header}>
               <span className={styles.title}>{expandedTitle}</span>
               <span className={styles.occupancy}>
-                <Icon name="people" size={12} color="#cbd3f5" />
+                <Icon name="people" size={12} color="var(--text-secondary)" />
                 {occupancy}
               </span>
             </div>
@@ -143,7 +143,7 @@ export function DeskBalloon({
                 </span>
                 {state.locked ? (
                   <span className={styles.lockedBadge}>
-                    <Icon name="lock" size={11} color="#ff99a8" />
+                    <Icon name="lock" size={11} color="var(--danger-text)" />
                     Bloqueada pelo dono
                   </span>
                 ) : null}

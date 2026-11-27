@@ -11,8 +11,10 @@ export class MemoryDeskRepository implements DeskRepository {
     return `${map}:${deskId}`;
   }
 
-  async all() {
-    return [...this.desks.values()];
+  async all(serverId = 'default') {
+    return [...this.desks.values()].filter(
+      (d) => (d.serverId ?? 'default') === serverId,
+    );
   }
 
   async get(map: string, deskId: string) {

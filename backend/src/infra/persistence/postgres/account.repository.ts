@@ -226,6 +226,28 @@ export class PgLocalAccountRepository implements LocalAccountRepository {
     return rowCount === 1 ? ('ok' as const) : ('not_found' as const);
   }
 
+  async changeEmail(
+    oldEmail: string,
+    newEmail: string,
+    unlinkEmailMfa: boolean,
+  ) {
+    try {
+      const { rowCount } = await this.db.query(
+        `UPDATE local_accounts
+         SET email = $2,
+             email_verified = TRUE,
+             mfa_enabled = CASE WHEN $3 THEN FALSE ELSE mfa_enabled END,
+             mfa_method = CASE WHEN $3 THEN 'none' ELSE mfa_method END
+         WHERE email = $1`,
+        [oldEmail, newEmail, unlinkEmailMfa],
+      );
+      return rowCount === 1 ? ('ok' as const) : ('not_found' as const);
+    } catch (error) {
+      if (isUniqueViolation(error)) return 'email_taken' as const;
+      throw error;
+    }
+  }
+
   async setUiTheme(email: string, uiTheme: string | null) {
     const { rowCount } = await this.db.query(
       `UPDATE local_accounts SET ui_theme = $2 WHERE email = $1`,

@@ -1,3 +1,4 @@
+import { Copy, Link2, Plus, Trash2 } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -10,6 +11,7 @@ import { workspaceApi } from '@/app/api';
 import type {
   ManagedAccount,
   ManagedChannel,
+  ServerInvite,
 } from '@/features/workspace/api/workspaceApi';
 import { useServerStore } from '@/features/workspace/model/serverStore';
 import {
@@ -38,7 +40,7 @@ type Props = {
   onNotify: (msg: string) => void;
 };
 
-type Tab = 'members' | 'channels' | 'general';
+type Tab = 'members' | 'channels' | 'invites' | 'general';
 type MemberFilter = 'all' | 'online' | 'desk' | 'moderated';
 
 const DURATION_OPTIONS = [
@@ -70,6 +72,7 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
   const { t } = useI18n();
   const settings = useServerStore((s) => s.settings);
   const setSettings = useServerStore((s) => s.setSettings);
+  const activeServerId = useServerStore((s) => s.activeServerId);
 
   const actorTiers = effectiveTiersOf(
     session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
@@ -139,8 +142,27 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
   );
   const [draftRoleTitle, setDraftRoleTitle] = useState('');
 
+  const [invites, setInvites] = useState<ServerInvite[]>([]);
+  const [invitesLoaded, setInvitesLoaded] = useState(false);
+  const [invitedEmails, setInvitedEmails] = useState<
+    Array<{
+      serverId: string;
+      email: string;
+      invitedBy: string;
+      createdAt: number;
+    }>
+  >([]);
+  const [inviteEmailInput, setInviteEmailInput] = useState('');
+  const [addingEmailInvite, setAddingEmailInvite] = useState(false);
+  const [inviteMaxUses, setInviteMaxUses] = useState('');
+  const [inviteExpiresInHours, setInviteExpiresInHours] = useState('24');
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [busyInviteCode, setBusyInviteCode] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
   const loadingChannels = tab === 'channels' && !channelsLoaded;
   const loadingAccounts = tab === 'members' && !accountsLoaded;
+  const loadingInvites = tab === 'invites' && !invitesLoaded;
 
   const assignableForActor: readonly AccountTier[] = isMaster
     ? ASSIGNABLE_TIERS
@@ -174,6 +196,116 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
       alive = false;
     };
   }, [tab, canSeeMembers, session.token, refreshTick, accountsLoaded]);
+
+  useEffect(() => {
+    if (tab !== 'invites' || invitesLoaded) return;
+    let alive = true;
+    void Promise.all([
+      workspaceApi.listServerInvites(session.token, activeServerId),
+      workspaceApi.listInvitedEmails(session.token, activeServerId),
+    ]).then(([res, emailRes]) => {
+      if (!alive) return;
+      setInvitesLoaded(true);
+      setNowMs(Date.now());
+      if (res.ok) setInvites(res.data.invites);
+      else setError(errorMessage(res.error));
+      if (emailRes.ok) setInvitedEmails(emailRes.data.emails);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tab, invitesLoaded, session.token, activeServerId]);
+
+  const handleCreateInvite = async (e: FormEvent) => {
+    e.preventDefault();
+    setCreatingInvite(true);
+    setError('');
+    const maxUses = inviteMaxUses.trim()
+      ? Math.max(1, Number.parseInt(inviteMaxUses, 10) || 1)
+      : null;
+    const expiresInHours = inviteExpiresInHours.trim()
+      ? Math.max(1, Number.parseInt(inviteExpiresInHours, 10) || 1)
+      : null;
+    const res = await workspaceApi.createServerInvite(
+      session.token,
+      activeServerId,
+      { maxUses, expiresInHours },
+    );
+    setCreatingInvite(false);
+    if (!res.ok) {
+      setError(errorMessage(res.error));
+      return;
+    }
+    setInvites((prev) => [res.data.invite, ...prev]);
+    onNotify('Convite criado.');
+  };
+
+  const handleCopyInvite = async (code: string) => {
+    try {
+      await navigator.clipboard?.writeText(code);
+      onNotify(`Código ${code} copiado.`);
+    } catch {
+      onNotify(`Código: ${code}`);
+    }
+  };
+
+  const handleRevokeInvite = async (code: string) => {
+    setBusyInviteCode(code);
+    setError('');
+    const res = await workspaceApi.revokeServerInvite(
+      session.token,
+      activeServerId,
+      code,
+    );
+    setBusyInviteCode(null);
+    if (!res.ok) {
+      setError(errorMessage(res.error));
+      return;
+    }
+    setInvites((prev) =>
+      prev.map((inv) => (inv.code === code ? { ...inv, revoked: true } : inv)),
+    );
+    onNotify('Convite revogado.');
+  };
+
+  const handleAddInvitedEmail = async (e: FormEvent) => {
+    e.preventDefault();
+    const email = inviteEmailInput.trim().toLowerCase();
+    if (!email) return;
+    setAddingEmailInvite(true);
+    setError('');
+    const res = await workspaceApi.addInvitedEmail(
+      session.token,
+      activeServerId,
+      email,
+    );
+    setAddingEmailInvite(false);
+    if (!res.ok) {
+      setError(errorMessage(res.error));
+      return;
+    }
+    setInvitedEmails((prev) => [
+      res.data.invite,
+      ...prev.filter((item) => item.email !== res.data.invite.email),
+    ]);
+    setInviteEmailInput('');
+    onNotify(`E-mail ${email} adicionado à lista de convites.`);
+  };
+
+  const handleRemoveInvitedEmail = async (email: string) => {
+    setError('');
+    const res = await workspaceApi.removeInvitedEmail(
+      session.token,
+      activeServerId,
+      email,
+    );
+    if (!res.ok) {
+      setError(errorMessage(res.error));
+      return;
+    }
+    setInvitedEmails((prev) => prev.filter((item) => item.email !== email));
+    onNotify(`Convite de ${email} removido.`);
+  };
 
   const handleIconPick = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -523,6 +655,14 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
             onClick={() => setTab('channels')}
           >
             # {t('server.tab.channels')}
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${tab === 'invites' ? styles.tabActive : ''}`}
+            onClick={() => setTab('invites')}
+          >
+            <Link2 size={14} style={{ marginRight: 5, verticalAlign: -2 }} />
+            Acesso e Convites
           </button>
           <button
             type="button"
@@ -1283,6 +1423,182 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
                 </div>
               )}
             </div>
+          ) : tab === 'invites' ? (
+            <div className={styles.channelsPane}>
+              <p className={styles.hint}>
+                Gere códigos de convite para novos membros entrarem neste
+                servidor.
+              </p>
+
+              <form
+                className={styles.newChannelCard}
+                onSubmit={(e) => void handleAddInvitedEmail(e)}
+              >
+                <div className={styles.sectionTitle}>
+                  Convidar por e-mail (libera criação de conta)
+                </div>
+                <div className={styles.inlineInputs}>
+                  <input
+                    type="email"
+                    className={styles.input}
+                    placeholder="pessoa@gmail.com"
+                    value={inviteEmailInput}
+                    onChange={(e) => setInviteEmailInput(e.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    className={styles.primaryBtn}
+                    disabled={addingEmailInvite || !inviteEmailInput.trim()}
+                  >
+                    <Plus
+                      size={14}
+                      style={{ marginRight: 5, verticalAlign: -2 }}
+                    />
+                    {addingEmailInvite ? 'Adicionando…' : 'Convidar'}
+                  </button>
+                </div>
+                {invitedEmails.length > 0 ? (
+                  <div className={styles.channelList} style={{ marginTop: 10 }}>
+                    {invitedEmails.map((entry) => (
+                      <div key={entry.email} className={styles.channelCard}>
+                        <div className={styles.channelHeader}>
+                          <span>{entry.email}</span>
+                          <button
+                            type="button"
+                            className={styles.secondaryBtn}
+                            onClick={() =>
+                              void handleRemoveInvitedEmail(entry.email)
+                            }
+                            title="Remover convite"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </form>
+
+              <form
+                className={styles.newChannelCard}
+                onSubmit={(e) => void handleCreateInvite(e)}
+              >
+                <div className={styles.sectionTitle}>Novo convite</div>
+                <div className={styles.inlineInputs}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    className={styles.input}
+                    placeholder="Limite de usos (vazio = ilimitado)"
+                    value={inviteMaxUses}
+                    onChange={(e) => setInviteMaxUses(e.target.value)}
+                  />
+                  <select
+                    className={styles.input}
+                    value={inviteExpiresInHours}
+                    onChange={(e) => setInviteExpiresInHours(e.target.value)}
+                  >
+                    <option value="24">Expira em 24 horas</option>
+                    <option value="168">Expira em 7 dias</option>
+                    <option value="720">Expira em 30 dias</option>
+                    <option value="">Sem expiração</option>
+                  </select>
+                </div>
+                <div className={styles.footer}>
+                  <button
+                    type="submit"
+                    className={styles.primaryBtn}
+                    disabled={creatingInvite}
+                  >
+                    <Plus
+                      size={14}
+                      style={{ marginRight: 5, verticalAlign: -2 }}
+                    />
+                    {creatingInvite ? 'Gerando…' : 'Gerar convite'}
+                  </button>
+                </div>
+              </form>
+
+              {loadingInvites ? (
+                <div className={styles.empty}>Carregando convites…</div>
+              ) : invites.length === 0 ? (
+                <div className={styles.empty}>
+                  Nenhum convite criado para este servidor ainda.
+                </div>
+              ) : (
+                <div className={styles.channelList}>
+                  {invites.map((inv) => {
+                    const expired =
+                      inv.expiresAt !== null && nowMs > inv.expiresAt;
+                    const exhausted =
+                      inv.maxUses !== null && inv.uses >= inv.maxUses;
+                    const inactive = inv.revoked || expired || exhausted;
+                    const statusLabel = inv.revoked
+                      ? 'Revogado'
+                      : expired
+                        ? 'Expirado'
+                        : exhausted
+                          ? 'Esgotado'
+                          : 'Ativo';
+                    return (
+                      <div key={inv.code} className={styles.channelCard}>
+                        <div className={styles.channelHeader}>
+                          <div>
+                            <strong
+                              style={{
+                                fontFamily: 'monospace',
+                                letterSpacing: 1,
+                              }}
+                            >
+                              {inv.code}
+                            </strong>
+                            <span
+                              className={styles.hint}
+                              style={{ marginLeft: 10 }}
+                            >
+                              {statusLabel} • {inv.uses}
+                              {inv.maxUses !== null
+                                ? `/${inv.maxUses}`
+                                : ''}{' '}
+                              uso(s)
+                              {inv.expiresAt !== null
+                                ? ` • expira em ${new Date(inv.expiresAt).toLocaleDateString('pt-BR')}`
+                                : ' • sem expiração'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              type="button"
+                              className={styles.secondaryBtn}
+                              disabled={inactive}
+                              onClick={() => void handleCopyInvite(inv.code)}
+                              title="Copiar código"
+                            >
+                              <Copy size={13} />
+                            </button>
+                            {!inv.revoked ? (
+                              <button
+                                type="button"
+                                className={styles.secondaryBtn}
+                                disabled={busyInviteCode === inv.code}
+                                onClick={() =>
+                                  void handleRevokeInvite(inv.code)
+                                }
+                                title="Revogar convite"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ) : (
             <div className={styles.channelsPane}>
               <p className={styles.hint}>{t('server.moderation.hint')}</p>
@@ -1336,7 +1652,9 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
 
               <div
                 className={
-                  isMaster ? styles.moderationControls : styles.inlineInputs
+                  canSeeMembers
+                    ? styles.moderationControls
+                    : styles.inlineInputs
                 }
               >
                 <input
@@ -1346,7 +1664,7 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
                   value={accountQuery}
                   onChange={(e) => setAccountQuery(e.target.value)}
                 />
-                {isMaster ? (
+                {canSeeMembers ? (
                   <>
                     <input
                       type="text"
@@ -1646,7 +1964,10 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
                             </button>
                           ) : null}
 
-                          {isMaster && !isSelf && !isTargetMaster ? (
+                          {canSeeMembers &&
+                          !isSelf &&
+                          !isTargetMaster &&
+                          (isMaster || !isTargetAdmin) ? (
                             <>
                               {!isBanned ? (
                                 <>
@@ -1722,7 +2043,7 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
                                 </button>
                               )}
 
-                              {confirmingRemove ? (
+                              {isMaster && confirmingRemove ? (
                                 <>
                                   <button
                                     type="button"
@@ -1748,7 +2069,7 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
                                     {t('common.cancel')}
                                   </button>
                                 </>
-                              ) : (
+                              ) : isMaster ? (
                                 <button
                                   type="button"
                                   className={`${styles.modBtn} ${styles.modBtnDanger}`}
@@ -1759,7 +2080,7 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
                                 >
                                   {t('server.moderation.action.remove')}
                                 </button>
-                              )}
+                              ) : null}
                             </>
                           ) : null}
                         </div>

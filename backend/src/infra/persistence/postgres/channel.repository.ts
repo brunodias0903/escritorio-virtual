@@ -65,9 +65,10 @@ export class PgChannelRepository implements ChannelRepository {
     return rows[0] ? toChannel(rows[0] as ChannelDbRow) : undefined;
   }
 
-  async listPublic() {
+  async listPublic(serverId = 'default') {
     const { rows } = await this.db.query(
-      `SELECT ${CHANNEL_COLUMNS} FROM channels WHERE kind = 'public' ORDER BY position ASC, created_at ASC, name ASC`,
+      `SELECT ${CHANNEL_COLUMNS} FROM channels WHERE kind = 'public' AND server_id = $1 ORDER BY position ASC, created_at ASC, name ASC`,
+      [serverId],
     );
     return rows.map((row) => toChannel(row as ChannelDbRow));
   }
@@ -87,10 +88,11 @@ export class PgChannelRepository implements ChannelRepository {
   async create(channel: ChannelRow) {
     try {
       await this.db.query(
-        `INSERT INTO channels (id, name, kind, archived, position, topic, view_tiers, write_tiers, allowed_emails, blocked_emails, created_by, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        `INSERT INTO channels (id, server_id, name, kind, archived, position, topic, view_tiers, write_tiers, allowed_emails, blocked_emails, created_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           channel.id,
+          channel.serverId ?? 'default',
           channel.name,
           channel.kind,
           channel.archived,

@@ -15,6 +15,8 @@ import {
   MemoryRateLimiter,
   MemoryReadStateRepository,
   MemoryRevocations,
+  MemoryServerInviteRepository,
+  MemoryServerRepository,
   MemoryServerSettingsRepository,
 } from '../infra/persistence/memory/index.js';
 import {
@@ -26,6 +28,8 @@ import {
   PgLocalAccountRepository,
   PgProfileRepository,
   PgReadStateRepository,
+  PgServerInviteRepository,
+  PgServerRepository,
   PgServerSettingsRepository,
 } from '../infra/persistence/postgres/index.js';
 import {
@@ -60,6 +64,8 @@ import type { Bus, Presence } from '../modules/realtime/cluster.ports.js';
 import { Cluster } from '../modules/realtime/cluster.js';
 import type {
   FeedbackRepository,
+  ServerInviteRepository,
+  ServerRepository,
   ServerSettingsRepository,
 } from '../modules/workspace/workspace.repository.js';
 import { WorkspaceService } from '../modules/workspace/workspace.service.js';
@@ -108,6 +114,9 @@ export const createContainer = async (
   let serverSettings: ServerSettingsRepository =
     new MemoryServerSettingsRepository();
   let feedbackRepo: FeedbackRepository = new MemoryFeedbackRepository();
+  let serverRepo: ServerRepository = new MemoryServerRepository();
+  let serverInviteRepo: ServerInviteRepository =
+    new MemoryServerInviteRepository();
 
   if (config.databaseUrl) {
     const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
@@ -136,6 +145,8 @@ export const createContainer = async (
     emailCodes = new PgEmailCodeRepository(pool);
     serverSettings = new PgServerSettingsRepository(pool);
     feedbackRepo = new PgFeedbackRepository(pool);
+    serverRepo = new PgServerRepository(pool);
+    serverInviteRepo = new PgServerInviteRepository(pool);
   }
 
   let loginLimiter: RateLimit = new MemoryRateLimiter(
@@ -218,6 +229,19 @@ export const createContainer = async (
     loginLimiter,
     revocations,
     allowRegistration: config.allowRegistration,
+    isEmailInvited: (email) =>
+      serverInviteRepo.isEmailInvited
+        ? serverInviteRepo.isEmailInvited(email)
+        : Promise.resolve(false),
+    onRegistered: async (email) => {
+      if (!serverInviteRepo.invitedServersForEmail) return;
+      const serverIds = await serverInviteRepo.invitedServersForEmail(email);
+      for (const sid of serverIds) {
+        await serverRepo.addMember(sid, email, 'member', Date.now());
+      }
+    },
+    isPublicRegistrationOpen: async () =>
+      (await serverSettings.get()).allowPublicRegistration,
     codes: config.emailCodes ? codeService : null,
     verifyCodes: codeService,
     onAccountDeleted: async (email) => {
@@ -242,6 +266,7 @@ export const createContainer = async (
     media,
     profiles,
     accounts,
+    servers: serverRepo,
     allowedOrigins: config.allowedOrigins,
   });
 
@@ -263,6 +288,8 @@ export const createContainer = async (
     feedback: feedbackRepo,
     channels,
     accounts,
+    servers: serverRepo,
+    invites: serverInviteRepo,
     desks,
     adminEmails: config.adminEmails,
     getOnlinePlayers: () => office.everyone(),

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button, Text, XStack, YStack } from 'tamagui';
 
 import { authApi } from '@/app/api';
 import { LocalLoginForm } from '@/features/auth/components/LocalLoginForm';
@@ -7,6 +8,7 @@ import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm'
 import { LegalModal } from '@/features/legal/LegalModal';
 import { useSessionStore } from '@/features/session/model/sessionStore';
 import { APP_NAME, type AuthOptions } from '@/shared/domain';
+import { SurfaceCard } from '@/shared/ui/tamagui';
 
 import styles from './LoginPage.module.css';
 
@@ -259,41 +261,47 @@ export function LoginPage() {
       </section>
 
       <section className={styles.panel}>
-        <div
-          className={`${styles.card} ${view === 'register' ? styles.cardWide : ''}`}
+        <SurfaceCard
+          variant="glass"
+          width="100%"
+          maxWidth={view === 'register' ? 540 : 440}
+          padding="$6"
+          borderRadius="$2xl"
+          gap="$4"
+          marginTop="auto"
+          marginBottom="auto"
         >
           {sessionNotice ? (
-            <div
+            <XStack
               role="alert"
-              style={{
-                marginBottom: 14,
-                padding: '10px 12px',
-                borderRadius: 10,
-                background: 'rgba(255, 107, 129, 0.16)',
-                border: '1px solid rgba(255, 107, 129, 0.42)',
-                color: '#ffb3be',
-                fontSize: 13,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 10,
-              }}
+              alignItems="center"
+              justifyContent="space-between"
+              gap="$2.5"
+              padding="$3"
+              borderRadius="$lg"
+              backgroundColor="$dangerBg"
+              borderColor="$dangerBorder"
+              borderWidth={1}
             >
-              <span>{sessionNotice}</span>
-              <button
-                type="button"
+              <Text
+                fontFamily="$body"
+                fontSize="$3"
+                color="$dangerText"
+                flex={1}
+              >
+                {sessionNotice}
+              </Text>
+              <Button
+                padding="$1.5"
+                backgroundColor="transparent"
+                borderWidth={0}
                 aria-label="Fechar aviso"
-                onClick={clearNotice}
-                style={{
-                  color: '#ffb3be',
-                  fontSize: 14,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
+                color="$dangerText"
+                onPress={clearNotice}
               >
                 ✕
-              </button>
-            </div>
+              </Button>
+            </XStack>
           ) : null}
           {view === 'register' && allowRegistration ? (
             <LocalRegisterForm
@@ -311,32 +319,33 @@ export function LoginPage() {
               onForgot={emailCodes ? () => setView('reset') : undefined}
             />
           )}
-          <div
-            style={{
-              marginTop: 14,
-              paddingTop: 12,
-              borderTop: '1px solid rgba(255,255,255,0.08)',
-              fontSize: 11.5,
-              color: 'rgba(255,255,255,0.62)',
-              textAlign: 'center',
-              lineHeight: 1.45,
-            }}
+          <YStack
+            marginTop="$2"
+            paddingTop="$3"
+            borderTopWidth={1}
+            borderTopColor="$borderGlass"
+            alignItems="center"
           >
-            🔞 Uso profissional exclusivo para maiores de 18 anos (ECA) ·{' '}
-            <button
-              type="button"
-              onClick={() => setLegalOpen(true)}
-              style={{
-                color: '#a59dff',
-                textDecoration: 'underline',
-                fontSize: 'inherit',
-                cursor: 'pointer',
-              }}
+            <Text
+              fontFamily="$body"
+              fontSize="$2"
+              color="$textMuted"
+              textAlign="center"
             >
-              Termos de Uso & Privacidade (LGPD)
-            </button>
-          </div>
-        </div>
+              🔞 Uso profissional exclusivo para maiores de 18 anos (ECA) ·{' '}
+              <Text
+                role="button"
+                tabIndex={0}
+                color="$accentLink"
+                textDecorationLine="underline"
+                cursor="pointer"
+                onPress={() => setLegalOpen(true)}
+              >
+                Termos de Uso & Privacidade (LGPD)
+              </Text>
+            </Text>
+          </YStack>
+        </SurfaceCard>
       </section>
 
       {legalOpen ? <LegalModal onClose={() => setLegalOpen(false)} /> : null}

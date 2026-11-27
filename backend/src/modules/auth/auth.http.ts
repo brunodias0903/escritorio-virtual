@@ -1,10 +1,13 @@
 import {
   DeleteAccountSchema,
+  EmailChangeConfirmSchema,
+  EmailChangeStartSchema,
   EmailPreferencesSchema,
   LoginSchema,
   MfaDisableSchema,
   MfaEmailToggleSchema,
   MfaEnableSchema,
+  RegisterEligibilitySchema,
   RegisterSchema,
   RequestCodeSchema,
   ResetPasswordSchema,
@@ -18,6 +21,7 @@ import type { AuthService } from './auth.service.js';
 export type ApiRequest = {
   method: string;
   path: string;
+  query?: URLSearchParams;
   /** Valor do cabeçalho Authorization. */
   authorization: string | undefined;
   /** Corpo já lido do JSON (ou undefined). */
@@ -53,6 +57,58 @@ export const handleAuthRoutes = async (
     case '/api/auth/options': {
       if (method !== 'GET') return error(405, 'method_not_allowed');
       return json(200, service.options());
+    }
+
+    case '/api/auth/username-available': {
+      if (method !== 'GET') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      const username = req.query?.get('username') ?? '';
+      return respond(
+        await service.checkUsernameAvailable(username, claims?.email, ip),
+        (v) => json(200, v),
+      );
+    }
+
+    case '/api/auth/register/check': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const parsed = RegisterEligibilitySchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await service.checkRegisterEmail(parsed.data.email, ip),
+        (v) => json(200, v),
+      );
+    }
+
+    case '/api/auth/email-change/start': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      const parsed = EmailChangeStartSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await service.startEmailChange(
+          claims,
+          parsed.data.newEmail,
+          parsed.data.password,
+          ip,
+        ),
+        (v) => json(200, v),
+      );
+    }
+
+    case '/api/auth/email-change/confirm': {
+      if (method !== 'POST') return error(405, 'method_not_allowed');
+      const token = bearer(req.authorization);
+      const claims = token ? await service.authenticate(token) : null;
+      if (!claims) return error(401, 'unauthorized');
+      const parsed = EmailChangeConfirmSchema.safeParse(body);
+      if (!parsed.success) return error(400, 'invalid_request');
+      return respond(
+        await service.confirmEmailChange(claims, parsed.data, ip),
+        (s) => json(200, s),
+      );
     }
 
     case '/api/auth/register': {

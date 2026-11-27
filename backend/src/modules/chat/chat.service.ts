@@ -67,9 +67,10 @@ export class ChatService {
   async channelsFor(
     email: string,
     tiers?: readonly AccountTier[],
+    serverId = 'default',
   ): Promise<ChannelInfo[]> {
     const [publicRows, directRows, reads] = await Promise.all([
-      this.deps.channels.listPublic(),
+      this.deps.channels.listPublic(serverId),
       this.deps.channels.listDirect(email),
       this.deps.reads.all(email),
     ]);
@@ -120,8 +121,9 @@ export class ChatService {
   async history(
     email: string,
     tiers?: readonly AccountTier[],
+    serverId = 'default',
   ): Promise<ChatMessage[]> {
-    const channels = await this.channelsFor(email, tiers);
+    const channels = await this.channelsFor(email, tiers, serverId);
     return this.deps.chat.recentRoots(
       channels.map((c) => c.id),
       CHAT_HISTORY_LIMIT,

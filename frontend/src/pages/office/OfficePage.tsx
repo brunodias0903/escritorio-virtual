@@ -58,13 +58,16 @@ import { peopleList } from '@/features/office/model/people';
 import { usePeopleStore } from '@/features/office/model/peopleStore';
 import { ThemeModal } from '@/features/theme/ThemeModal';
 import { useThemeStore } from '@/features/theme/themeStore';
+import { CreateServerModal } from '@/features/workspace/components/CreateServerModal';
 import { HelpFeedbackModal } from '@/features/workspace/components/HelpFeedbackModal';
 import { ServerSettingsModal } from '@/features/workspace/components/ServerSettingsModal';
 import { useServerStore } from '@/features/workspace/model/serverStore';
 import {
   callKey,
   callZoneId,
+  canManageServer,
   deskKey,
+  effectiveTiersOf,
   isNearCall,
   isUnavailableStatus,
   onlineCount,
@@ -77,7 +80,11 @@ import {
 } from '@/shared/domain';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 import { useWindowSize } from '@/shared/hooks/useWindowSize';
-import { playNotifyChime } from '@/shared/lib/notifySound';
+import { playNotifyChime, unlockNotifyAudio } from '@/shared/lib/notifySound';
+import {
+  showPwaNotification,
+  syncAppBadge,
+} from '@/shared/lib/pwaNotifications';
 
 import styles from './OfficePage.module.css';
 import { routeServerMessage, type OfficeSend } from './routeMessage';
@@ -163,16 +170,25 @@ export function OfficePage({ session }: { session: Session }) {
   const [askEmailPrefs, setAskEmailPrefs] = useState(false);
   const serverSettings = useServerStore((s) => s.settings);
   const setServerSettings = useServerStore((s) => s.setSettings);
+  const servers = useServerStore((s) => s.servers);
+  const activeServerId = useServerStore((s) => s.activeServerId);
+  const setServers = useServerStore((s) => s.setServers);
+  const addServer = useServerStore((s) => s.addServer);
+  const selectServer = useServerStore((s) => s.selectServer);
+  const [createServerOpen, setCreateServerOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
     void workspaceApi.getServerSettings().then((settings) => {
       if (alive) setServerSettings(settings);
     });
+    void workspaceApi.listServers(session.token).then((res) => {
+      if (alive && res.ok) setServers(res.data.servers);
+    });
     return () => {
       alive = false;
     };
-  }, [setServerSettings]);
+  }, [session.token, setServerSettings, setServers]);
   const [editingDeskId, setEditingDeskId] = useState<string | null>(null);
   const [movingDeskId, setMovingDeskId] = useState<string | null>(null);
   const [previewDesk, setPreviewDesk] = useState<DeskInfo | null>(null);
@@ -216,10 +232,12 @@ export function OfficePage({ session }: { session: Session }) {
   }, [view.snapshot]);
 
   const themePresetId = useThemeStore((s) => s.presetId);
+  const themeMode = useThemeStore((s) => s.mode);
   const themeColors = useThemeStore((s) => s.colors);
   const themeCustomized = useThemeStore((s) => s.customized);
   const themeHydratedRef = useRef(false);
-  const prevUnreadRef = useRef(unread + mentions);
+  const prevUnreadRef = useRef(notifyCounts.totalUnread);
+  const prevMentionsRef = useRef(notifyCounts.totalMentions);
 
   // Carrega o tema salvo na conta ao entrar (sincroniza entre dispositivos).
   useEffect(() => {
@@ -253,30 +271,65 @@ export function OfficePage({ session }: { session: Session }) {
     const timer = window.setTimeout(() => {
       void authApi.updateTheme(session.token, {
         presetId: themePresetId,
+        mode: themeMode,
         colors: themeColors,
         customized: themeCustomized,
       });
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [session.token, themePresetId, themeColors, themeCustomized]);
+  }, [session.token, themePresetId, themeMode, themeColors, themeCustomized]);
 
   const myStatus = view.snapshot.players.find(
     (p) => p.id === view.snapshot.meId,
   )?.status;
 
-  // Atualiza título da aba e toca som sutil ao receber novas mensagens/menções.
+  // Desbloqueia AudioContext no primeiro toque/tecla (necessário em PWA mobile).
   useEffect(() => {
-    const total = unread + mentions;
-    document.title =
-      total > 0 ? `(${total}) Escritório Virtual` : 'Escritório Virtual';
-    if (total > prevUnreadRef.current && !isUnavailableStatus(myStatus)) {
-      playNotifyChime('message');
-    }
-    prevUnreadRef.current = total;
+    const unlock = () => unlockNotifyAudio();
+    window.addEventListener('pointerdown', unlock, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener('keydown', unlock, { once: true, passive: true });
     return () => {
-      document.title = 'Escritório Virtual';
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
     };
-  }, [unread, mentions, myStatus]);
+  }, []);
+
+  // Atualiza título, badge PWA, som e notificação nativa respeitando ChatNotifyMode.
+  useEffect(() => {
+    const effectiveTotal = notifyCounts.totalUnread;
+    const effectiveMentions = notifyCounts.totalMentions;
+    document.title =
+      effectiveTotal > 0
+        ? `(${effectiveTotal}) Setter — Escritório Virtual`
+        : 'Setter — Escritório Virtual';
+    syncAppBadge(effectiveTotal);
+
+    if (!isUnavailableStatus(myStatus)) {
+      if (effectiveMentions > prevMentionsRef.current) {
+        playNotifyChime('mention');
+        void showPwaNotification({
+          title: 'Nova menção no Setter',
+          body: 'Você foi mencionado ou recebeu uma mensagem prioritária.',
+          tag: 'setter-mention',
+        });
+      } else if (effectiveTotal > prevUnreadRef.current) {
+        playNotifyChime('message');
+        void showPwaNotification({
+          title: 'Nova mensagem no Setter',
+          body: `Você tem ${effectiveTotal} mensagem(ns) não lida(s).`,
+          tag: 'setter-message',
+        });
+      }
+    }
+    prevUnreadRef.current = effectiveTotal;
+    prevMentionsRef.current = effectiveMentions;
+    return () => {
+      document.title = 'Setter — Escritório Virtual';
+    };
+  }, [notifyCounts.totalUnread, notifyCounts.totalMentions, myStatus]);
 
   // Restaura como o usuário deixou a sidebar (aberta/fechada) ou usa `wide` na primeira vez.
   useEffect(() => {
@@ -305,6 +358,7 @@ export function OfficePage({ session }: { session: Session }) {
     const socket = connectOffice({
       url: WS_URL,
       token: session.token,
+      serverId: activeServerId,
       onMessage: (message) =>
         routeServerMessage(
           message,
@@ -387,7 +441,7 @@ export function OfficePage({ session }: { session: Session }) {
       useDeskStore.getState().reset();
       usePeopleStore.getState().reset();
     };
-  }, [session.token, session.user.email, world, keyboard]);
+  }, [session.token, session.user.email, activeServerId, world, keyboard]);
 
   const send: OfficeSend = (message) => socketRef.current?.send(message);
   const me = view.snapshot.players.find((p) => p.id === view.snapshot.meId);
@@ -643,12 +697,23 @@ export function OfficePage({ session }: { session: Session }) {
         <MobileBottomNav
           activeTab={mobileTab}
           onSelectTab={setMobileTab}
-          serverName={serverSettings.name}
+          serverName={
+            servers.find((s) => s.id === activeServerId)?.name ??
+            serverSettings.name
+          }
+          servers={servers}
+          activeServerId={activeServerId}
+          onSelectServer={(id) => {
+            selectServer(id);
+            const target = servers.find((s) => s.id === id);
+            if (target) setNotice(`Servidor ativo: ${target.name}`);
+          }}
+          onCreateOrJoinServer={() => setCreateServerOpen(true)}
           session={session}
           status={me?.status ?? 'available'}
           appearance={me?.appearance}
-          unread={unread}
-          mentions={mentions}
+          unread={notifyCounts.totalUnread}
+          mentions={notifyCounts.totalMentions}
           online={onlinePeople}
           peopleMe={people.me}
           peopleOthers={people.others}
@@ -657,6 +722,7 @@ export function OfficePage({ session }: { session: Session }) {
           onGoToDesk={goToDesk}
           onOpenDm={openDm}
           onOpenAccount={openAccount}
+          onOpenTheme={() => setThemeOpen(true)}
           onOpenServerSettings={() => setServerSettingsOpen(true)}
           onExit={() => void endSession(session.token)}
           send={send}
@@ -673,8 +739,18 @@ export function OfficePage({ session }: { session: Session }) {
         />
       ) : (
         <WorkspaceSidebar
-          serverName={serverSettings.name}
-          serverIcon={serverSettings.icon}
+          serverName={
+            servers.find((s) => s.id === activeServerId)?.name ??
+            serverSettings.name
+          }
+          serverIcon={activeServerId === 'default' ? serverSettings.icon : null}
+          servers={servers}
+          activeServerId={activeServerId}
+          onSelectServer={(id) => {
+            selectServer(id);
+            const target = servers.find((s) => s.id === id);
+            if (target) setNotice(`Servidor ativo: ${target.name}`);
+          }}
           session={session}
           status={me?.status ?? 'available'}
           appearance={me?.appearance}
@@ -698,6 +774,7 @@ export function OfficePage({ session }: { session: Session }) {
           accountOpen={accountOpen}
           onOpenAccount={openAccount}
           onOpenServerSettings={() => setServerSettingsOpen(true)}
+          onOpenCreateServer={() => setCreateServerOpen(true)}
           onExit={() => void endSession(session.token)}
           onNotify={setNotice}
           send={send}
@@ -929,6 +1006,27 @@ export function OfficePage({ session }: { session: Session }) {
           session={session}
           onClose={() => setServerSettingsOpen(false)}
           onNotify={setNotice}
+        />
+      ) : null}
+
+      {createServerOpen ? (
+        <CreateServerModal
+          token={session.token}
+          canCreate={canManageServer(
+            effectiveTiersOf(
+              session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
+              session.user.secondaryTiers,
+            ),
+          )}
+          onJoinedOrCreated={(server, action) => {
+            addServer(server);
+            setNotice(
+              action === 'create'
+                ? `Servidor "${server.name}" criado!`
+                : `Você entrou no servidor "${server.name}"!`,
+            );
+          }}
+          onClose={() => setCreateServerOpen(false)}
         />
       ) : null}
 

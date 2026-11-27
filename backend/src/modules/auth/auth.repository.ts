@@ -88,6 +88,12 @@ export interface LocalAccountRepository {
   ): Promise<'ok' | 'nickname_taken' | 'not_found'>;
   /** Marca o e-mail da conta como verificado. */
   markVerified?(email: string): Promise<'ok' | 'not_found'>;
+  /** Altera o e-mail da conta e desvincula MFA de e-mail quando solicitado. */
+  changeEmail?(
+    oldEmail: string,
+    newEmail: string,
+    unlinkEmailMfa: boolean,
+  ): Promise<'ok' | 'email_taken' | 'not_found'>;
   /** Salva o tema/cores escolhidos pelo usuário (JSON). */
   setUiTheme?(
     email: string,

@@ -68,6 +68,29 @@ export class MemoryLocalAccountRepository implements LocalAccountRepository {
     return 'ok' as const;
   }
 
+  async changeEmail(
+    oldEmail: string,
+    newEmail: string,
+    unlinkEmailMfa: boolean,
+  ) {
+    const current = await this.byEmail(oldEmail);
+    if (!current) return 'not_found' as const;
+    if (
+      [...this.accounts.values()].some(
+        (a) => a.email === newEmail && a.email !== oldEmail,
+      )
+    ) {
+      return 'email_taken' as const;
+    }
+    this.accounts.set(nicknameKey(current.nickname), {
+      ...current,
+      email: newEmail,
+      emailVerified: true,
+      ...(unlinkEmailMfa ? { mfaEnabled: false, mfaMethod: 'none' } : {}),
+    });
+    return 'ok' as const;
+  }
+
   async setUiTheme(email: string, uiTheme: string | null) {
     const current = await this.byEmail(email);
     if (!current) return 'not_found' as const;

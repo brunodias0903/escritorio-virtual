@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button, Text, XStack, YStack } from 'tamagui';
 
 import { APP_NAME } from '@/shared/domain';
 import { useI18n } from '@/shared/i18n';
@@ -8,8 +9,7 @@ import {
   isInstallPromptDismissed,
   type MobileEnvironment,
 } from '@/shared/lib/mobileInstall';
-
-import styles from './MobileInstallPrompt.module.css';
+import { ActionButton, SurfaceCard } from '@/shared/ui/tamagui';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -63,7 +63,6 @@ function getInstallSteps(env: MobileEnvironment): {
     };
   }
 
-  // Android fallback (quando o prompt nativo não está disponível)
   if (env.browser === 'samsung') {
     return {
       heading: 'Como instalar no Android (Samsung Internet)',
@@ -124,7 +123,7 @@ function getInstallSteps(env: MobileEnvironment): {
 }
 
 /**
- * Recomenda a instalação como aplicativo (PWA / Adicionar à Tela de Início)
+ * Banner em Tamagui recomendando a instalação como aplicativo (PWA)
  * quando o acesso ocorre em smartphone ou tablet Android/iOS fora do modo app.
  */
 export function MobileInstallPrompt() {
@@ -188,75 +187,117 @@ export function MobileInstallPrompt() {
   };
 
   return (
-    <aside
-      className={styles.banner}
+    <YStack
+      position="fixed"
+      left="$3"
+      right="$3"
+      bottom="$3"
+      zIndex="$modal"
+      alignItems="center"
+      pointerEvents="box-none"
       aria-label="Recomendação para instalar o Escritório Virtual como aplicativo"
       data-scroll-lock="true"
     >
-      <div className={styles.topRow}>
-        <img
-          src="/app-icon.svg"
-          alt=""
-          className={styles.badge}
-          aria-hidden="true"
-        />
-        <div className={styles.copy}>
-          <strong className={styles.title}>
-            {t('pwa.title', { name: APP_NAME })}
-          </strong>
-          <p className={styles.subtitle}>
-            {t('pwa.subtitle', { device: deviceLabel })}
-          </p>
-        </div>
-        <button
-          type="button"
-          className={styles.closeBtn}
-          aria-label="Fechar recomendação por enquanto"
-          onClick={() => handleDismiss('later')}
-        >
-          ✕
-        </button>
-      </div>
+      <SurfaceCard
+        variant="elevated"
+        width="100%"
+        maxWidth={440}
+        borderColor="$borderGlass"
+        gap="$3"
+      >
+        <XStack alignItems="flex-start" gap="$3">
+          <img
+            src="/app-icon.svg"
+            alt=""
+            width={40}
+            height={40}
+            style={{ borderRadius: 10, flexShrink: 0 }}
+            aria-hidden="true"
+          />
+          <YStack flex={1} gap="$0.5">
+            <Text
+              fontFamily="$heading"
+              fontSize="$4"
+              fontWeight="700"
+              color="$textPrimary"
+            >
+              {t('pwa.title', { name: APP_NAME })}
+            </Text>
+            <Text fontFamily="$body" fontSize="$2" color="$textMuted">
+              {t('pwa.subtitle', { device: deviceLabel })}
+            </Text>
+          </YStack>
+          <Button
+            width={28}
+            height={28}
+            circular
+            backgroundColor="$bgControl"
+            borderColor="$borderSubtle"
+            borderWidth={1}
+            color="$textSecondary"
+            aria-label="Fechar recomendação por enquanto"
+            onPress={() => handleDismiss('later')}
+          >
+            ✕
+          </Button>
+        </XStack>
 
-      <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.primaryBtn}
-          onClick={() => {
-            void handlePrimaryAction();
-          }}
-        >
-          {deferredPrompt
-            ? t('pwa.installNow')
-            : guideOpen
-              ? t('pwa.hideSteps')
-              : t('pwa.howToInstall')}
-        </button>
-        <button
-          type="button"
-          className={styles.secondaryBtn}
-          onClick={() => handleDismiss('forever')}
-        >
-          {t('pwa.neverShow')}
-        </button>
-      </div>
+        <XStack gap="$2">
+          <ActionButton
+            flex={1}
+            onPress={() => {
+              void handlePrimaryAction();
+            }}
+          >
+            {deferredPrompt
+              ? t('pwa.installNow')
+              : guideOpen
+                ? t('pwa.hideSteps')
+                : t('pwa.howToInstall')}
+          </ActionButton>
+          <ActionButton
+            variant="secondary"
+            onPress={() => handleDismiss('forever')}
+          >
+            {t('pwa.neverShow')}
+          </ActionButton>
+        </XStack>
 
-      {guideOpen ? (
-        <div className={styles.guide}>
-          <div className={styles.guideHeading}>{guide.heading}</div>
-          <ol className={styles.steps}>
-            {guide.steps.map((step, index) => (
-              <li key={index} className={styles.step}>
-                <span className={styles.stepIcon} aria-hidden="true">
-                  {step.icon}
-                </span>
-                <span>{step.text}</span>
-              </li>
-            ))}
-          </ol>
-          {guide.tip ? <p className={styles.tip}>{guide.tip}</p> : null}
-        </div>
-      ) : null}
-    </aside>
+        {guideOpen ? (
+          <SurfaceCard backgroundColor="$bgSurface" gap="$2">
+            <Text
+              fontFamily="$heading"
+              fontSize="$3"
+              fontWeight="700"
+              color="$textPrimary"
+            >
+              {guide.heading}
+            </Text>
+            <YStack gap="$1.5">
+              {guide.steps.map((step, index) => (
+                <XStack key={index} gap="$2" alignItems="flex-start">
+                  <Text fontSize="$3" aria-hidden={true}>
+                    {step.icon}
+                  </Text>
+                  <Text
+                    flex={1}
+                    fontFamily="$body"
+                    fontSize="$2"
+                    color="$textSecondary"
+                  >
+                    {step.text}
+                  </Text>
+                </XStack>
+              ))}
+            </YStack>
+            {guide.tip ? (
+              <Text fontFamily="$body" fontSize="$2" color="$accentLink">
+                {guide.tip}
+              </Text>
+            ) : null}
+          </SurfaceCard>
+        ) : null}
+      </SurfaceCard>
+    </YStack>
   );
 }

@@ -1,11 +1,15 @@
 import { useState, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { Text, XStack, YStack } from 'tamagui';
 
 import { authApi } from '@/app/api';
 import { endSession } from '@/app/session';
 import { errorMessage } from '@/shared/domain';
-
-import styles from './LegalModal.module.css';
+import {
+  ActionButton,
+  ModalFrame,
+  SurfaceCard,
+  TextField,
+} from '@/shared/ui/tamagui';
 
 type Props = {
   /** Quando informado (usuário logado), habilita a aba de exportação e exclusão de dados (LGPD). */
@@ -15,10 +19,7 @@ type Props = {
 };
 
 /**
- * Modal de Conformidade Legal:
- * - Aviso ECA (Lei nº 8.069/1990): serviço de uso profissional para maiores de 18 anos;
- * - Termos de Uso e Código de Conduta (moderação contra abuso verbal, discurso de ódio e spam);
- * - Política de Privacidade e Direitos do Titular (LGPD — Lei nº 13.709/2018).
+ * Modal de Conformidade Legal em Tamagui (ECA 18+, Termos de Uso e LGPD).
  */
 export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
   const [tab, setTab] = useState<'terms' | 'privacy' | 'data'>(initialTab);
@@ -45,7 +46,7 @@ export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `escritorio-virtual-meus-dados-lgpd.json`;
+    a.download = 'escritorio-virtual-meus-dados-lgpd.json';
     a.click();
     URL.revokeObjectURL(url);
     setMsg('Arquivo JSON com seus dados pessoais baixado com sucesso.');
@@ -66,189 +67,267 @@ export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
     onClose();
   };
 
-  return createPortal(
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Termos de Uso, ECA (18+) e Privacidade (LGPD)"
-      data-scroll-lock="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+  return (
+    <ModalFrame
+      title="Termos e privacidade"
+      subtitle="Escritório Virtual — Plataforma de uso profissional exclusiva para maiores de 18 anos"
+      maxWidth={640}
+      onClose={onClose}
     >
-      <div className={styles.modal}>
-        <div className={styles.header}>
-          <div>
-            <h2 className={styles.title}>
-              ⚖️ Termos de Uso, ECA (18+) & Privacidade (LGPD)
-            </h2>
-            <p className={styles.subtitle}>
-              Escritório Virtual — Plataforma de uso profissional exclusiva para
-              maiores de 18 anos
-            </p>
-          </div>
-          <button
-            type="button"
-            className={styles.closeBtn}
-            aria-label="Fechar"
-            onClick={onClose}
+      <YStack gap="$4">
+        <XStack gap="$2" flexWrap="wrap">
+          <ActionButton
+            variant={tab === 'terms' ? 'primary' : 'secondary'}
+            onPress={() => setTab('terms')}
           >
-            ✕
-          </button>
-        </div>
-
-        <div className={styles.tabs}>
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${tab === 'terms' ? styles.tabActive : ''}`}
-            onClick={() => setTab('terms')}
+            Termos de Uso
+          </ActionButton>
+          <ActionButton
+            variant={tab === 'privacy' ? 'primary' : 'secondary'}
+            onPress={() => setTab('privacy')}
           >
-            📜 Termos & ECA (18+)
-          </button>
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${tab === 'privacy' ? styles.tabActive : ''}`}
-            onClick={() => setTab('privacy')}
-          >
-            🔒 Privacidade (LGPD)
-          </button>
+            Privacidade (LGPD)
+          </ActionButton>
           {token ? (
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${tab === 'data' ? styles.tabActive : ''}`}
-              onClick={() => setTab('data')}
+            <ActionButton
+              variant={tab === 'data' ? 'primary' : 'secondary'}
+              onPress={() => setTab('data')}
             >
-              📦 Meus Dados (Art. 18)
-            </button>
+              Meus dados
+            </ActionButton>
           ) : null}
-        </div>
+        </XStack>
 
-        <div className={styles.body}>
-          {tab === 'terms' ? (
-            <div className={styles.prose}>
-              <div className={styles.noticeBox}>
-                <strong>
-                  🔞 Aviso de Classificação e ECA (Lei nº 8.069/1990):
-                </strong>{' '}
-                O Escritório Virtual é atualmente um ambiente de{' '}
-                <strong>uso estritamente profissional</strong>, destinado{' '}
-                <strong>exclusivamente a pessoas maiores de 18 anos</strong>.
-                Não é permitido o cadastro ou uso por crianças ou adolescentes.
-              </div>
-              <h3>1. Finalidade do Serviço</h3>
-              <p>
+        {tab === 'terms' ? (
+          <YStack gap="$3">
+            <SurfaceCard
+              backgroundColor="$warningBg"
+              borderColor="$warningBorder"
+            >
+              <Text fontFamily="$body" fontSize="$3" color="$textPrimary">
+                <Text fontWeight="700">
+                  🔞 Aviso de Classificação e ECA (Lei nº 8.069/1990):{' '}
+                </Text>
+                O Escritório Virtual é atualmente um ambiente de uso
+                estritamente profissional, destinado exclusivamente a pessoas
+                maiores de 18 anos. Não é permitido o cadastro ou uso por
+                crianças ou adolescentes.
+              </Text>
+            </SurfaceCard>
+
+            <YStack gap="$1">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+              >
+                1. Finalidade do Serviço
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                 O Escritório Virtual oferece um espaço interativo para trabalho
                 remoto, colaboração em equipes, chat de texto e chamadas de
                 áudio/vídeo por proximidade.
-              </p>
-              <h3>2. Código de Conduta e Moderação</h3>
-              <p>
+              </Text>
+            </YStack>
+
+            <YStack gap="$1">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+              >
+                2. Código de Conduta e Moderação
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                 Respeito e inclusão são obrigatórios. É estritamente proibido
                 praticar assédio, preconceito, racismo, homofobia, transfobia,
                 xenofobia, discurso de ódio, abuso verbal ou spam. O sistema
                 aplica censura automática, avisos progressivos e restrição
                 temporária ou definitiva de acesso em caso de violação.
-              </p>
-              <h3>3. Segurança da Conta</h3>
-              <p>
+              </Text>
+            </YStack>
+
+            <YStack gap="$1">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+              >
+                3. Segurança da Conta
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                 Cada usuário é responsável por manter sua senha segura.
                 Recomendamos fortemente a confirmação do e-mail e a ativação da
                 autenticação em 2 etapas (MFA) nas configurações da conta.
-              </p>
-            </div>
-          ) : tab === 'privacy' ? (
-            <div className={styles.prose}>
-              <h3>1. Conformidade com a LGPD (Lei nº 13.709/2018)</h3>
-              <p>
+              </Text>
+            </YStack>
+          </YStack>
+        ) : tab === 'privacy' ? (
+          <YStack gap="$3">
+            <YStack gap="$1">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+              >
+                1. Conformidade com a LGPD (Lei nº 13.709/2018)
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                 Coletamos apenas os dados mínimos necessários para operar sua
                 conta no escritório virtual: nome completo, nickname, e-mail,
                 cargo (opcional), preferências de aparência/tema e registros
                 técnicos de segurança (rate-limit contra ataques).
-              </p>
-              <h3>2. Chamadas de Áudio e Vídeo</h3>
-              <p>
+              </Text>
+            </YStack>
+
+            <YStack gap="$1">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+              >
+                2. Chamadas de Áudio e Vídeo
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                 As chamadas em tempo real são transmitidas de forma
-                criptografada e <strong>não são gravadas</strong> pela
-                plataforma.
-              </p>
-              <h3>3. Segurança e Sigilo</h3>
-              <p>
+                criptografada e não são gravadas pela plataforma.
+              </Text>
+            </YStack>
+
+            <YStack gap="$1">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+              >
+                3. Segurança e Sigilo
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                 Senhas são armazenadas exclusivamente como hash criptográfico
                 irreversível (scrypt) e segredos de 2FA são criptografados em
                 repouso (AES-256-GCM). Nenhum administrador ou controlador tem
                 acesso à sua senha em texto puro.
-              </p>
-              <h3>4. Comunicações por E-mail</h3>
-              <p>
+              </Text>
+            </YStack>
+
+            <YStack gap="$1">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+              >
+                4. Comunicações por E-mail
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                 E-mails de novidades e patch notes só são enviados mediante seu
                 consentimento explícito (opt-in), revogável a qualquer momento
                 no menu da conta. Códigos de segurança e avisos essenciais de
                 conta são enviados para proteger seu acesso.
-              </p>
-              <h3>5. Canal do Controlador / Encarregado (DPO)</h3>
-              <p>
-                Para dúvidas ou solicitações sobre seus dados pessoais, entre em
-                contato pelo e-mail <strong>bdd.vasconcelos@gmail.com</strong>.
-              </p>
-            </div>
-          ) : (
-            <div className={styles.dataPane}>
-              <div className={styles.dataCard}>
-                <h3>
-                  📥 Exportar meus dados (Portabilidade — Art. 18, II e V)
-                </h3>
-                <p className={styles.desc}>
-                  Baixe uma cópia em JSON com todos os dados pessoais vinculados
-                  à sua conta.
-                </p>
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  disabled={exportBusy}
-                  onClick={() => void handleExport()}
-                >
-                  {exportBusy
-                    ? 'Preparando arquivo…'
-                    : 'Baixar meus dados (.json)'}
-                </button>
-              </div>
+              </Text>
+            </YStack>
 
-              <form
-                className={styles.dangerCard}
-                onSubmit={(e) => void handleDelete(e)}
+            <YStack gap="$1">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
               >
-                <h3>🗑️ Excluir minha conta (Eliminação — Art. 18, VI)</h3>
-                <p className={styles.desc}>
+                5. Canal do Controlador / Encarregado (DPO)
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
+                Para dúvidas ou solicitações sobre seus dados pessoais, entre em
+                contato pelo e-mail bdd.vasconcelos@gmail.com.
+              </Text>
+            </YStack>
+          </YStack>
+        ) : (
+          <YStack gap="$3">
+            <SurfaceCard gap="$2.5">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+              >
+                📥 Exportar meus dados (Portabilidade — Art. 18, II e V)
+              </Text>
+              <Text fontFamily="$body" fontSize="$3" color="$textMuted">
+                Baixe uma cópia em JSON com todos os dados pessoais vinculados à
+                sua conta.
+              </Text>
+              <ActionButton
+                loading={exportBusy}
+                onPress={() => void handleExport()}
+              >
+                {exportBusy
+                  ? 'Preparando arquivo…'
+                  : 'Baixar meus dados (.json)'}
+              </ActionButton>
+            </SurfaceCard>
+
+            <SurfaceCard
+              backgroundColor="$dangerBg"
+              borderColor="$dangerBorder"
+              gap="$3"
+            >
+              <form
+                onSubmit={(e) => void handleDelete(e)}
+                style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+              >
+                <Text
+                  fontFamily="$heading"
+                  fontSize="$4"
+                  fontWeight="700"
+                  color="$textPrimary"
+                >
+                  🗑️ Excluir minha conta (Eliminação — Art. 18, VI)
+                </Text>
+                <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                   Esta ação é permanente: remove sua conta e encerra sua sessão
                   imediatamente. Confirme sua senha atual para prosseguir:
-                </p>
-                <input
-                  type="password"
-                  className={styles.input}
-                  placeholder="Digite sua senha atual"
+                </Text>
+                <TextField
+                  id="legal-delete-password"
+                  label="Senha atual"
                   value={deletePassword}
-                  onChange={(e) => setDeletePassword(e.target.value)}
-                  required
+                  onChangeText={setDeletePassword}
+                  secureTextEntry
+                  placeholder="Digite sua senha atual"
                 />
-                <button
+                <ActionButton
                   type="submit"
-                  className={styles.dangerBtn}
-                  disabled={deleteBusy || !deletePassword}
+                  variant="danger"
+                  loading={deleteBusy}
+                  disabled={!deletePassword}
                 >
                   {deleteBusy
                     ? 'Excluindo…'
                     : 'Excluir minha conta permanentemente'}
-                </button>
+                </ActionButton>
               </form>
+            </SurfaceCard>
 
-              {msg ? <p className={styles.success}>{msg}</p> : null}
-              {err ? <p className={styles.error}>{err}</p> : null}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body,
+            {msg ? (
+              <Text fontFamily="$body" fontSize="$3" color="$presenceAvailable">
+                {msg}
+              </Text>
+            ) : null}
+            {err ? (
+              <Text fontFamily="$body" fontSize="$3" color="$dangerText">
+                {err}
+              </Text>
+            ) : null}
+          </YStack>
+        )}
+      </YStack>
+    </ModalFrame>
   );
 }

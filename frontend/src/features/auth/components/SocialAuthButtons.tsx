@@ -1,103 +1,117 @@
 import { useState } from 'react';
+import { Separator, Text, XStack, YStack } from 'tamagui';
 
-import styles from './SocialAuthButtons.module.css';
+import { ActionButton } from '@/shared/ui/tamagui';
 
-type Provider = 'Gmail' | 'iCloud';
+export type OAuthProvider = 'google' | 'github';
 
-function GmailIcon() {
+const PROVIDER_LABELS: Record<OAuthProvider, string> = {
+  google: 'Google',
+  github: 'GitHub',
+};
+
+function GoogleIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
+    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
       <path
-        d="M3 6.5A2.5 2.5 0 0 1 5.5 4h.6L12 8.7 17.9 4h.6A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2h-1.5V10.6L12 14.9 6.5 10.6V20H5a2 2 0 0 1-2-2V6.5Z"
         fill="#EA4335"
+        d="M12 10.2v3.9h5.4c-.2 1.3-1.5 3.8-5.4 3.8-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.4 14.6 2.5 12 2.5 6.8 2.5 2.5 6.8 2.5 12s4.3 9.5 9.5 9.5c5.5 0 9.1-3.9 9.1-9.3 0-.6-.1-1.1-.2-1.6H12Z"
       />
-      <path d="M3 7.4V18a2 2 0 0 0 2 2h1.5V10.6L3 7.4Z" fill="#4285F4" />
-      <path d="M21 7.4V18a2 2 0 0 1-2 2h-1.5V10.6L21 7.4Z" fill="#34A853" />
       <path
-        d="M17.5 10.6V4h1A2.5 2.5 0 0 1 21 6.5v.9l-3.5 3.2Z"
-        fill="#FBBC05"
+        fill="#34A853"
+        d="M3.6 7.4l3.2 2.3C7.7 7.6 9.7 6 12 6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.4 14.6 2.5 12 2.5 8.3 2.5 5.1 4.6 3.6 7.4Z"
       />
-      <path d="M6.5 10.6V4h-1A2.5 2.5 0 0 0 3 6.5v.9l3.5 3.2Z" fill="#C5221F" />
+      <path
+        fill="#FBBC05"
+        d="M12 21.5c2.5 0 4.7-.8 6.3-2.3l-2.9-2.4c-.8.6-1.9 1-3.4 1-3.8 0-5.1-2.5-5.4-3.8l-3.2 2.5C4.9 19.3 8.2 21.5 12 21.5Z"
+      />
+      <path
+        fill="#4285F4"
+        d="M21.1 12.2c0-.6-.1-1.1-.2-1.6H12v3.9h5.4c-.3 1.2-1 2.2-2 2.9l2.9 2.4c1.7-1.6 2.8-4 2.8-7.6Z"
+      />
     </svg>
   );
 }
 
-function ICloudIcon() {
+function GitHubIcon() {
   return (
-    <svg
-      width="19"
-      height="19"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
+    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
       <path
-        d="M7.2 18.5h10.1a4.2 4.2 0 0 0 .7-8.34A5.5 5.5 0 0 0 7.4 8.55a4.3 4.3 0 0 0-.2 9.95Z"
-        fill="#5AC8FA"
-      />
-      <path
-        d="M17.3 18.5H7.2a4.3 4.3 0 0 1-.83-8.52A5.5 5.5 0 0 1 17.6 10.1a4.2 4.2 0 0 1-.3 8.4Z"
-        stroke="rgba(255,255,255,0.45)"
-        strokeWidth="1.1"
+        fill="currentColor"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.7.5.09.68-.22.68-.49 0-.24-.01-1.05-.01-1.9-2.78.62-3.37-1.21-3.37-1.21-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.36-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05A9.38 9.38 0 0 1 12 6.84c.85 0 1.71.12 2.51.35 1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.81 0 .27.18.59.69.49A10.22 10.22 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"
       />
     </svg>
   );
 }
+
+const PROVIDER_ICONS: Record<OAuthProvider, () => React.JSX.Element> = {
+  google: GoogleIcon,
+  github: GitHubIcon,
+};
+
+type Props = {
+  onSelectProvider?: (provider: OAuthProvider) => void;
+};
 
 /**
- * Botões pré-prontos de acesso rápido (Gmail e iCloud).
- * Ficam visualmente desabilitados, mas capturam o clique para avisar que o recurso virá em breve.
+ * Botões de acesso rápido OAuth (Google e GitHub) construídos com Tamagui.
  */
-export function SocialAuthButtons() {
+export function SocialAuthButtons({ onSelectProvider }: Props) {
   const [notice, setNotice] = useState('');
 
-  const handleUnavailable = (provider: Provider) => {
-    setNotice(`O acesso rápido com ${provider} será adicionado futuramente.`);
+  const handleProvider = (provider: OAuthProvider) => {
+    if (onSelectProvider) {
+      onSelectProvider(provider);
+      return;
+    }
+    setNotice(
+      `Login rápido com ${PROVIDER_LABELS[provider]} preparado na Fase 3. Configure as credenciais OAuth no servidor para ativar o redirecionamento.`,
+    );
   };
 
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.divider}>
-        <span className={styles.line} />
-        <span className={styles.label}>Ou continue com</span>
-        <span className={styles.line} />
-      </div>
+    <YStack gap="$3" width="100%" marginTop="$1">
+      <XStack alignItems="center" gap="$3">
+        <Separator flex={1} borderColor="$borderSubtle" />
+        <Text fontFamily="$body" fontSize="$2" color="$textMuted">
+          Ou continue com
+        </Text>
+        <Separator flex={1} borderColor="$borderSubtle" />
+      </XStack>
 
-      <div className={styles.grid}>
-        <button
-          type="button"
-          aria-disabled="true"
-          title="Em breve"
-          onClick={() => handleUnavailable('Gmail')}
-          className={styles.socialBtn}
-        >
-          <GmailIcon />
-          <span>Gmail</span>
-        </button>
-
-        <button
-          type="button"
-          aria-disabled="true"
-          title="Em breve"
-          onClick={() => handleUnavailable('iCloud')}
-          className={styles.socialBtn}
-        >
-          <ICloudIcon />
-          <span>iCloud</span>
-        </button>
-      </div>
+      <XStack gap="$2.5">
+        {(['google', 'github'] as const).map((provider) => {
+          const IconComponent = PROVIDER_ICONS[provider];
+          return (
+            <ActionButton
+              key={provider}
+              type="button"
+              variant="oauth"
+              flex={1}
+              aria-label={`Continuar com ${PROVIDER_LABELS[provider]}`}
+              icon={<IconComponent />}
+              onPress={() => handleProvider(provider)}
+            >
+              {PROVIDER_LABELS[provider]}
+            </ActionButton>
+          );
+        })}
+      </XStack>
 
       {notice ? (
-        <p className={styles.notice} role="status" aria-live="polite">
+        <Text
+          role="status"
+          aria-live="polite"
+          fontFamily="$body"
+          fontSize="$2"
+          color="$accentLink"
+          textAlign="center"
+        >
           {notice}
-        </p>
+        </Text>
       ) : null}
-    </div>
+    </YStack>
   );
 }

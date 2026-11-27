@@ -69,13 +69,16 @@ curl -fsS http://127.0.0.1:5001/healthz
 
 Esperado: todos os serviços `running`/`healthy` e `{"ok":true}` no `/healthz`.
 
-## 4. Conectar com o Frontend (nginx) e Mobile
+## 4. Conectar com o Frontend (nginx), PWA e Mobile
 
 - **Frontend web (nginx)**: configure `WS_UPSTREAM=<host-backend>:5001` e
   `LIVEKIT_UPSTREAM=<host-backend>:5002` no container web (ou una ambos numa
-  rede Docker compartilhada).
-- **Mobile**: configure `EXPO_PUBLIC_API_URL=https://<domínio>` e
-  `EXPO_PUBLIC_WS_URL=wss://<domínio>/ws`.
+  rede Docker compartilhada). Em produção HTTPS com `COMPOSE_PROFILES=prod`, o
+  `Caddyfile` aplica HSTS, `X-Content-Type-Options`, `X-Frame-Options` e
+  `Referrer-Policy` automaticamente.
+- **Mobile / PWA**: configure `EXPO_PUBLIC_API_URL=https://<domínio>` e
+  `EXPO_PUBLIC_WS_URL=wss://<domínio>/ws`. Para PWA, o HTTPS é obrigatório para
+  registro do Service Worker (`/sw.js`), Web Notifications e LiveKit WebRTC.
 
 ## Backup e restauração do PostgreSQL
 

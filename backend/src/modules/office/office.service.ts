@@ -34,6 +34,7 @@ export type Outgoing = {
   message: ServerMessage;
   map?: MapId;
   emails?: string[];
+  serverId?: string;
 };
 
 type Options = { now?: () => number };
@@ -55,6 +56,7 @@ export class OfficeService {
   /** Pessoas ligadas às outras instâncias (espelho). */
   private readonly remote = new Map<string, Player>();
   private readonly emails = new Map<string, string>();
+  private readonly serverIds = new Map<string, string>();
   private readonly lastEmoteAt = new Map<string, number>();
   /** Estado atual das mesas adotadas (posição customizada e bloqueio). */
   private readonly deskInfos = new Map<string, DeskInfo>();
@@ -100,9 +102,17 @@ export class OfficeService {
     return this.emails.get(id);
   }
 
-  /** Quem está na sala, de qualquer instância. */
-  playersIn(map: MapId, exceptId?: string): Player[] {
-    return [...this.remote.values(), ...this.players.values()].filter(
+  serverIdOf(id: string): string {
+    return this.serverIds.get(id) ?? 'default';
+  }
+
+  /** Quem está na sala, de qualquer instância, no servidor informado. */
+  playersIn(map: MapId, exceptId?: string, serverId = 'default'): Player[] {
+    const locals = [...this.players.values()].filter(
+      (p) => this.serverIdOf(p.id) === serverId,
+    );
+    const remotes = serverId === 'default' ? [...this.remote.values()] : [];
+    return [...remotes, ...locals].filter(
       (p) => p.map === map && p.id !== exceptId,
     );
   }
@@ -117,8 +127,10 @@ export class OfficeService {
     email: string,
     appearance: Appearance,
     start?: Spot | null,
+    serverId = 'default',
   ): Outgoing[] {
     if (this.players.has(id)) return [];
+    this.serverIds.set(id, serverId);
     const spot =
       start && this.canStartAt(id, start, email)
         ? start
@@ -139,14 +151,20 @@ export class OfficeService {
     return [
       {
         to: 'self',
+        serverId,
         message: {
           type: 'init',
           id,
           map: player.map,
-          players: this.playersIn(player.map),
+          players: this.playersIn(player.map, undefined, serverId),
         },
       },
-      { to: 'others', message: { type: 'joined', player }, map: player.map },
+      {
+        to: 'others',
+        serverId,
+        message: { type: 'joined', player },
+        map: player.map,
+      },
     ];
   }
 
@@ -282,11 +300,15 @@ export class OfficeService {
 
   leave(id: string): Outgoing[] {
     const player = this.players.get(id);
+    const serverId = this.serverIdOf(id);
     this.emails.delete(id);
+    this.serverIds.delete(id);
     this.lastEmoteAt.delete(id);
     if (!player) return [];
     this.players.delete(id);
-    return [{ to: 'all', message: { type: 'left', id }, map: player.map }];
+    return [
+      { to: 'all', serverId, message: { type: 'left', id }, map: player.map },
+    ];
   }
 
   // --- Espelho das outras instâncias ------------------------------------------------
