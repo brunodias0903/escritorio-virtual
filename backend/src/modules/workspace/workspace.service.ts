@@ -70,7 +70,7 @@ type Deps = {
   desks?: DeskService;
   adminEmails?: string[];
   getOnlinePlayers?: () => readonly OnlinePlayerSummary[];
-  onChannelsChanged?: () => void;
+  onChannelsChanged?: (serverId?: string) => void;
   onDeskChanged?: (desk: DeskInfo) => Promise<void> | void;
   onAccountRolesChanged?: (
     email: string,
@@ -243,7 +243,7 @@ export class WorkspaceService {
     input: UpdateServerSettings,
     serverId = 'default',
   ): Promise<HttpResult<ServerSettings>> {
-    const tiers = await this.tiersOf(claims);
+    const tiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(tiers)) return httpFail(403, 'forbidden');
 
     const current = await this.getServerSettings(serverId);
@@ -285,7 +285,7 @@ export class WorkspaceService {
       Pick<CreateChannelConfig, 'name'>,
     serverId = 'default',
   ): Promise<HttpResult<ChannelRow>> {
-    const tiers = await this.tiersOf(claims);
+    const tiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(tiers)) return httpFail(403, 'forbidden');
 
     const name = input.name.trim().toLowerCase();
@@ -325,7 +325,7 @@ export class WorkspaceService {
     const created = await this.deps.channels.create(row);
     if (!created) return httpFail(409, 'name_taken');
 
-    this.deps.onChannelsChanged?.();
+    this.deps.onChannelsChanged?.(serverId);
     return ok(row);
   }
 
@@ -333,11 +333,13 @@ export class WorkspaceService {
     claims: SessionClaims,
     channelId: string,
     input: UpdateChannelConfig,
+    serverId = 'default',
   ): Promise<HttpResult<ChannelRow>> {
-    const tiers = await this.tiersOf(claims);
+    const existing = await this.deps.channels.get(channelId);
+    const targetServerId = existing?.serverId ?? serverId;
+    const tiers = await this.tiersOf(claims, targetServerId);
     if (!canManageServer(tiers)) return httpFail(403, 'forbidden');
 
-    const existing = await this.deps.channels.get(channelId);
     if (existing?.kind !== 'public') return httpFail(404, 'not_found');
 
     const nextViewTiers = input.viewTiers
@@ -378,7 +380,7 @@ export class WorkspaceService {
       await this.deps.channels.setArchived(channelId, input.archived);
     }
 
-    this.deps.onChannelsChanged?.();
+    this.deps.onChannelsChanged?.(targetServerId);
     const updated = await this.deps.channels.get(channelId);
     return ok(
       updated ?? {
@@ -393,16 +395,41 @@ export class WorkspaceService {
     );
   }
 
+  async deleteChannel(
+    claims: SessionClaims,
+    channelId: string,
+    serverId = 'default',
+  ): Promise<HttpResult<{ deleted: true; id: string }>> {
+    const existing = await this.deps.channels.get(channelId);
+    const targetServerId = existing?.serverId ?? serverId;
+    const tiers = await this.tiersOf(claims, targetServerId);
+    if (!canManageServer(tiers)) return httpFail(403, 'forbidden');
+    if (existing?.kind !== 'public') return httpFail(404, 'not_found');
+    if (existing.name === 'geral') {
+      return httpFail(400, 'cannot_delete_default_channel');
+    }
+
+    if (this.deps.channels.delete) {
+      const removed = await this.deps.channels.delete(channelId);
+      if (!removed) return httpFail(404, 'not_found');
+    } else {
+      await this.deps.channels.setArchived(channelId, true);
+    }
+    this.deps.onChannelsChanged?.(targetServerId);
+    return ok({ deleted: true, id: channelId });
+  }
+
   async reorderChannels(
     claims: SessionClaims,
     input: ReorderChannels,
+    serverId = 'default',
   ): Promise<HttpResult<ChannelRow[]>> {
-    const tiers = await this.tiersOf(claims);
+    const tiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(tiers)) return httpFail(403, 'forbidden');
 
-    await this.deps.channels.reorder?.(input.channelIds);
-    this.deps.onChannelsChanged?.();
-    return ok(await this.deps.channels.listPublic());
+    await this.deps.channels.reorder?.(input.channelIds, serverId);
+    this.deps.onChannelsChanged?.(serverId);
+    return ok(await this.deps.channels.listPublic(serverId));
   }
 
   // --- Central de Feedback ---------------------------------------------------

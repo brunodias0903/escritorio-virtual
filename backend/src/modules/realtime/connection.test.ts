@@ -518,6 +518,24 @@ describe('chat', () => {
     expect(anaDmIds).not.toContain(
       dmChannelId('ana@empresa.com', 'caio@empresa.com', 'srv-b'),
     );
+
+    // Criar canal via WebSocket no srv-b não vaza para o servidor default.
+    await ana.send({ type: 'createChannel', name: 'comunicados' });
+    expect(ana.ofType('channelOpened').at(-1)?.channel).toMatchObject({
+      id: 'srv-b:comunicados',
+      name: 'comunicados',
+    });
+    const defaultClient = await w.login(
+      'd2',
+      'd2@empresa.com',
+      'D2',
+      'default',
+    );
+    const defaultChannelNames = defaultClient
+      .ofType('channels')
+      .at(-1)!
+      .channels.map((c) => c.name);
+    expect(defaultChannelNames).not.toContain('comunicados');
   });
 });
 

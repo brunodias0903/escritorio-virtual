@@ -37,7 +37,8 @@ export interface ChannelRepository {
       archived?: boolean;
     },
   ): Promise<boolean>;
-  reorder?(orderedIds: string[]): Promise<void>;
+  reorder?(orderedIds: string[], serverId?: string): Promise<void>;
+  delete?(id: string): Promise<boolean>;
 }
 
 /** Histórico de mensagens do chat. */

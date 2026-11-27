@@ -293,9 +293,13 @@ export const createContainer = async (
     desks,
     adminEmails: config.adminEmails,
     getOnlinePlayers: () => office.everyone(),
-    onChannelsChanged: () => {
+    onChannelsChanged: (serverId) => {
       void cluster.dispatch(instanceId, [
-        { to: 'all', message: { type: 'channelsChanged' } },
+        {
+          to: 'all',
+          ...(serverId ? { serverId } : {}),
+          message: { type: 'channelsChanged' },
+        },
       ]);
     },
     onDeskChanged: broadcastDeskChange,

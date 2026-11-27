@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { workspaceApi } from '@/app/api';
+import { useServerStore } from '@/features/workspace/model/serverStore';
 import {
   ACCOUNT_TIERS,
   canManageServer,
@@ -66,6 +67,7 @@ export function SlackChatView({
   onNotify,
 }: Props) {
   const { t } = useI18n();
+  const activeServerId = useServerStore((s) => s.activeServerId);
   const channels = useChatStore((s) => s.channels);
   const active = useChatStore((s) => s.active);
   const me = useChatStore((s) => s.me);
@@ -187,9 +189,11 @@ export function SlackChatView({
     if (prevIds.join('|') === nextIds.join('|')) return;
     reorderPublicChannels(nextIds);
     setReordering(true);
-    const res = await workspaceApi.reorderChannels(token, {
-      channelIds: nextIds,
-    });
+    const res = await workspaceApi.reorderChannels(
+      token,
+      { channelIds: nextIds },
+      activeServerId,
+    );
     setReordering(false);
     if (!res.ok) {
       reorderPublicChannels(prevIds);
@@ -755,7 +759,7 @@ export function SlackChatView({
             Marcar como lido
           </button>
           {contextMenu.item.kind === 'dm' ||
-          (canReorder && contextMenu.item.id !== 'geral') ? (
+          (canReorder && contextMenu.item.name !== 'geral') ? (
             <button
               type="button"
               role="menuitem"

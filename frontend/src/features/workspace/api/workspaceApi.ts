@@ -137,18 +137,37 @@ export function createWorkspaceApi({ baseUrl }: { baseUrl: string }) {
       token: string,
       channelId: string,
       body: UpdateChannelConfig,
+      serverId?: string,
     ) =>
       request(
         baseUrl,
-        `/api/server/channels/${encodeURIComponent(channelId)}`,
+        withServer(
+          `/api/server/channels/${encodeURIComponent(channelId)}`,
+          serverId,
+        ),
         z.object({ channel: ManagedChannelSchema }),
         { method: 'PUT', token, body },
       ),
 
-    reorderChannels: (token: string, body: ReorderChannels) =>
+    deleteChannel: (token: string, channelId: string, serverId?: string) =>
       request(
         baseUrl,
-        '/api/server/channels/reorder',
+        withServer(
+          `/api/server/channels/${encodeURIComponent(channelId)}`,
+          serverId,
+        ),
+        z.object({ deleted: z.literal(true), id: z.string() }),
+        { method: 'DELETE', token },
+      ),
+
+    reorderChannels: (
+      token: string,
+      body: ReorderChannels,
+      serverId?: string,
+    ) =>
+      request(
+        baseUrl,
+        withServer('/api/server/channels/reorder', serverId),
         z.object({ channels: z.array(ManagedChannelSchema) }),
         { method: 'PUT', token, body },
       ),

@@ -137,14 +137,6 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
     };
   }, [tab, invitesLoaded, session.token, activeServerId]);
 
-  const activeChannelsCount = channels.filter((c) => !c.archived).length;
-  const activeInvitesCount = invites.filter(
-    (inv) =>
-      !inv.revoked &&
-      (inv.expiresAt === null || nowMs <= inv.expiresAt) &&
-      (inv.maxUses === null || inv.uses < inv.maxUses),
-  ).length;
-
   const navItems: SettingsNavItem<Tab>[] = [
     ...(canSeeMembers
       ? [
@@ -152,7 +144,6 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
             id: 'members' as const,
             label: t('server.tab.moderation'),
             icon: <Users size={16} aria-hidden={true} />,
-            badge: accountsLoaded ? accounts.length : undefined,
           },
         ]
       : []),
@@ -160,16 +151,11 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
       id: 'channels',
       label: t('server.tab.channels'),
       icon: <Hash size={16} aria-hidden={true} />,
-      badge: channelsLoaded ? activeChannelsCount : undefined,
     },
     {
       id: 'invites',
       label: 'Acesso e convites',
       icon: <Link2 size={16} aria-hidden={true} />,
-      badge:
-        invitesLoaded && activeInvitesCount > 0
-          ? activeInvitesCount
-          : undefined,
     },
     {
       id: 'general',

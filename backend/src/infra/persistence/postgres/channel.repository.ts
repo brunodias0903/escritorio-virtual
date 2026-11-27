@@ -154,8 +154,8 @@ export class PgChannelRepository implements ChannelRepository {
     return rowCount === 1;
   }
 
-  async reorder(orderedIds: string[]) {
-    const existing = await this.listPublic();
+  async reorder(orderedIds: string[], serverId = 'default') {
+    const existing = await this.listPublic(serverId);
     const seen = new Set<string>();
     const fullOrder: string[] = [];
     for (const id of orderedIds) {
@@ -178,5 +178,18 @@ export class PgChannelRepository implements ChannelRepository {
         ),
       ),
     );
+  }
+
+  async delete(id: string) {
+    const { rowCount } = await this.db.query(
+      `DELETE FROM channels WHERE id = $1 AND kind = 'public'`,
+      [id],
+    );
+    if (rowCount !== 1) return false;
+    await Promise.all([
+      this.db.query('DELETE FROM chat_messages WHERE channel = $1', [id]),
+      this.db.query('DELETE FROM read_state WHERE channel = $1', [id]),
+    ]);
+    return true;
   }
 }

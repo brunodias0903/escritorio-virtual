@@ -280,14 +280,17 @@ export class ChatService {
   async createChannel(
     email: string,
     rawName: string,
+    serverId = 'default',
   ): Promise<Result<ChannelInfo>> {
     const name = rawName.trim().toLowerCase();
     if (!CHANNEL_NAME_PATTERN.test(name)) return fail('invalid_name');
-    const existingPublic = await this.deps.channels.listPublic();
+    const existingPublic = await this.deps.channels.listPublic(serverId);
     const nextPosition =
       existingPublic.reduce((max, c) => Math.max(max, c.position ?? 0), -1) + 1;
+    const id = serverId === 'default' ? name : `${serverId}:${name}`;
     const created = await this.deps.channels.create({
-      id: name,
+      id,
+      serverId,
       name,
       kind: 'public',
       archived: false,
@@ -300,9 +303,9 @@ export class ChatService {
       createdAt: this.now(),
     });
     if (!created) return fail('name_taken');
-    await this.deps.reads.set(email, name, this.now());
+    await this.deps.reads.set(email, id, this.now());
     return ok({
-      id: name,
+      id,
       name,
       kind: 'public',
       archived: false,

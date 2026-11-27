@@ -119,8 +119,8 @@ export class MemoryChannelRepository implements ChannelRepository {
     return true;
   }
 
-  async reorder(orderedIds: string[]) {
-    const existing = await this.listPublic();
+  async reorder(orderedIds: string[], serverId = 'default') {
+    const existing = await this.listPublic(serverId);
     const seen = new Set<string>();
     const fullOrder: string[] = [];
     for (const id of orderedIds) {
@@ -139,5 +139,11 @@ export class MemoryChannelRepository implements ChannelRepository {
       const current = this.channels.get(id);
       if (current) this.channels.set(id, { ...current, position: index });
     });
+  }
+
+  async delete(id: string) {
+    const existing = this.channels.get(id);
+    if (existing?.kind !== 'public') return false;
+    return this.channels.delete(id);
   }
 }

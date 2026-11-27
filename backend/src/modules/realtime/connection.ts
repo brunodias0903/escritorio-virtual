@@ -653,11 +653,19 @@ export class Connection {
       }
 
       case 'createChannel': {
-        const result = await chat.createChannel(claims.email, message.name);
+        const result = await chat.createChannel(
+          claims.email,
+          message.name,
+          this.serverId,
+        );
         if (!result.ok) return send({ type: 'chatError', code: result.error });
         send({ type: 'channelOpened', channel: result.value });
         return cluster.dispatch(id, [
-          { to: 'all', message: { type: 'channelsChanged' } },
+          {
+            to: 'all',
+            serverId: this.serverId,
+            message: { type: 'channelsChanged' },
+          },
         ]);
       }
 
@@ -670,7 +678,11 @@ export class Connection {
         );
         if (!result.ok) return send({ type: 'chatError', code: result.error });
         return cluster.dispatch(id, [
-          { to: 'all', message: { type: 'channelsChanged' } },
+          {
+            to: 'all',
+            serverId: this.serverId,
+            message: { type: 'channelsChanged' },
+          },
         ]);
       }
 

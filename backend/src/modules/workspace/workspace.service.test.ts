@@ -866,4 +866,65 @@ describe('WorkspaceService', () => {
       ).toMatchObject({ ok: false, status: 410, error: 'invite_expired' });
     }
   });
+
+  it('isola reordenação e exclusão de canais por servidor e protege #geral', async () => {
+    const { service } = await setup();
+    const master = makeClaims('master@setter.app', true);
+    const dev = makeClaims('dev@setter.app');
+
+    const createdSrv = await service.createServer(master, {
+      name: 'Getter S.A.',
+      description: '',
+      accentColor: '#5b6cff',
+      visibility: 'invite',
+    });
+    expect(createdSrv.ok).toBe(true);
+    if (!createdSrv.ok) return;
+    const srvId = createdSrv.value.id;
+
+    // Cria canal "comunicados" somente no servidor Getter S.A.
+    const createdCh = await service.createManagedChannel(
+      master,
+      { name: 'comunicados', topic: 'Avisos' },
+      srvId,
+    );
+    expect(createdCh.ok).toBe(true);
+    if (!createdCh.ok) return;
+    const comunicadosId = createdCh.value.id;
+    const geralId = `${srvId}:geral`;
+
+    // Reordenar no servidor secundário devolve somente os canais dele, sem misturar com 'default'.
+    const reordered = await service.reorderChannels(
+      master,
+      { channelIds: [comunicadosId, geralId] },
+      srvId,
+    );
+    expect(reordered.ok).toBe(true);
+    if (reordered.ok) {
+      expect(reordered.value.map((c) => c.id)).toEqual([
+        comunicadosId,
+        geralId,
+      ]);
+    }
+    const defaultChannels = await service.listPublicChannels('default');
+    expect(defaultChannels.map((c) => c.name)).not.toContain('comunicados');
+
+    // Não-admin não pode apagar canal
+    expect(
+      await service.deleteChannel(dev, comunicadosId, srvId),
+    ).toMatchObject({ ok: false, status: 403, error: 'forbidden' });
+    // Canal principal #geral não pode ser apagado
+    expect(await service.deleteChannel(master, geralId, srvId)).toMatchObject({
+      ok: false,
+      status: 400,
+      error: 'cannot_delete_default_channel',
+    });
+    // Admin apaga o canal customizado com sucesso
+    expect(
+      await service.deleteChannel(master, comunicadosId, srvId),
+    ).toMatchObject({ ok: true, value: { deleted: true, id: comunicadosId } });
+    expect((await service.listPublicChannels(srvId)).map((c) => c.id)).toEqual([
+      geralId,
+    ]);
+  });
 });

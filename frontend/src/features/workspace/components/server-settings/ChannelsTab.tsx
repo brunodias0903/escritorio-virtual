@@ -1,19 +1,19 @@
 import {
   Archive,
   ArchiveRestore,
-  ArrowDown,
-  ArrowUp,
   ChevronDown,
   Eye,
+  GripVertical,
   Hash,
   Lock,
   MessageSquare,
   PenLine,
   Plus,
   Save,
+  Trash2,
   UserCog,
 } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useState, type DragEvent, type FormEvent } from 'react';
 import {
   Accordion,
   Button,
@@ -40,8 +40,8 @@ import {
 import { useI18n } from '@/shared/i18n';
 import {
   ActionButton,
+  ConfirmDialog,
   EmptyState,
-  IconButton,
   StatusBadge,
   SurfaceCard,
   TextField,
@@ -226,6 +226,10 @@ export function ChannelsTab({
     string | null
   >(null);
   const [busyChannelId, setBusyChannelId] = useState<string | null>(null);
+  const [dragChannelId, setDragChannelId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ManagedChannel | null>(null);
 
   const [newName, setNewName] = useState('');
   const [newTopic, setNewTopic] = useState('');
@@ -300,16 +304,21 @@ export function ChannelsTab({
       resolveWriteMode(ch) === 'all'
         ? [...viewTiers]
         : ch.writeTiers.filter((tier) => viewTiers.includes(tier));
-    const res = await workspaceApi.updateChannel(session.token, ch.id, {
-      topic: ch.topic,
-      viewTiers,
-      writeTiers: writeTiers.includes('master')
-        ? writeTiers
-        : ['master', ...writeTiers],
-      allowedEmails: ch.allowedEmails,
-      blockedEmails: ch.blockedEmails,
-      archived: ch.archived,
-    });
+    const res = await workspaceApi.updateChannel(
+      session.token,
+      ch.id,
+      {
+        topic: ch.topic,
+        viewTiers,
+        writeTiers: writeTiers.includes('master')
+          ? writeTiers
+          : ['master', ...writeTiers],
+        allowedEmails: ch.allowedEmails,
+        blockedEmails: ch.blockedEmails,
+        archived: ch.archived,
+      },
+      activeServerId,
+    );
     setBusyChannelId(null);
     if (!res.ok) {
       onError(errorMessage(res.error));
@@ -321,26 +330,28 @@ export function ChannelsTab({
     onNotify(t('server.channels.updated'));
   };
 
-  const handleMoveChannel = async (channelId: string, delta: -1 | 1) => {
-    const activeList = channels.filter((c) => !c.archived);
-    const idx = activeList.findIndex((c) => c.id === channelId);
-    const target = idx + delta;
-    if (idx < 0 || target < 0 || target >= activeList.length) return;
-    const nextActive = [...activeList];
-    const [moved] = nextActive.splice(idx, 1);
-    if (!moved) return;
-    nextActive.splice(target, 0, moved);
+  const commitReorder = async (nextActive: ManagedChannel[]) => {
+    if (reordering) return;
+    const prevSnapshot = channels;
+    const archivedList = channels.filter((c) => c.archived);
     const orderedIds = [
       ...nextActive.map((c) => c.id),
-      ...channels.filter((c) => c.archived).map((c) => c.id),
+      ...archivedList.map((c) => c.id),
     ];
-    setBusyChannelId(channelId);
+    onChannelsChange(() => [
+      ...nextActive.map((c, idx) => ({ ...c, position: idx })),
+      ...archivedList,
+    ]);
+    setReordering(true);
     onError('');
-    const res = await workspaceApi.reorderChannels(session.token, {
-      channelIds: orderedIds,
-    });
-    setBusyChannelId(null);
+    const res = await workspaceApi.reorderChannels(
+      session.token,
+      { channelIds: orderedIds },
+      activeServerId,
+    );
+    setReordering(false);
     if (!res.ok) {
+      onChannelsChange(() => prevSnapshot);
       onError(errorMessage(res.error));
       return;
     }
@@ -348,12 +359,46 @@ export function ChannelsTab({
     onNotify(t('server.channels.reordered'));
   };
 
+  const handleDragStart = (event: DragEvent<HTMLDivElement>, id: string) => {
+    if (reordering) return;
+    setDragChannelId(id);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>, id: string) => {
+    if (reordering || !dragChannelId || dragChannelId === id) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (dropTargetId !== id) setDropTargetId(id);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>, targetId: string) => {
+    event.preventDefault();
+    const sourceId = dragChannelId || event.dataTransfer.getData('text/plain');
+    setDragChannelId(null);
+    setDropTargetId(null);
+    if (reordering || !sourceId || sourceId === targetId) return;
+    const activeList = channels.filter((c) => !c.archived);
+    const fromIdx = activeList.findIndex((c) => c.id === sourceId);
+    const toIdx = activeList.findIndex((c) => c.id === targetId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const nextActive = [...activeList];
+    const [moved] = nextActive.splice(fromIdx, 1);
+    if (!moved) return;
+    nextActive.splice(toIdx, 0, moved);
+    void commitReorder(nextActive);
+  };
+
   const handleToggleArchive = async (ch: ManagedChannel) => {
     setBusyChannelId(ch.id);
     onError('');
-    const res = await workspaceApi.updateChannel(session.token, ch.id, {
-      archived: !ch.archived,
-    });
+    const res = await workspaceApi.updateChannel(
+      session.token,
+      ch.id,
+      { archived: !ch.archived },
+      activeServerId,
+    );
     setBusyChannelId(null);
     if (!res.ok) {
       onError(errorMessage(res.error));
@@ -363,6 +408,26 @@ export function ChannelsTab({
       prev.map((c) => (c.id === ch.id ? res.data.channel : c)),
     );
     onNotify(t('server.channels.updated'));
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setBusyChannelId(target.id);
+    onError('');
+    const res = await workspaceApi.deleteChannel(
+      session.token,
+      target.id,
+      activeServerId,
+    );
+    setBusyChannelId(null);
+    setDeleteTarget(null);
+    if (!res.ok) {
+      onError(errorMessage(res.error));
+      return;
+    }
+    onChannelsChange((prev) => prev.filter((c) => c.id !== target.id));
+    onNotify(`Canal #${target.name} apagado.`);
   };
 
   const activeChannels = channels.filter((c) => !c.archived);
@@ -626,7 +691,6 @@ export function ChannelsTab({
       ) : (
         <Accordion type="single" collapsible gap="$2.5">
           {displayed.map((ch) => {
-            const activeIdx = activeChannels.findIndex((c) => c.id === ch.id);
             const viewMode = resolveViewMode(ch);
             const writeMode = resolveWriteMode(ch);
             const isPrivate =
@@ -635,536 +699,598 @@ export function ChannelsTab({
               ch.allowedEmails.length + ch.blockedEmails.length;
             const membersOpen = expandedMemberChannelId === ch.id;
             const busy = busyChannelId === ch.id;
+            const canDrag = !ch.archived && activeChannels.length > 1 && !busy;
+            const isDragging = dragChannelId === ch.id;
+            const isDropTarget = dropTargetId === ch.id;
 
             return (
-              <Accordion.Item
+              <div
                 key={ch.id}
-                value={ch.id}
-                borderRadius="$xl"
-                borderWidth={1}
-                borderColor="$borderSubtle"
-                backgroundColor="$bgSurface"
-                overflow="hidden"
+                draggable={canDrag}
+                onDragStart={(e) => {
+                  if (canDrag) handleDragStart(e, ch.id);
+                }}
+                onDragOver={(e) => {
+                  if (canDrag) handleDragOver(e, ch.id);
+                }}
+                onDragLeave={() => {
+                  if (dropTargetId === ch.id) setDropTargetId(null);
+                }}
+                onDrop={(e) => {
+                  if (canDrag) handleDrop(e, ch.id);
+                }}
+                onDragEnd={() => {
+                  setDragChannelId(null);
+                  setDropTargetId(null);
+                }}
+                style={{
+                  opacity: isDragging ? 0.55 : 1,
+                  borderRadius: 14,
+                  boxShadow: isDropTarget
+                    ? '0 -2px 0 0 var(--accent)'
+                    : undefined,
+                  transition: 'opacity 140ms ease, box-shadow 120ms ease',
+                }}
               >
-                <XStack
-                  alignItems="center"
-                  justifyContent="space-between"
-                  paddingHorizontal="$3.5"
-                  paddingVertical="$2.5"
-                  gap="$2"
+                <Accordion.Item
+                  value={ch.id}
+                  borderRadius="$xl"
+                  borderWidth={1}
+                  borderColor={isDropTarget ? '$accent' : '$borderSubtle'}
+                  backgroundColor="$bgSurface"
+                  overflow="hidden"
                 >
-                  {!ch.archived && activeChannels.length > 1 ? (
-                    <XStack gap="$1" flexShrink={0}>
-                      <IconButton
-                        size="xs"
-                        icon={<ArrowUp size={13} aria-hidden={true} />}
-                        disabled={activeIdx <= 0 || busy}
-                        aria-label={t('server.channels.moveUp')}
-                        title={t('server.channels.moveUp')}
-                        onPress={() => void handleMoveChannel(ch.id, -1)}
-                      />
-                      <IconButton
-                        size="xs"
-                        icon={<ArrowDown size={13} aria-hidden={true} />}
-                        disabled={
-                          activeIdx < 0 ||
-                          activeIdx >= activeChannels.length - 1 ||
-                          busy
-                        }
-                        aria-label={t('server.channels.moveDown')}
-                        title={t('server.channels.moveDown')}
-                        onPress={() => void handleMoveChannel(ch.id, 1)}
-                      />
-                    </XStack>
-                  ) : null}
-
-                  <Accordion.Trigger
-                    flex={1}
-                    backgroundColor="transparent"
-                    borderWidth={0}
-                    padding={0}
-                    flexDirection="row"
+                  <XStack
                     alignItems="center"
                     justifyContent="space-between"
-                    gap="$2.5"
+                    paddingHorizontal="$3.5"
+                    paddingVertical="$2.5"
+                    gap="$2"
                   >
-                    {({ open }: { open: boolean }) => (
-                      <>
+                    {!ch.archived && activeChannels.length > 1 ? (
+                      <span
+                        aria-hidden="true"
+                        title="Arraste para reordenar"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          color: 'var(--text-muted)',
+                          cursor: isDragging ? 'grabbing' : 'grab',
+                          flexShrink: 0,
+                          padding: '2px 0',
+                        }}
+                      >
+                        <GripVertical size={15} aria-hidden={true} />
+                      </span>
+                    ) : null}
+
+                    <Accordion.Trigger
+                      flex={1}
+                      backgroundColor="transparent"
+                      borderWidth={0}
+                      padding={0}
+                      flexDirection="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      gap="$2.5"
+                    >
+                      {({ open }: { open: boolean }) => (
+                        <>
+                          <XStack
+                            alignItems="center"
+                            gap="$2.5"
+                            flex={1}
+                            minWidth={0}
+                          >
+                            <YStack
+                              width={30}
+                              height={30}
+                              borderRadius="$md"
+                              backgroundColor="$bgControl"
+                              alignItems="center"
+                              justifyContent="center"
+                              flexShrink={0}
+                            >
+                              {isPrivate ? (
+                                <Lock
+                                  size={14}
+                                  color="var(--accent-link)"
+                                  aria-hidden={true}
+                                />
+                              ) : (
+                                <Hash
+                                  size={14}
+                                  color="var(--text-secondary)"
+                                  aria-hidden={true}
+                                />
+                              )}
+                            </YStack>
+                            <YStack flex={1} minWidth={0}>
+                              <XStack
+                                alignItems="center"
+                                gap="$2"
+                                flexWrap="wrap"
+                              >
+                                <Text
+                                  fontFamily="$heading"
+                                  fontSize="$4"
+                                  fontWeight="700"
+                                  color="$textPrimary"
+                                >
+                                  {ch.name}
+                                </Text>
+                                {ch.archived ? (
+                                  <StatusBadge tone="neutral">
+                                    Arquivado
+                                  </StatusBadge>
+                                ) : null}
+                                {isPrivate ? (
+                                  <StatusBadge tone="accent">
+                                    Privado
+                                  </StatusBadge>
+                                ) : null}
+                              </XStack>
+                              {ch.topic ? (
+                                <Text
+                                  fontFamily="$body"
+                                  fontSize="$2"
+                                  color="$textMuted"
+                                  numberOfLines={1}
+                                >
+                                  {ch.topic}
+                                </Text>
+                              ) : null}
+                            </YStack>
+                          </XStack>
+
+                          <ChevronDown
+                            size={16}
+                            color="var(--text-muted)"
+                            aria-hidden={true}
+                            style={{
+                              transform: open
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                              transition: 'transform 160ms ease',
+                              flexShrink: 0,
+                            }}
+                          />
+                        </>
+                      )}
+                    </Accordion.Trigger>
+                  </XStack>
+
+                  <Accordion.Content
+                    backgroundColor="$bgSurface"
+                    paddingHorizontal="$4"
+                    paddingTop="$1"
+                    paddingBottom="$4"
+                  >
+                    <YStack gap="$3.5">
+                      <Separator
+                        flex={0}
+                        width="100%"
+                        borderColor="$borderSubtle"
+                      />
+
+                      <TextField
+                        id={`channel-topic-${ch.id}`}
+                        compact
+                        label="Tópico do canal"
+                        value={ch.topic}
+                        maxLength={160}
+                        placeholder={t('server.channels.topic')}
+                        onChangeText={(value) =>
+                          onChannelsChange((prev) =>
+                            prev.map((c) =>
+                              c.id === ch.id ? { ...c, topic: value } : c,
+                            ),
+                          )
+                        }
+                      />
+
+                      {/* Quem pode ver */}
+                      <YStack gap="$2">
                         <XStack
                           alignItems="center"
-                          gap="$2.5"
-                          flex={1}
-                          minWidth={0}
+                          justifyContent="space-between"
+                          gap="$2"
+                          flexWrap="wrap"
                         >
-                          <YStack
-                            width={30}
-                            height={30}
-                            borderRadius="$md"
-                            backgroundColor="$bgControl"
-                            alignItems="center"
-                            justifyContent="center"
-                            flexShrink={0}
+                          <Text
+                            fontFamily="$body"
+                            fontSize="$3"
+                            fontWeight="600"
+                            color="$textSecondary"
                           >
-                            {isPrivate ? (
-                              <Lock
-                                size={14}
-                                color="var(--accent-link)"
-                                aria-hidden={true}
-                              />
-                            ) : (
-                              <Hash
-                                size={14}
-                                color="var(--text-secondary)"
-                                aria-hidden={true}
-                              />
-                            )}
-                          </YStack>
-                          <YStack flex={1} minWidth={0}>
-                            <XStack
-                              alignItems="center"
-                              gap="$2"
-                              flexWrap="wrap"
-                            >
-                              <Text
-                                fontFamily="$heading"
-                                fontSize="$4"
-                                fontWeight="700"
-                                color="$textPrimary"
-                              >
-                                {ch.name}
-                              </Text>
-                              {ch.archived ? (
-                                <StatusBadge tone="neutral">
-                                  Arquivado
-                                </StatusBadge>
-                              ) : null}
-                              {isPrivate ? (
-                                <StatusBadge tone="accent">Privado</StatusBadge>
-                              ) : null}
-                            </XStack>
-                            {ch.topic ? (
+                            {t('server.channels.viewTiers')}
+                          </Text>
+                          <ModeToggle
+                            value={viewMode}
+                            options={[
+                              {
+                                id: 'all',
+                                label: t('server.channels.viewAll'),
+                                icon: <Eye size={12} aria-hidden={true} />,
+                              },
+                              {
+                                id: 'specific',
+                                label: t('server.channels.viewRestricted'),
+                                icon: <Lock size={12} aria-hidden={true} />,
+                              },
+                            ]}
+                            onChange={(next) => {
+                              const mode = next as 'all' | 'specific';
+                              setViewModeMap((m) => ({ ...m, [ch.id]: mode }));
+                              if (mode === 'all') {
+                                onChannelsChange((prev) =>
+                                  prev.map((c) =>
+                                    c.id === ch.id
+                                      ? {
+                                          ...c,
+                                          viewTiers: [...ACCOUNT_TIERS],
+                                          writeTiers:
+                                            writeMode === 'all'
+                                              ? [...ACCOUNT_TIERS]
+                                              : c.writeTiers,
+                                        }
+                                      : c,
+                                  ),
+                                );
+                              }
+                            }}
+                          />
+                        </XStack>
+
+                        {viewMode === 'specific' ? (
+                          <TierChips
+                            selected={ch.viewTiers}
+                            onToggle={(tier) =>
+                              onChannelsChange((prev) =>
+                                prev.map((c) => {
+                                  if (c.id !== ch.id) return c;
+                                  const nextView = toggleTierIn(
+                                    c.viewTiers,
+                                    tier,
+                                  );
+                                  const nextWrite =
+                                    writeMode === 'all'
+                                      ? [...nextView]
+                                      : c.writeTiers.filter((x) =>
+                                          nextView.includes(x),
+                                        );
+                                  return {
+                                    ...c,
+                                    viewTiers: nextView,
+                                    writeTiers: nextWrite.includes('master')
+                                      ? nextWrite
+                                      : ['master', ...nextWrite],
+                                  };
+                                }),
+                              )
+                            }
+                          />
+                        ) : null}
+                      </YStack>
+
+                      {/* Quem pode escrever */}
+                      <YStack gap="$2">
+                        <XStack
+                          alignItems="center"
+                          justifyContent="space-between"
+                          gap="$2"
+                          flexWrap="wrap"
+                        >
+                          <Text
+                            fontFamily="$body"
+                            fontSize="$3"
+                            fontWeight="600"
+                            color="$textSecondary"
+                          >
+                            {t('server.channels.writeTiers')}
+                          </Text>
+                          <ModeToggle
+                            value={writeMode}
+                            options={[
+                              {
+                                id: 'all',
+                                label: t('server.channels.writeAll'),
+                                icon: (
+                                  <MessageSquare size={12} aria-hidden={true} />
+                                ),
+                              },
+                              {
+                                id: 'specific',
+                                label: t('server.channels.writeRestricted'),
+                                icon: <PenLine size={12} aria-hidden={true} />,
+                              },
+                            ]}
+                            onChange={(next) => {
+                              const mode = next as 'all' | 'specific';
+                              setWriteModeMap((m) => ({ ...m, [ch.id]: mode }));
+                              if (mode === 'all') {
+                                onChannelsChange((prev) =>
+                                  prev.map((c) =>
+                                    c.id === ch.id
+                                      ? {
+                                          ...c,
+                                          writeTiers:
+                                            viewMode === 'all'
+                                              ? [...ACCOUNT_TIERS]
+                                              : [...c.viewTiers],
+                                        }
+                                      : c,
+                                  ),
+                                );
+                              }
+                            }}
+                          />
+                        </XStack>
+
+                        {writeMode === 'specific' ? (
+                          <>
+                            <TierChips
+                              selected={ch.writeTiers}
+                              allowed={
+                                viewMode === 'all' ? undefined : ch.viewTiers
+                              }
+                              onToggle={(tier) =>
+                                onChannelsChange((prev) =>
+                                  prev.map((c) =>
+                                    c.id === ch.id
+                                      ? {
+                                          ...c,
+                                          writeTiers: toggleTierIn(
+                                            c.writeTiers,
+                                            tier,
+                                          ),
+                                        }
+                                      : c,
+                                  ),
+                                )
+                              }
+                            />
+                            {viewMode === 'specific' ? (
                               <Text
                                 fontFamily="$body"
                                 fontSize="$2"
                                 color="$textMuted"
-                                numberOfLines={1}
                               >
-                                {ch.topic}
+                                {t('server.channels.noViewHint')}
                               </Text>
                             ) : null}
-                          </YStack>
-                        </XStack>
-
-                        <ChevronDown
-                          size={16}
-                          color="var(--text-muted)"
-                          aria-hidden={true}
-                          style={{
-                            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-                            transition: 'transform 160ms ease',
-                            flexShrink: 0,
-                          }}
-                        />
-                      </>
-                    )}
-                  </Accordion.Trigger>
-                </XStack>
-
-                <Accordion.Content
-                  backgroundColor="$bgSurface"
-                  paddingHorizontal="$4"
-                  paddingTop="$1"
-                  paddingBottom="$4"
-                >
-                  <YStack gap="$3.5">
-                    <Separator
-                      flex={0}
-                      width="100%"
-                      borderColor="$borderSubtle"
-                    />
-
-                    <TextField
-                      id={`channel-topic-${ch.id}`}
-                      compact
-                      label="Tópico do canal"
-                      value={ch.topic}
-                      maxLength={160}
-                      placeholder={t('server.channels.topic')}
-                      onChangeText={(value) =>
-                        onChannelsChange((prev) =>
-                          prev.map((c) =>
-                            c.id === ch.id ? { ...c, topic: value } : c,
-                          ),
-                        )
-                      }
-                    />
-
-                    {/* Quem pode ver */}
-                    <YStack gap="$2">
-                      <XStack
-                        alignItems="center"
-                        justifyContent="space-between"
-                        gap="$2"
-                        flexWrap="wrap"
-                      >
-                        <Text
-                          fontFamily="$body"
-                          fontSize="$3"
-                          fontWeight="600"
-                          color="$textSecondary"
-                        >
-                          {t('server.channels.viewTiers')}
-                        </Text>
-                        <ModeToggle
-                          value={viewMode}
-                          options={[
-                            {
-                              id: 'all',
-                              label: t('server.channels.viewAll'),
-                              icon: <Eye size={12} aria-hidden={true} />,
-                            },
-                            {
-                              id: 'specific',
-                              label: t('server.channels.viewRestricted'),
-                              icon: <Lock size={12} aria-hidden={true} />,
-                            },
-                          ]}
-                          onChange={(next) => {
-                            const mode = next as 'all' | 'specific';
-                            setViewModeMap((m) => ({ ...m, [ch.id]: mode }));
-                            if (mode === 'all') {
-                              onChannelsChange((prev) =>
-                                prev.map((c) =>
-                                  c.id === ch.id
-                                    ? {
-                                        ...c,
-                                        viewTiers: [...ACCOUNT_TIERS],
-                                        writeTiers:
-                                          writeMode === 'all'
-                                            ? [...ACCOUNT_TIERS]
-                                            : c.writeTiers,
-                                      }
-                                    : c,
-                                ),
-                              );
-                            }
-                          }}
-                        />
-                      </XStack>
-
-                      {viewMode === 'specific' ? (
-                        <TierChips
-                          selected={ch.viewTiers}
-                          onToggle={(tier) =>
-                            onChannelsChange((prev) =>
-                              prev.map((c) => {
-                                if (c.id !== ch.id) return c;
-                                const nextView = toggleTierIn(
-                                  c.viewTiers,
-                                  tier,
-                                );
-                                const nextWrite =
-                                  writeMode === 'all'
-                                    ? [...nextView]
-                                    : c.writeTiers.filter((x) =>
-                                        nextView.includes(x),
-                                      );
-                                return {
-                                  ...c,
-                                  viewTiers: nextView,
-                                  writeTiers: nextWrite.includes('master')
-                                    ? nextWrite
-                                    : ['master', ...nextWrite],
-                                };
-                              }),
-                            )
-                          }
-                        />
-                      ) : null}
-                    </YStack>
-
-                    {/* Quem pode escrever */}
-                    <YStack gap="$2">
-                      <XStack
-                        alignItems="center"
-                        justifyContent="space-between"
-                        gap="$2"
-                        flexWrap="wrap"
-                      >
-                        <Text
-                          fontFamily="$body"
-                          fontSize="$3"
-                          fontWeight="600"
-                          color="$textSecondary"
-                        >
-                          {t('server.channels.writeTiers')}
-                        </Text>
-                        <ModeToggle
-                          value={writeMode}
-                          options={[
-                            {
-                              id: 'all',
-                              label: t('server.channels.writeAll'),
-                              icon: (
-                                <MessageSquare size={12} aria-hidden={true} />
-                              ),
-                            },
-                            {
-                              id: 'specific',
-                              label: t('server.channels.writeRestricted'),
-                              icon: <PenLine size={12} aria-hidden={true} />,
-                            },
-                          ]}
-                          onChange={(next) => {
-                            const mode = next as 'all' | 'specific';
-                            setWriteModeMap((m) => ({ ...m, [ch.id]: mode }));
-                            if (mode === 'all') {
-                              onChannelsChange((prev) =>
-                                prev.map((c) =>
-                                  c.id === ch.id
-                                    ? {
-                                        ...c,
-                                        writeTiers:
-                                          viewMode === 'all'
-                                            ? [...ACCOUNT_TIERS]
-                                            : [...c.viewTiers],
-                                      }
-                                    : c,
-                                ),
-                              );
-                            }
-                          }}
-                        />
-                      </XStack>
-
-                      {writeMode === 'specific' ? (
-                        <>
-                          <TierChips
-                            selected={ch.writeTiers}
-                            allowed={
-                              viewMode === 'all' ? undefined : ch.viewTiers
-                            }
-                            onToggle={(tier) =>
-                              onChannelsChange((prev) =>
-                                prev.map((c) =>
-                                  c.id === ch.id
-                                    ? {
-                                        ...c,
-                                        writeTiers: toggleTierIn(
-                                          c.writeTiers,
-                                          tier,
-                                        ),
-                                      }
-                                    : c,
-                                ),
-                              )
-                            }
-                          />
-                          {viewMode === 'specific' ? (
-                            <Text
-                              fontFamily="$body"
-                              fontSize="$2"
-                              color="$textMuted"
-                            >
-                              {t('server.channels.noViewHint')}
-                            </Text>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </YStack>
-
-                    {/* Exceções individuais */}
-                    {canSeeMembers && nonMasterAccounts.length > 0 ? (
-                      <YStack gap="$2">
-                        <Button
-                          backgroundColor="$bgControl"
-                          borderColor="$borderSubtle"
-                          borderWidth={1}
-                          borderRadius="$lg"
-                          paddingHorizontal="$3"
-                          paddingVertical="$2"
-                          justifyContent="space-between"
-                          cursor="pointer"
-                          onPress={() =>
-                            setExpandedMemberChannelId((prev) =>
-                              prev === ch.id ? null : ch.id,
-                            )
-                          }
-                        >
-                          <XStack
-                            alignItems="center"
-                            justifyContent="space-between"
-                            width="100%"
-                            gap="$2"
-                          >
-                            <XStack alignItems="center" gap="$2">
-                              <UserCog
-                                size={14}
-                                color="var(--text-secondary)"
-                                aria-hidden={true}
-                              />
-                              <Text
-                                fontFamily="$body"
-                                fontSize="$3"
-                                fontWeight="600"
-                                color="$textSecondary"
-                              >
-                                {t('server.channels.memberAccess')}
-                              </Text>
-                              {overridesCount > 0 ? (
-                                <StatusBadge tone="accent">
-                                  {overridesCount}
-                                </StatusBadge>
-                              ) : null}
-                            </XStack>
-                            <ChevronDown
-                              size={14}
-                              color="var(--text-muted)"
-                              aria-hidden={true}
-                              style={{
-                                transform: membersOpen
-                                  ? 'rotate(180deg)'
-                                  : 'rotate(0deg)',
-                                transition: 'transform 140ms ease',
-                              }}
-                            />
-                          </XStack>
-                        </Button>
-
-                        {membersOpen ? (
-                          <YStack
-                            gap="$2"
-                            padding="$2.5"
-                            borderRadius="$lg"
-                            backgroundColor="$bgSurfaceElevated"
-                            borderWidth={1}
-                            borderColor="$borderSubtle"
-                            maxHeight={220}
-                            overflow="scroll"
-                          >
-                            {nonMasterAccounts.map((acc) => {
-                              const currentMode = ch.blockedEmails.includes(
-                                acc.email,
-                              )
-                                ? 'block'
-                                : ch.allowedEmails.includes(acc.email)
-                                  ? 'allow'
-                                  : 'default';
-                              return (
-                                <XStack
-                                  key={acc.email}
-                                  alignItems="center"
-                                  justifyContent="space-between"
-                                  gap="$2"
-                                  flexWrap="wrap"
-                                  paddingVertical="$1"
-                                >
-                                  <YStack flex={1} minWidth={160}>
-                                    <Text
-                                      fontFamily="$body"
-                                      fontSize="$3"
-                                      fontWeight="600"
-                                      color="$textPrimary"
-                                    >
-                                      {acc.fullName}
-                                    </Text>
-                                    <Text
-                                      fontFamily="$body"
-                                      fontSize="$2"
-                                      color="$textMuted"
-                                    >
-                                      {ACCOUNT_TIER_LABELS[acc.tier]} ·{' '}
-                                      {acc.email}
-                                    </Text>
-                                  </YStack>
-                                  <ModeToggle
-                                    value={currentMode}
-                                    options={[
-                                      {
-                                        id: 'default',
-                                        label: t(
-                                          'server.channels.memberDefault',
-                                        ),
-                                      },
-                                      {
-                                        id: 'allow',
-                                        label: t('server.channels.memberAllow'),
-                                      },
-                                      {
-                                        id: 'block',
-                                        label: t('server.channels.memberBlock'),
-                                        danger: true,
-                                      },
-                                    ]}
-                                    onChange={(next) =>
-                                      onChannelsChange((prev) =>
-                                        prev.map((c) =>
-                                          c.id === ch.id
-                                            ? setChannelMemberAccess(
-                                                c,
-                                                acc.email,
-                                                next as
-                                                  'default' | 'allow' | 'block',
-                                              )
-                                            : c,
-                                        ),
-                                      )
-                                    }
-                                  />
-                                </XStack>
-                              );
-                            })}
-                          </YStack>
+                          </>
                         ) : null}
                       </YStack>
-                    ) : null}
 
-                    <Separator
-                      flex={0}
-                      width="100%"
-                      borderColor="$borderSubtle"
-                    />
+                      {/* Exceções individuais */}
+                      {canSeeMembers && nonMasterAccounts.length > 0 ? (
+                        <YStack gap="$2">
+                          <Button
+                            backgroundColor="$bgControl"
+                            borderColor="$borderSubtle"
+                            borderWidth={1}
+                            borderRadius="$lg"
+                            paddingHorizontal="$3"
+                            paddingVertical="$2"
+                            justifyContent="space-between"
+                            cursor="pointer"
+                            onPress={() =>
+                              setExpandedMemberChannelId((prev) =>
+                                prev === ch.id ? null : ch.id,
+                              )
+                            }
+                          >
+                            <XStack
+                              alignItems="center"
+                              justifyContent="space-between"
+                              width="100%"
+                              gap="$2"
+                            >
+                              <XStack alignItems="center" gap="$2">
+                                <UserCog
+                                  size={14}
+                                  color="var(--text-secondary)"
+                                  aria-hidden={true}
+                                />
+                                <Text
+                                  fontFamily="$body"
+                                  fontSize="$3"
+                                  fontWeight="600"
+                                  color="$textSecondary"
+                                >
+                                  {t('server.channels.memberAccess')}
+                                </Text>
+                                {overridesCount > 0 ? (
+                                  <StatusBadge tone="accent">
+                                    {overridesCount}
+                                  </StatusBadge>
+                                ) : null}
+                              </XStack>
+                              <ChevronDown
+                                size={14}
+                                color="var(--text-muted)"
+                                aria-hidden={true}
+                                style={{
+                                  transform: membersOpen
+                                    ? 'rotate(180deg)'
+                                    : 'rotate(0deg)',
+                                  transition: 'transform 140ms ease',
+                                }}
+                              />
+                            </XStack>
+                          </Button>
 
-                    <XStack
-                      alignItems="center"
-                      justifyContent="space-between"
-                      gap="$2"
-                      flexWrap="wrap"
-                    >
-                      <ActionButton
-                        variant="secondary"
-                        size="sm"
-                        disabled={busy}
-                        icon={
-                          ch.archived ? (
-                            <ArchiveRestore size={14} aria-hidden={true} />
-                          ) : (
-                            <Archive size={14} aria-hidden={true} />
-                          )
-                        }
-                        onPress={() => void handleToggleArchive(ch)}
+                          {membersOpen ? (
+                            <YStack
+                              gap="$2"
+                              padding="$2.5"
+                              borderRadius="$lg"
+                              backgroundColor="$bgSurfaceElevated"
+                              borderWidth={1}
+                              borderColor="$borderSubtle"
+                              maxHeight={220}
+                              overflow="scroll"
+                            >
+                              {nonMasterAccounts.map((acc) => {
+                                const currentMode = ch.blockedEmails.includes(
+                                  acc.email,
+                                )
+                                  ? 'block'
+                                  : ch.allowedEmails.includes(acc.email)
+                                    ? 'allow'
+                                    : 'default';
+                                return (
+                                  <XStack
+                                    key={acc.email}
+                                    alignItems="center"
+                                    justifyContent="space-between"
+                                    gap="$2"
+                                    flexWrap="wrap"
+                                    paddingVertical="$1"
+                                  >
+                                    <YStack flex={1} minWidth={160}>
+                                      <Text
+                                        fontFamily="$body"
+                                        fontSize="$3"
+                                        fontWeight="600"
+                                        color="$textPrimary"
+                                      >
+                                        {acc.fullName}
+                                      </Text>
+                                      <Text
+                                        fontFamily="$body"
+                                        fontSize="$2"
+                                        color="$textMuted"
+                                      >
+                                        {ACCOUNT_TIER_LABELS[acc.tier]} ·{' '}
+                                        {acc.email}
+                                      </Text>
+                                    </YStack>
+                                    <ModeToggle
+                                      value={currentMode}
+                                      options={[
+                                        {
+                                          id: 'default',
+                                          label: t(
+                                            'server.channels.memberDefault',
+                                          ),
+                                        },
+                                        {
+                                          id: 'allow',
+                                          label: t(
+                                            'server.channels.memberAllow',
+                                          ),
+                                        },
+                                        {
+                                          id: 'block',
+                                          label: t(
+                                            'server.channels.memberBlock',
+                                          ),
+                                          danger: true,
+                                        },
+                                      ]}
+                                      onChange={(next) =>
+                                        onChannelsChange((prev) =>
+                                          prev.map((c) =>
+                                            c.id === ch.id
+                                              ? setChannelMemberAccess(
+                                                  c,
+                                                  acc.email,
+                                                  next as
+                                                    | 'default'
+                                                    | 'allow'
+                                                    | 'block',
+                                                )
+                                              : c,
+                                          ),
+                                        )
+                                      }
+                                    />
+                                  </XStack>
+                                );
+                              })}
+                            </YStack>
+                          ) : null}
+                        </YStack>
+                      ) : null}
+
+                      <Separator
+                        flex={0}
+                        width="100%"
+                        borderColor="$borderSubtle"
+                      />
+
+                      <XStack
+                        alignItems="center"
+                        justifyContent="space-between"
+                        gap="$2"
+                        flexWrap="wrap"
                       >
-                        {ch.archived
-                          ? t('server.channels.restore')
-                          : t('server.channels.archive')}
-                      </ActionButton>
+                        <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                          <ActionButton
+                            variant="secondary"
+                            size="sm"
+                            disabled={busy}
+                            icon={
+                              ch.archived ? (
+                                <ArchiveRestore size={14} aria-hidden={true} />
+                              ) : (
+                                <Archive size={14} aria-hidden={true} />
+                              )
+                            }
+                            onPress={() => void handleToggleArchive(ch)}
+                          >
+                            {ch.archived
+                              ? t('server.channels.restore')
+                              : t('server.channels.archive')}
+                          </ActionButton>
 
-                      <ActionButton
-                        size="sm"
-                        loading={busy}
-                        icon={<Save size={14} aria-hidden={true} />}
-                        onPress={() => void handleSaveChannel(ch)}
-                      >
-                        {t('common.save')}
-                      </ActionButton>
-                    </XStack>
-                  </YStack>
-                </Accordion.Content>
-              </Accordion.Item>
+                          {ch.name !== 'geral' ? (
+                            <ActionButton
+                              variant="danger"
+                              size="sm"
+                              disabled={busy}
+                              icon={<Trash2 size={14} aria-hidden={true} />}
+                              onPress={() => setDeleteTarget(ch)}
+                            >
+                              Apagar canal
+                            </ActionButton>
+                          ) : null}
+                        </XStack>
+
+                        <ActionButton
+                          size="sm"
+                          loading={busy}
+                          icon={<Save size={14} aria-hidden={true} />}
+                          onPress={() => void handleSaveChannel(ch)}
+                        >
+                          {t('common.save')}
+                        </ActionButton>
+                      </XStack>
+                    </YStack>
+                  </Accordion.Content>
+                </Accordion.Item>
+              </div>
             );
           })}
         </Accordion>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={deleteTarget ? `Apagar #${deleteTarget.name}?` : ''}
+        description={
+          deleteTarget
+            ? `O canal #${deleteTarget.name} e todas as mensagens enviadas nele serão removidos permanentemente deste servidor.`
+            : ''
+        }
+        tone="danger"
+        confirmLabel="Apagar canal"
+        loading={deleteTarget !== null && busyChannelId === deleteTarget.id}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </YStack>
   );
 }

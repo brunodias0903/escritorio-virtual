@@ -547,6 +547,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   invalid_name:
     'Nome inválido. Use letras minúsculas, números e hífen (2 a 30 caracteres).',
   name_taken: 'Já existe um canal com esse nome.',
+  cannot_delete_default_channel:
+    'O canal principal #geral não pode ser apagado.',
   desk_taken: 'Esta mesa já tem dono.',
   desk_limit: 'Você já tem uma mesa. Devolva a outra antes de adotar esta.',
   not_owner: 'Só quem adotou a mesa pode mudá-la.',

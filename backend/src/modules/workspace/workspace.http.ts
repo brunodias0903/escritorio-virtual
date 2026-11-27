@@ -94,24 +94,35 @@ export const handleWorkspaceRoutes = async (
     const parsed = ReorderChannelsSchema.safeParse(body);
     if (!parsed.success) return error(400, 'invalid_request');
     return respond(
-      await workspace.reorderChannels(claims, parsed.data),
+      await workspace.reorderChannels(claims, parsed.data, serverId),
       (channels) => json(200, { channels }),
     );
   }
 
   const channelMatch = /^\/api\/server\/channels\/([^/]+)$/.exec(path);
   if (channelMatch) {
-    if (method !== 'PUT' && method !== 'PATCH') {
+    if (method !== 'PUT' && method !== 'PATCH' && method !== 'DELETE') {
       return error(405, 'method_not_allowed');
     }
     const token = bearer(req.authorization);
     const claims = token ? await auth.authenticate(token) : null;
     if (!claims) return error(401, 'unauthorized');
+    const channelId = decodeURIComponent(channelMatch[1]!);
+    if (method === 'DELETE') {
+      return respond(
+        await workspace.deleteChannel(claims, channelId, serverId),
+        (result) => json(200, result),
+      );
+    }
     const parsed = UpdateChannelConfigSchema.safeParse(body);
     if (!parsed.success) return error(400, 'invalid_request');
-    const channelId = decodeURIComponent(channelMatch[1]!);
     return respond(
-      await workspace.updateChannelConfig(claims, channelId, parsed.data),
+      await workspace.updateChannelConfig(
+        claims,
+        channelId,
+        parsed.data,
+        serverId,
+      ),
       (channel) => json(200, { channel }),
     );
   }
