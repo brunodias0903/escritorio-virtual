@@ -167,10 +167,12 @@
   bottom: 12px;
   width: 4px;
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
-  background-color: var(--status-available);
-  box-shadow: 0 0 8px var(--presence-glow);
-  opacity: 0.72;
+  background-color: rgba(148, 163, 184, 0.45);
+  box-shadow: none;
+  opacity: 0.55;
   transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
     transform var(--motion-normal) var(--ease-spring),
     opacity var(--motion-fast) var(--ease-standard),
     top var(--motion-normal) var(--ease-spring),
@@ -181,6 +183,8 @@
   top: 6px;
   bottom: 6px;
   opacity: 1;
+  background-color: var(--status-available);
+  box-shadow: 0 0 8px var(--presence-glow);
 }
 
 .serverBadge:hover .serverPill {
