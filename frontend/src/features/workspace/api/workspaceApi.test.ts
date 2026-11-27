@@ -120,7 +120,7 @@ describe('workspaceApi', () => {
       new Response(JSON.stringify(DEFAULT_SERVER_SETTINGS), { status: 200 }),
     );
     const settings = await api.getServerSettings();
-    expect(settings.name).toBe('Setter');
+    expect(settings.name).toBe('Escritório Virtual');
 
     fetchMock.mockResolvedValueOnce(
       new Response(

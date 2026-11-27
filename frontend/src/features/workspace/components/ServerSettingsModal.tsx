@@ -222,7 +222,7 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
           color="$textPrimary"
           numberOfLines={1}
         >
-          {settings.name || 'Setter'}
+          {settings.name || 'Escritório Virtual'}
         </Text>
         <Text fontFamily="$body" fontSize="$1" color="$textMuted">
           Administração

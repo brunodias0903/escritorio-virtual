@@ -38,7 +38,7 @@ const STATUS_COLORS: Record<Status, string> = {
 };
 
 type Props = {
-  /** Nome do servidor/workspace ativo (padrão: Setter). */
+  /** Nome do servidor/workspace ativo (padrão: Escritório Virtual). */
   serverName: string;
   /** Ícone/foto customizada do servidor (opcional). */
   serverIcon?: string | null;
@@ -231,7 +231,7 @@ export function WorkspaceSidebar({
   const defaultServer = servers.find((s) => s.id === 'default');
   const defaultServerName =
     defaultServer?.name ??
-    (activeServerId === 'default' ? serverName : 'Setter');
+    (activeServerId === 'default' ? serverName : 'Escritório Virtual');
   const isDefaultSelected = activeServerId === 'default';
 
   const rail = (

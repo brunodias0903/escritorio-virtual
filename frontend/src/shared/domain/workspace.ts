@@ -100,7 +100,7 @@ const IconDataUrlSchema = z
   );
 
 export const ServerSettingsSchema = z.object({
-  name: z.string().trim().min(1).max(40).default('Setter'),
+  name: z.string().trim().min(1).max(40).default('Escritório Virtual'),
   description: z.string().trim().max(240).default(''),
   icon: IconDataUrlSchema.nullable().default(null),
   welcomeMessage: z.string().trim().max(280).default(''),
@@ -110,7 +110,7 @@ export const ServerSettingsSchema = z.object({
 export type ServerSettings = z.infer<typeof ServerSettingsSchema>;
 
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
-  name: 'Setter',
+  name: 'Escritório Virtual',
   description: 'Escritório virtual interativo da equipe',
   icon: null,
   welcomeMessage: '',

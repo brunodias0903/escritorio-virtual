@@ -63,6 +63,7 @@ import { HelpFeedbackModal } from '@/features/workspace/components/HelpFeedbackM
 import { ServerSettingsModal } from '@/features/workspace/components/ServerSettingsModal';
 import { useServerStore } from '@/features/workspace/model/serverStore';
 import {
+  APP_NAME,
   callKey,
   callZoneId,
   canCreateServer,
@@ -330,39 +331,49 @@ export function OfficePage({ session }: { session: Session }) {
     };
   }, []);
 
-  // Atualiza título, badge PWA, som e notificação nativa respeitando ChatNotifyMode.
+  // Atualiza título da aba com o nome do servidor ativo, badge PWA, som e notificação nativa.
+  const activeServer = servers.find((s) => s.id === activeServerId);
+  const activeServerName =
+    activeServer?.name.trim() || serverSettings.name.trim() || APP_NAME;
   useEffect(() => {
     const effectiveTotal = notifyCounts.totalUnread;
     const effectiveMentions = notifyCounts.totalMentions;
+    const tabTitle =
+      activeServerName === APP_NAME
+        ? APP_NAME
+        : `${activeServerName} — ${APP_NAME}`;
     document.title =
-      effectiveTotal > 0
-        ? `(${effectiveTotal}) Setter — Escritório Virtual`
-        : 'Setter — Escritório Virtual';
+      effectiveTotal > 0 ? `(${effectiveTotal}) ${tabTitle}` : tabTitle;
     syncAppBadge(effectiveTotal);
 
     if (!isUnavailableStatus(myStatus)) {
       if (effectiveMentions > prevMentionsRef.current) {
         playNotifyChime('mention');
         void showPwaNotification({
-          title: 'Nova menção no Setter',
+          title: `Nova menção em ${activeServerName}`,
           body: 'Você foi mencionado ou recebeu uma mensagem prioritária.',
-          tag: 'setter-mention',
+          tag: 'office-mention',
         });
       } else if (effectiveTotal > prevUnreadRef.current) {
         playNotifyChime('message');
         void showPwaNotification({
-          title: 'Nova mensagem no Setter',
+          title: `Nova mensagem em ${activeServerName}`,
           body: `Você tem ${effectiveTotal} mensagem(ns) não lida(s).`,
-          tag: 'setter-message',
+          tag: 'office-message',
         });
       }
     }
     prevUnreadRef.current = effectiveTotal;
     prevMentionsRef.current = effectiveMentions;
     return () => {
-      document.title = 'Setter — Escritório Virtual';
+      document.title = APP_NAME;
     };
-  }, [notifyCounts.totalUnread, notifyCounts.totalMentions, myStatus]);
+  }, [
+    notifyCounts.totalUnread,
+    notifyCounts.totalMentions,
+    myStatus,
+    activeServerName,
+  ]);
 
   // Restaura como o usuário deixou a sidebar (aberta/fechada) ou usa `wide` na primeira vez.
   useEffect(() => {

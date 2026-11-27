@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Setter — Escritório Virtual",
-  "short_name": "Setter",
+  "name": "Escritório Virtual",
+  "short_name": "Escritório Virtual",
   "description": "Escritório virtual interativo em tempo real para equipes remotas: mesas personalizáveis, chamadas por proximidade e chat.",
   "start_url": "/",
   "scope": "/",

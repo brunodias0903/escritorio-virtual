@@ -65,7 +65,7 @@ export function GeneralTab({
     const res = await workspaceApi.updateServerSettings(
       session.token,
       {
-        name: name.trim() || 'Setter',
+        name: name.trim() || 'Escritório Virtual',
         description: description.trim(),
         icon,
         welcomeMessage: welcomeMessage.trim(),
