@@ -59,40 +59,51 @@ export class OfficeService {
   private readonly serverIds = new Map<string, string>();
   private readonly lastEmoteAt = new Map<string, number>();
   /** Estado atual das mesas adotadas (posição customizada e bloqueio). */
-  private readonly deskInfos = new Map<string, DeskInfo>();
+  private readonly deskInfos = new Map<string, Map<string, DeskInfo>>();
   private readonly now: () => number;
 
   constructor({ now = Date.now }: Options = {}) {
     this.now = now;
   }
 
+  private desksFor(serverId = 'default'): Map<string, DeskInfo> {
+    let map = this.deskInfos.get(serverId);
+    if (!map) {
+      map = new Map();
+      this.deskInfos.set(serverId, map);
+    }
+    return map;
+  }
+
   /** Mapa com as posições atualizadas das mesas movidas pelos donos. */
-  mapOf(mapId: MapId): MapDef {
-    return resolveMap(mapId, this.deskInfos.values());
+  mapOf(mapId: MapId, serverId = 'default'): MapDef {
+    return resolveMap(mapId, this.desksFor(serverId).values());
   }
 
   /** Atualiza o estado (posição e bloqueio) de uma mesa. */
-  setDeskLock(desk: DeskInfo): void {
+  setDeskLock(desk: DeskInfo, serverId = 'default'): void {
+    const map = this.desksFor(serverId);
     const key = deskKey(desk.map, desk.deskId);
     if (desk.owner) {
-      this.deskInfos.set(key, desk);
+      map.set(key, desk);
     } else {
-      this.deskInfos.delete(key);
+      map.delete(key);
     }
   }
 
   /** Carrega o estado de todas as mesas ao iniciar o servidor. */
-  syncDesks(desks: DeskInfo[]): void {
-    this.deskInfos.clear();
-    for (const desk of desks) this.setDeskLock(desk);
+  syncDesks(desks: DeskInfo[], serverId = 'default'): void {
+    this.desksFor(serverId).clear();
+    for (const desk of desks) this.setDeskLock(desk, serverId);
   }
 
   private isLockedFor(
     map: MapId,
     zoneId: string,
     email: string | undefined,
+    serverId = 'default',
   ): boolean {
-    const desk = this.deskInfos.get(deskKey(map, zoneId));
+    const desk = this.desksFor(serverId).get(deskKey(map, zoneId));
     return Boolean(
       desk?.owner && desk.config.locked && desk.owner.email !== email,
     );
@@ -175,7 +186,8 @@ export class OfficeService {
   move(id: string, x: number, y: number): Outgoing[] {
     const player = this.players.get(id);
     if (!player) return [];
-    const map = this.mapOf(player.map);
+    const serverId = this.serverIdOf(id);
+    const map = this.mapOf(player.map, serverId);
     const target = { x, y };
     const correct: Outgoing = {
       to: 'self',
@@ -195,18 +207,19 @@ export class OfficeService {
     // Mesinha: cada quadradinho é um lugar, e só cabe uma pessoa nele.
     const zone = areaAt(map, target);
     if (zone?.capacity !== undefined) {
-      if (this.isLockedFor(player.map, zone.id, player.email)) {
+      if (this.isLockedFor(player.map, zone.id, player.email, serverId)) {
         return [
           correct,
           { to: 'self', message: { type: 'zoneLocked', zone: zone.name } },
         ];
       }
-      const taken = this.playersIn(player.map, id).some(
+      const taken = this.playersIn(player.map, id, serverId).some(
         (p) => p.x === target.x && p.y === target.y,
       );
       const entering = zone.id !== callZoneId(map, player);
       const full =
-        entering && this.occupants(player.map, zone.id, id) >= zone.capacity;
+        entering &&
+        this.occupants(player.map, zone.id, id, serverId) >= zone.capacity;
       if (taken || full) {
         return [
           correct,
@@ -236,17 +249,18 @@ export class OfficeService {
   /** O lugar de partida ainda vale: quadradinho livre, fora de portas, com vaga na mesinha. */
   private canStartAt(id: string, spot: Spot, email: string): boolean {
     if (!MapIdSchema.safeParse(spot.map).success) return false;
-    const map = this.mapOf(spot.map);
+    const serverId = this.serverIdOf(id);
+    const map = this.mapOf(spot.map, serverId);
     if (!isTileCenter(spot) || isBlocked(map, spot) || doorAt(map, spot)) {
       return false;
     }
     const zone = areaAt(map, spot);
     if (zone?.capacity === undefined) return true;
-    if (this.isLockedFor(spot.map, zone.id, email)) return false;
-    const others = this.playersIn(spot.map, id);
+    if (this.isLockedFor(spot.map, zone.id, email, serverId)) return false;
+    const others = this.playersIn(spot.map, id, serverId);
     return (
       !others.some((p) => p.x === spot.x && p.y === spot.y) &&
-      this.occupants(spot.map, zone.id, id) < zone.capacity
+      this.occupants(spot.map, zone.id, id, serverId) < zone.capacity
     );
   }
 
@@ -256,9 +270,14 @@ export class OfficeService {
   }
 
   /** Quantas pessoas (de qualquer instância) estão agora numa zona. */
-  occupants(mapId: MapId, zoneId: string, exceptId?: string): number {
-    const map = this.mapOf(mapId);
-    return this.playersIn(mapId, exceptId).filter(
+  occupants(
+    mapId: MapId,
+    zoneId: string,
+    exceptId?: string,
+    serverId = 'default',
+  ): number {
+    const map = this.mapOf(mapId, serverId);
+    return this.playersIn(mapId, exceptId, serverId).filter(
       (p) => callZoneId(map, p) === zoneId,
     ).length;
   }

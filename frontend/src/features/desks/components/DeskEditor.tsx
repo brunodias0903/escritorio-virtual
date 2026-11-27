@@ -1,4 +1,6 @@
-import { useEffect, useId, useState } from 'react';
+import { Armchair, Check, Dices, Save, X } from 'lucide-react';
+import { useId, useState } from 'react';
+import { Button, Text, XStack, YStack } from 'tamagui';
 
 import {
   CHAIR_COLORS,
@@ -26,10 +28,14 @@ import {
   type DeskMachine,
   type DeskMonitor,
 } from '@/shared/domain';
-import { Button } from '@/shared/ui/Button';
+import {
+  ActionButton,
+  ModalFrame,
+  SurfaceCard,
+  TextField,
+} from '@/shared/ui/tamagui';
 
 import { DeskArt } from './DeskArt';
-import styles from './DeskEditor.module.css';
 
 const PREVIEW_SCALE = 2;
 const PREVIEW_PADDING = 24;
@@ -54,33 +60,103 @@ function Swatches({
   onSelect: (index: number | null) => void;
 }) {
   return (
-    <div className={styles.group}>
-      <span className={styles.label}>{label}</span>
-      <div className={styles.row}>
+    <YStack gap="$1.5">
+      <Text
+        fontFamily="$body"
+        fontSize="$2"
+        fontWeight="700"
+        color="$textSecondary"
+      >
+        {label}
+      </Text>
+      <XStack flexWrap="wrap" gap="$1.5">
         {allowNone ? (
-          <button
-            type="button"
+          <Button
+            width={28}
+            height={28}
+            padding={0}
+            circular
             aria-label={`${label}: nenhum`}
             aria-pressed={selected === null}
-            onClick={() => onSelect(null)}
-            className={`${styles.swatch} ${styles.swatchNone} ${selected === null ? styles.active : ''}`}
+            backgroundColor="$bgControl"
+            borderWidth={selected === null ? 2 : 1}
+            borderColor={selected === null ? '$accent' : '$borderSubtle'}
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            onPress={() => onSelect(null)}
           >
-            ✕
-          </button>
+            <X size={13} color="var(--text-secondary)" aria-hidden={true} />
+          </Button>
         ) : null}
-        {colors.map((color, index) => (
-          <button
-            key={color}
-            type="button"
-            aria-label={`${label} ${index + 1}`}
-            aria-pressed={index === selected}
-            onClick={() => onSelect(index)}
-            className={`${styles.swatch} ${index === selected ? styles.active : ''}`}
-            style={{ backgroundColor: color }}
-          />
-        ))}
-      </div>
-    </div>
+        {colors.map((color, index) => {
+          const isSelected = index === selected;
+          return (
+            <Button
+              key={color}
+              width={28}
+              height={28}
+              padding={0}
+              circular
+              aria-label={`${label} ${index + 1}`}
+              aria-pressed={isSelected}
+              backgroundColor={color}
+              borderWidth={isSelected ? 2 : 1}
+              borderColor={isSelected ? '#ffffff' : 'rgba(255,255,255,0.22)'}
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              onPress={() => onSelect(index)}
+            >
+              {isSelected ? (
+                <Check size={13} color="#ffffff" aria-hidden={true} />
+              ) : null}
+            </Button>
+          );
+        })}
+      </XStack>
+    </YStack>
+  );
+}
+
+function OptionChip({
+  label,
+  active,
+  disabled = false,
+  dataTag,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  disabled?: boolean;
+  dataTag?: string;
+  onPress: () => void;
+}) {
+  return (
+    <Button
+      disabled={disabled}
+      aria-pressed={active}
+      data-tag={dataTag}
+      paddingHorizontal="$2.5"
+      paddingVertical="$1.5"
+      minHeight={30}
+      borderRadius="$md"
+      backgroundColor={active ? '$accentChip' : '$bgControl'}
+      borderColor={active ? '$accentBorderSoft' : '$borderSubtle'}
+      borderWidth={1}
+      opacity={disabled ? 0.42 : 1}
+      cursor={disabled ? 'not-allowed' : 'pointer'}
+      onPress={onPress}
+    >
+      <Text
+        fontFamily="$body"
+        fontSize="$2"
+        fontWeight={active ? '700' : '500'}
+        color={active ? '$textPrimary' : '$textSecondary'}
+      >
+        {label}
+      </Text>
+    </Button>
   );
 }
 
@@ -98,9 +174,8 @@ const toLegacyComputer = (
   return 'desktop';
 };
 
-/** Escolha da decoração da mesinha, em layout horizontal com prévia em pixel art. */
+/** Personalização da mesinha em Tamagui com prévia em pixel art ao vivo. */
 export function DeskEditor({ initial, onSave, onClose }: Props) {
-  const titleId = useId();
   const labelInputId = useId();
   const initialSetup = resolveDeskSetup(initial);
   const [draft, setDraft] = useState<DeskConfig>({
@@ -148,14 +223,6 @@ export function DeskEditor({ initial, onSave, onClose }: Props) {
       computer: toLegacyComputer(setup.machine, monitor),
     }));
   };
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
 
   const desk: DeskDef = {
     id: 'previa',
@@ -205,195 +272,196 @@ export function DeskEditor({ initial, onSave, onClose }: Props) {
   };
 
   return (
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      data-scroll-lock="true"
-    >
-      <div className={styles.card}>
-        <div className={styles.header}>
-          <h2 id={titleId} className={styles.title}>
-            Personalizar sua mesa
-          </h2>
-          <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.randomBtn}
-              onClick={randomize}
-            >
-              🎲 Aleatório
-            </button>
-            <button
-              type="button"
-              aria-label="Fechar"
-              className={styles.closeBtn}
-              onClick={onClose}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.body}>
-          <div className={styles.previewCol}>
-            <div className={styles.previewBox}>
-              <svg
-                width={viewW * PREVIEW_SCALE}
-                height={viewH * PREVIEW_SCALE}
-                viewBox={`${-PREVIEW_PADDING} -34 ${viewW} ${viewH}`}
-                className={styles.preview}
-                shapeRendering="crispEdges"
-                aria-hidden="true"
-              >
-                <DeskArt desk={desk} config={draft} freeHint={false} />
-              </svg>
-            </div>
-
-            <div className={styles.group}>
-              <label htmlFor={labelInputId} className={styles.label}>
-                Plaquinha (aparece no balão da mesa)
-              </label>
-              <input
-                id={labelInputId}
-                type="text"
-                className={styles.input}
-                value={draft.label}
-                onChange={(event) =>
-                  setDraft({ ...draft, label: event.target.value })
-                }
-                maxLength={DESK_LABEL_MAX_LENGTH}
-                placeholder="Ex.: Mesa do time de produto"
-              />
-            </div>
-          </div>
-
-          <div className={styles.optionsCol}>
-            <Swatches
-              label="Cor da mesa"
-              colors={DESK_COLORS}
-              selected={draft.color}
-              onSelect={(color) => setDraft({ ...draft, color: color ?? 0 })}
-            />
-            <Swatches
-              label="Cor da cadeira"
-              colors={CHAIR_COLORS}
-              selected={draft.chair ?? 0}
-              onSelect={(chair) => setDraft({ ...draft, chair: chair ?? 0 })}
-            />
-            <Swatches
-              label="Tapete"
-              colors={RUG_COLORS}
-              selected={draft.rug}
-              allowNone
-              onSelect={(rug) => setDraft({ ...draft, rug })}
-            />
-
-            {draft.rug !== null ? (
-              <div className={styles.group}>
-                <span className={styles.label}>Estilo do tapete</span>
-                <div className={styles.row}>
-                  {RUG_PATTERNS.map((pattern) => (
-                    <button
-                      key={pattern}
-                      type="button"
-                      aria-pressed={draft.rugPattern === pattern}
-                      onClick={() =>
-                        setDraft({ ...draft, rugPattern: pattern })
-                      }
-                      className={`${styles.chip} ${draft.rugPattern === pattern ? styles.active : ''}`}
-                    >
-                      {RUG_PATTERN_LABELS[pattern]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className={styles.group}>
-              <span className={styles.label}>Computador</span>
-              <div className={styles.row}>
-                {DESK_MACHINES.map((machine) => (
-                  <button
-                    key={machine}
-                    type="button"
-                    aria-pressed={setup.machine === machine}
-                    onClick={() => selectMachine(machine)}
-                    className={`${styles.chip} ${setup.machine === machine ? styles.active : ''}`}
-                  >
-                    {DESK_MACHINE_LABELS[machine]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className={styles.group}>
-              <span className={styles.label}>Monitor(es)</span>
-              <div className={styles.row}>
-                {DESK_MONITORS.filter(
-                  (m) => setup.machine === 'laptop' || m !== 'none',
-                ).map((monitor) => (
-                  <button
-                    key={monitor}
-                    type="button"
-                    aria-pressed={setup.monitor === monitor}
-                    onClick={() => selectMonitor(monitor)}
-                    className={`${styles.chip} ${setup.monitor === monitor ? styles.active : ''}`}
-                  >
-                    {DESK_MONITOR_LABELS[monitor]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className={styles.group}>
-              <span className={styles.label}>
-                Enfeites ({draft.items.length} de {DESK_ITEM_LIMIT})
-              </span>
-              <div className={styles.row} style={{ marginBottom: 6 }}>
-                {ITEM_FILTER_TABS.map((tab) => (
-                  <button
-                    key={tab.tag}
-                    type="button"
-                    aria-pressed={itemFilter === tab.tag}
-                    onClick={() => setItemFilter(tab.tag)}
-                    className={`${styles.chip} ${itemFilter === tab.tag ? styles.active : ''}`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <div className={styles.row}>
-                {visibleItems.map((item) => {
-                  const on = draft.items.includes(item);
-                  const full = !on && draft.items.length >= DESK_ITEM_LIMIT;
-                  return (
-                    <button
-                      key={item}
-                      type="button"
-                      disabled={full}
-                      aria-pressed={on}
-                      data-tag={DESK_DECOR_TAG}
-                      onClick={() => toggleItem(item)}
-                      className={`${styles.chip} ${on ? styles.active : ''}`}
-                    >
-                      {DESK_ITEM_LABELS[item]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.footer}>
-          <button type="button" className={styles.cancelBtn} onClick={onClose}>
+    <ModalFrame
+      title="Personalizar sua mesa"
+      subtitle="Escolha cores, computador, tapete e enfeites da sua estação."
+      icon={
+        <Armchair size={18} color="var(--accent-link)" aria-hidden={true} />
+      }
+      maxWidth={880}
+      onClose={onClose}
+      headerActions={
+        <ActionButton
+          variant="secondary"
+          size="sm"
+          icon={<Dices size={14} aria-hidden={true} />}
+          onPress={randomize}
+        >
+          Aleatório
+        </ActionButton>
+      }
+      footer={
+        <>
+          <ActionButton variant="secondary" size="sm" onPress={onClose}>
             Cancelar
-          </button>
-          <Button title="Salvar" onClick={() => onSave(draft)} />
-        </div>
-      </div>
-    </div>
+          </ActionButton>
+          <ActionButton
+            size="sm"
+            icon={<Save size={14} aria-hidden={true} />}
+            onPress={() => onSave(draft)}
+          >
+            Salvar
+          </ActionButton>
+        </>
+      }
+    >
+      <XStack gap="$5" flexWrap="wrap" alignItems="flex-start">
+        <YStack width={260} flexGrow={0} flexShrink={0} gap="$3.5">
+          <SurfaceCard
+            alignItems="center"
+            justifyContent="center"
+            padding="$4"
+            style={{ backgroundColor: 'var(--bg-desk-preview)' }}
+          >
+            <svg
+              width={viewW * PREVIEW_SCALE}
+              height={viewH * PREVIEW_SCALE}
+              viewBox={`${-PREVIEW_PADDING} -34 ${viewW} ${viewH}`}
+              shapeRendering="crispEdges"
+              aria-hidden="true"
+              style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
+            >
+              <DeskArt desk={desk} config={draft} freeHint={false} />
+            </svg>
+          </SurfaceCard>
+
+          <TextField
+            id={labelInputId}
+            compact
+            label="Plaquinha (aparece no balão da mesa)"
+            value={draft.label}
+            onChangeText={(label) => setDraft({ ...draft, label })}
+            maxLength={DESK_LABEL_MAX_LENGTH}
+            placeholder="Ex.: Mesa do time de produto"
+          />
+        </YStack>
+
+        <YStack flex={1} minWidth={280} gap="$3.5">
+          <Swatches
+            label="Cor da mesa"
+            colors={DESK_COLORS}
+            selected={draft.color}
+            onSelect={(color) => setDraft({ ...draft, color: color ?? 0 })}
+          />
+          <Swatches
+            label="Cor da cadeira"
+            colors={CHAIR_COLORS}
+            selected={draft.chair ?? 0}
+            onSelect={(chair) => setDraft({ ...draft, chair: chair ?? 0 })}
+          />
+          <Swatches
+            label="Tapete"
+            colors={RUG_COLORS}
+            selected={draft.rug}
+            allowNone
+            onSelect={(rug) => setDraft({ ...draft, rug })}
+          />
+
+          {draft.rug !== null ? (
+            <YStack gap="$1.5">
+              <Text
+                fontFamily="$body"
+                fontSize="$2"
+                fontWeight="700"
+                color="$textSecondary"
+              >
+                Estilo do tapete
+              </Text>
+              <XStack flexWrap="wrap" gap="$1.5">
+                {RUG_PATTERNS.map((pattern) => (
+                  <OptionChip
+                    key={pattern}
+                    label={RUG_PATTERN_LABELS[pattern]}
+                    active={draft.rugPattern === pattern}
+                    onPress={() => setDraft({ ...draft, rugPattern: pattern })}
+                  />
+                ))}
+              </XStack>
+            </YStack>
+          ) : null}
+
+          <YStack gap="$1.5">
+            <Text
+              fontFamily="$body"
+              fontSize="$2"
+              fontWeight="700"
+              color="$textSecondary"
+            >
+              Computador
+            </Text>
+            <XStack flexWrap="wrap" gap="$1.5">
+              {DESK_MACHINES.map((machine) => (
+                <OptionChip
+                  key={machine}
+                  label={DESK_MACHINE_LABELS[machine]}
+                  active={setup.machine === machine}
+                  onPress={() => selectMachine(machine)}
+                />
+              ))}
+            </XStack>
+          </YStack>
+
+          <YStack gap="$1.5">
+            <Text
+              fontFamily="$body"
+              fontSize="$2"
+              fontWeight="700"
+              color="$textSecondary"
+            >
+              Monitor(es)
+            </Text>
+            <XStack flexWrap="wrap" gap="$1.5">
+              {DESK_MONITORS.filter(
+                (m) => setup.machine === 'laptop' || m !== 'none',
+              ).map((monitor) => (
+                <OptionChip
+                  key={monitor}
+                  label={DESK_MONITOR_LABELS[monitor]}
+                  active={setup.monitor === monitor}
+                  onPress={() => selectMonitor(monitor)}
+                />
+              ))}
+            </XStack>
+          </YStack>
+
+          <YStack gap="$2">
+            <Text
+              fontFamily="$body"
+              fontSize="$2"
+              fontWeight="700"
+              color="$textSecondary"
+            >
+              Enfeites ({draft.items.length} de {DESK_ITEM_LIMIT})
+            </Text>
+            <XStack flexWrap="wrap" gap="$1.5">
+              {ITEM_FILTER_TABS.map((tab) => (
+                <OptionChip
+                  key={tab.tag}
+                  label={tab.label}
+                  active={itemFilter === tab.tag}
+                  onPress={() => setItemFilter(tab.tag)}
+                />
+              ))}
+            </XStack>
+            <XStack flexWrap="wrap" gap="$1.5">
+              {visibleItems.map((item) => {
+                const on = draft.items.includes(item);
+                const full = !on && draft.items.length >= DESK_ITEM_LIMIT;
+                return (
+                  <OptionChip
+                    key={item}
+                    label={DESK_ITEM_LABELS[item]}
+                    active={on}
+                    disabled={full}
+                    dataTag={DESK_DECOR_TAG}
+                    onPress={() => toggleItem(item)}
+                  />
+                );
+              })}
+            </XStack>
+          </YStack>
+        </YStack>
+      </XStack>
+    </ModalFrame>
   );
 }

@@ -1,5 +1,14 @@
+import {
+  Database,
+  Download,
+  FileText,
+  Scale,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { Text, XStack, YStack } from 'tamagui';
+import { Button, Tabs, Text, XStack, YStack } from 'tamagui';
 
 import { authApi } from '@/app/api';
 import { endSession } from '@/app/session';
@@ -67,52 +76,116 @@ export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
     onClose();
   };
 
+  const tabs: Array<{
+    id: 'terms' | 'privacy' | 'data';
+    label: string;
+    icon: React.ReactNode;
+  }> = [
+    {
+      id: 'terms',
+      label: 'Termos de Uso',
+      icon: <FileText size={14} aria-hidden={true} />,
+    },
+    {
+      id: 'privacy',
+      label: 'Privacidade (LGPD)',
+      icon: <ShieldCheck size={14} aria-hidden={true} />,
+    },
+    ...(token
+      ? [
+          {
+            id: 'data' as const,
+            label: 'Meus dados',
+            icon: <Database size={14} aria-hidden={true} />,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <ModalFrame
       title="Termos e privacidade"
       subtitle="Escritório Virtual — Plataforma de uso profissional exclusiva para maiores de 18 anos"
-      maxWidth={640}
+      icon={<Scale size={18} color="var(--accent-link)" aria-hidden={true} />}
+      maxWidth={660}
+      zIndex={1350}
       onClose={onClose}
     >
-      <YStack gap="$4">
-        <XStack gap="$2" flexWrap="wrap">
-          <ActionButton
-            variant={tab === 'terms' ? 'primary' : 'secondary'}
-            onPress={() => setTab('terms')}
-          >
-            Termos de Uso
-          </ActionButton>
-          <ActionButton
-            variant={tab === 'privacy' ? 'primary' : 'secondary'}
-            onPress={() => setTab('privacy')}
-          >
-            Privacidade (LGPD)
-          </ActionButton>
-          {token ? (
-            <ActionButton
-              variant={tab === 'data' ? 'primary' : 'secondary'}
-              onPress={() => setTab('data')}
-            >
-              Meus dados
-            </ActionButton>
-          ) : null}
-        </XStack>
+      <Tabs
+        value={tab}
+        onValueChange={(val) => setTab(val as 'terms' | 'privacy' | 'data')}
+        orientation="horizontal"
+        flexDirection="column"
+        gap="$4"
+      >
+        <Tabs.List
+          backgroundColor="$bgSurface"
+          padding="$1"
+          borderRadius="$lg"
+          borderWidth={1}
+          borderColor="$borderSubtle"
+          gap="$1"
+        >
+          {tabs.map((item) => {
+            const active = tab === item.id;
+            return (
+              <Tabs.Tab key={item.id} value={item.id} asChild flex={1}>
+                <Button
+                  flex={1}
+                  paddingVertical="$2"
+                  paddingHorizontal="$3"
+                  borderRadius="$md"
+                  backgroundColor={active ? '$accentChip' : 'transparent'}
+                  borderWidth={1}
+                  borderColor={active ? '$accentBorderSoft' : 'transparent'}
+                  cursor="pointer"
+                >
+                  <XStack
+                    alignItems="center"
+                    justifyContent="center"
+                    gap="$1.5"
+                  >
+                    {item.icon}
+                    <Text
+                      fontFamily="$body"
+                      fontSize="$3"
+                      fontWeight={active ? '700' : '500'}
+                      color={active ? '$textPrimary' : '$textSecondary'}
+                    >
+                      {item.label}
+                    </Text>
+                  </XStack>
+                </Button>
+              </Tabs.Tab>
+            );
+          })}
+        </Tabs.List>
 
         {tab === 'terms' ? (
           <YStack gap="$3">
-            <SurfaceCard
-              backgroundColor="$warningBg"
-              borderColor="$warningBorder"
-            >
-              <Text fontFamily="$body" fontSize="$3" color="$textPrimary">
-                <Text fontWeight="700">
-                  🔞 Aviso de Classificação e ECA (Lei nº 8.069/1990):{' '}
+            <SurfaceCard variant="warning" gap="$2">
+              <XStack alignItems="flex-start" gap="$2.5">
+                <ShieldAlert
+                  size={18}
+                  color="var(--warning-badge)"
+                  aria-hidden={true}
+                  style={{ marginTop: 2, flexShrink: 0 }}
+                />
+                <Text
+                  fontFamily="$body"
+                  fontSize="$3"
+                  color="$textPrimary"
+                  flex={1}
+                >
+                  <Text fontWeight="700">
+                    Aviso de Classificação e ECA (Lei nº 8.069/1990):{' '}
+                  </Text>
+                  O Escritório Virtual é atualmente um ambiente de uso
+                  estritamente profissional, destinado exclusivamente a pessoas
+                  maiores de 18 anos. Não é permitido o cadastro ou uso por
+                  crianças ou adolescentes.
                 </Text>
-                O Escritório Virtual é atualmente um ambiente de uso
-                estritamente profissional, destinado exclusivamente a pessoas
-                maiores de 18 anos. Não é permitido o cadastro ou uso por
-                crianças ou adolescentes.
-              </Text>
+              </XStack>
             </SurfaceCard>
 
             <YStack gap="$1">
@@ -251,20 +324,28 @@ export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
         ) : (
           <YStack gap="$3">
             <SurfaceCard gap="$2.5">
-              <Text
-                fontFamily="$heading"
-                fontSize="$4"
-                fontWeight="700"
-                color="$textPrimary"
-              >
-                📥 Exportar meus dados (Portabilidade — Art. 18, II e V)
-              </Text>
+              <XStack alignItems="center" gap="$2">
+                <Download
+                  size={16}
+                  color="var(--accent-link)"
+                  aria-hidden={true}
+                />
+                <Text
+                  fontFamily="$heading"
+                  fontSize="$4"
+                  fontWeight="700"
+                  color="$textPrimary"
+                >
+                  Exportar meus dados (Portabilidade — Art. 18, II e V)
+                </Text>
+              </XStack>
               <Text fontFamily="$body" fontSize="$3" color="$textMuted">
                 Baixe uma cópia em JSON com todos os dados pessoais vinculados à
                 sua conta.
               </Text>
               <ActionButton
                 loading={exportBusy}
+                icon={<Download size={14} aria-hidden={true} />}
                 onPress={() => void handleExport()}
               >
                 {exportBusy
@@ -273,23 +354,26 @@ export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
               </ActionButton>
             </SurfaceCard>
 
-            <SurfaceCard
-              backgroundColor="$dangerBg"
-              borderColor="$dangerBorder"
-              gap="$3"
-            >
+            <SurfaceCard variant="danger" gap="$3">
               <form
                 onSubmit={(e) => void handleDelete(e)}
                 style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
               >
-                <Text
-                  fontFamily="$heading"
-                  fontSize="$4"
-                  fontWeight="700"
-                  color="$textPrimary"
-                >
-                  🗑️ Excluir minha conta (Eliminação — Art. 18, VI)
-                </Text>
+                <XStack alignItems="center" gap="$2">
+                  <Trash2
+                    size={16}
+                    color="var(--danger-text)"
+                    aria-hidden={true}
+                  />
+                  <Text
+                    fontFamily="$heading"
+                    fontSize="$4"
+                    fontWeight="700"
+                    color="$textPrimary"
+                  >
+                    Excluir minha conta (Eliminação — Art. 18, VI)
+                  </Text>
+                </XStack>
                 <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
                   Esta ação é permanente: remove sua conta e encerra sua sessão
                   imediatamente. Confirme sua senha atual para prosseguir:
@@ -307,6 +391,7 @@ export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
                   variant="danger"
                   loading={deleteBusy}
                   disabled={!deletePassword}
+                  icon={<Trash2 size={14} aria-hidden={true} />}
                 >
                   {deleteBusy
                     ? 'Excluindo…'
@@ -327,7 +412,7 @@ export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
             ) : null}
           </YStack>
         )}
-      </YStack>
+      </Tabs>
     </ModalFrame>
   );
 }

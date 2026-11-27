@@ -1,6 +1,6 @@
 import { tamaguiConfig } from '@design-system/tamagui.config';
 import { lazy, Suspense, useEffect } from 'react';
-import { TamaguiProvider } from 'tamagui';
+import { PortalProvider, TamaguiProvider, Theme } from 'tamagui';
 
 import { MobileInstallPrompt } from '@/features/pwa/MobileInstallPrompt';
 import { useSessionStore } from '@/features/session/model/sessionStore';
@@ -50,12 +50,13 @@ export function App() {
     );
   }
 
+  const themeName = `${presetId}_${mode}` as const;
+
   return (
-    <TamaguiProvider
-      config={tamaguiConfig}
-      defaultTheme={`${presetId}_${mode}`}
-    >
-      {content}
+    <TamaguiProvider config={tamaguiConfig} defaultTheme={themeName}>
+      <Theme name={themeName}>
+        <PortalProvider shouldAddRootHost>{content}</PortalProvider>
+      </Theme>
     </TamaguiProvider>
   );
 }

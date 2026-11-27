@@ -1,8 +1,9 @@
-import { useId, useState } from 'react';
+import { Bell, Mail, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Button, Text, XStack, YStack } from 'tamagui';
 
 import { authApi } from '@/app/api';
-
-import styles from './EmailPrefsPrompt.module.css';
+import { ModalFrame } from '@/shared/ui/tamagui';
 
 type Props = {
   token: string;
@@ -10,11 +11,10 @@ type Props = {
 };
 
 /**
- * Pergunta única para contas criadas antes da opção de preferência de e-mail:
- * permite escolher entre receber todas as novidades/patch notes ou somente e-mails importantes.
+ * Pergunta única para contas criadas antes da opção de preferência de e-mail,
+ * construída com Tamagui `Dialog` e ícones Lucide.
  */
 export function EmailPrefsPrompt({ token, onDone }: Props) {
-  const titleId = useId();
   const [busy, setBusy] = useState(false);
 
   const choose = async (marketingOptIn: boolean) => {
@@ -25,56 +25,123 @@ export function EmailPrefsPrompt({ token, onDone }: Props) {
   };
 
   return (
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      data-scroll-lock="true"
+    <ModalFrame
+      title="Preferências de e-mail"
+      subtitle="Escolha quais comunicações deseja receber da nossa equipe."
+      icon={<Mail size={18} color="var(--accent-link)" aria-hidden={true} />}
+      maxWidth={460}
+      closeDisabled
+      onClose={() => {}}
     >
-      <div className={styles.card}>
-        <h2 id={titleId} className={styles.title}>
-          Preferências de e-mail ✉️
-        </h2>
-        <p className={styles.desc}>
-          Como sua conta foi criada antes dessa opção, escolha quais e-mails
-          você deseja receber da nossa equipe:
-        </p>
+      <YStack gap="$3">
+        <Button
+          disabled={busy}
+          padding="$3.5"
+          borderRadius="$xl"
+          backgroundColor="$accentChip"
+          borderWidth={1}
+          borderColor="$accentBorderSoft"
+          cursor={busy ? 'not-allowed' : 'pointer'}
+          justifyContent="flex-start"
+          height="auto"
+          onPress={() => void choose(true)}
+        >
+          <XStack alignItems="flex-start" gap="$3" width="100%">
+            <YStack
+              width={34}
+              height={34}
+              borderRadius="$md"
+              backgroundColor="$accent"
+              alignItems="center"
+              justifyContent="center"
+              flexShrink={0}
+            >
+              <Bell size={16} color="#ffffff" aria-hidden={true} />
+            </YStack>
+            <YStack flex={1} gap="$0.5" alignItems="flex-start">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+                textAlign="left"
+              >
+                Todas as notificações e novidades
+              </Text>
+              <Text
+                fontFamily="$body"
+                fontSize="$2"
+                color="$textSecondary"
+                textAlign="left"
+              >
+                Códigos de conta, avisos urgentes, patch notes, novidades e
+                dicas.
+              </Text>
+            </YStack>
+          </XStack>
+        </Button>
 
-        <div className={styles.options}>
-          <button
-            type="button"
-            disabled={busy}
-            className={`${styles.optionBtn} ${styles.optionPrimary}`}
-            onClick={() => void choose(true)}
-          >
-            <span className={styles.optionTitle}>
-              Todas as notificações e novidades
-            </span>
-            <span className={styles.optionSub}>
-              Códigos de conta, avisos urgentes, patch notes, novidades e dicas.
-            </span>
-          </button>
+        <Button
+          disabled={busy}
+          padding="$3.5"
+          borderRadius="$xl"
+          backgroundColor="$bgSurface"
+          borderWidth={1}
+          borderColor="$borderSubtle"
+          cursor={busy ? 'not-allowed' : 'pointer'}
+          justifyContent="flex-start"
+          height="auto"
+          onPress={() => void choose(false)}
+        >
+          <XStack alignItems="flex-start" gap="$3" width="100%">
+            <YStack
+              width={34}
+              height={34}
+              borderRadius="$md"
+              backgroundColor="$bgControl"
+              alignItems="center"
+              justifyContent="center"
+              flexShrink={0}
+            >
+              <ShieldCheck
+                size={16}
+                color="var(--text-secondary)"
+                aria-hidden={true}
+              />
+            </YStack>
+            <YStack flex={1} gap="$0.5" alignItems="flex-start">
+              <Text
+                fontFamily="$heading"
+                fontSize="$4"
+                fontWeight="700"
+                color="$textPrimary"
+                textAlign="left"
+              >
+                Somente os importantes
+              </Text>
+              <Text
+                fontFamily="$body"
+                fontSize="$2"
+                color="$textMuted"
+                textAlign="left"
+              >
+                Apenas códigos de verificação, recuperação de senha e alertas
+                urgentes.
+              </Text>
+            </YStack>
+          </XStack>
+        </Button>
 
-          <button
-            type="button"
-            disabled={busy}
-            className={styles.optionBtn}
-            onClick={() => void choose(false)}
-          >
-            <span className={styles.optionTitle}>Somente os importantes</span>
-            <span className={styles.optionSub}>
-              Apenas códigos de verificação, recuperação de senha e alertas
-              urgentes.
-            </span>
-          </button>
-        </div>
-
-        <p className={styles.footnote}>
-          Você pode alterar essa escolha a qualquer momento na aba Perfil e
+        <Text
+          fontFamily="$body"
+          fontSize="$2"
+          color="$textMuted"
+          textAlign="center"
+        >
+          Você pode alterar essa escolha a qualquer momento nas configurações da
           conta.
-        </p>
-      </div>
-    </div>
+        </Text>
+      </YStack>
+    </ModalFrame>
   );
 }

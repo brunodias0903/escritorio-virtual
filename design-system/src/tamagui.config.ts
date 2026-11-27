@@ -151,6 +151,12 @@ export const tamaguiTokens = createTokens({
   radius: {
     ...RADII,
     0: 0,
+    1: RADII.xs,
+    2: RADII.sm,
+    3: RADII.md,
+    4: RADII.lg,
+    5: RADII.xl,
+    6: RADII['2xl'],
   },
   zIndex: {
     ...Z_INDEX,
@@ -173,6 +179,7 @@ export type TamaguiSemanticTheme = {
   borderColorFocus: string;
   placeholderColor: string;
   shadowColor: string;
+  outlineColor: string;
   bgRail: string;
   bgApp: string;
   bgSurface: string;
@@ -185,6 +192,9 @@ export type TamaguiSemanticTheme = {
   bgInput: string;
   bgInputHover: string;
   bgTile: string;
+  bgTooltip: string;
+  bgHoverOverlay: string;
+  bgActiveOverlay: string;
   borderBar: string;
   borderSubtle: string;
   borderAccent: string;
@@ -195,6 +205,8 @@ export type TamaguiSemanticTheme = {
   textMuted: string;
   textSubtle: string;
   textPlaceholder: string;
+  textIcon: string;
+  textDisabled: string;
   accent: string;
   accentHover: string;
   accentActive: string;
@@ -202,6 +214,8 @@ export type TamaguiSemanticTheme = {
   accentChip: string;
   accentDisabled: string;
   accentLink: string;
+  accentBorderSoft: string;
+  accentMentionBg: string;
   accentGlow: string;
   presenceAvailable: string;
   presenceSoft: string;
@@ -209,8 +223,10 @@ export type TamaguiSemanticTheme = {
   presenceStrong: string;
   dangerBg: string;
   dangerBorder: string;
+  dangerText: string;
   warningBg: string;
   warningBorder: string;
+  warningText: string;
 };
 
 /**
@@ -234,6 +250,7 @@ export const resolvedTokensToTamaguiTheme = (
   borderColorFocus: tokens.accent.main,
   placeholderColor: tokens.text.placeholder,
   shadowColor: 'rgba(4, 6, 20, 0.44)',
+  outlineColor: tokens.accent.link,
   bgRail: tokens.bg.rail,
   bgApp: tokens.bg.app,
   bgSurface: tokens.bg.surface,
@@ -246,6 +263,9 @@ export const resolvedTokensToTamaguiTheme = (
   bgInput: tokens.bg.input,
   bgInputHover: tokens.bg.inputHover,
   bgTile: tokens.bg.tile,
+  bgTooltip: tokens.bg.tooltip,
+  bgHoverOverlay: tokens.bg.hoverOverlay,
+  bgActiveOverlay: tokens.bg.activeOverlay,
   borderBar: tokens.border.bar,
   borderSubtle: tokens.border.subtle,
   borderAccent: tokens.border.accent,
@@ -256,6 +276,8 @@ export const resolvedTokensToTamaguiTheme = (
   textMuted: tokens.text.muted,
   textSubtle: tokens.text.subtle,
   textPlaceholder: tokens.text.placeholder,
+  textIcon: tokens.text.icon,
+  textDisabled: tokens.text.disabled,
   accent: tokens.accent.main,
   accentHover: tokens.accent.hover,
   accentActive: tokens.accent.active,
@@ -263,6 +285,8 @@ export const resolvedTokensToTamaguiTheme = (
   accentChip: tokens.accent.chip,
   accentDisabled: tokens.accent.disabled,
   accentLink: tokens.accent.link,
+  accentBorderSoft: tokens.accent.borderSoft,
+  accentMentionBg: tokens.accent.mentionBg,
   accentGlow: tokens.accent.glow,
   presenceAvailable: tokens.presence.available,
   presenceSoft: tokens.presence.soft,
@@ -270,8 +294,10 @@ export const resolvedTokensToTamaguiTheme = (
   presenceStrong: tokens.presence.strong,
   dangerBg: tokens.feedback.dangerBg,
   dangerBorder: tokens.feedback.dangerBorder,
+  dangerText: tokens.feedback.dangerText,
   warningBg: tokens.feedback.warningBg,
   warningBorder: tokens.feedback.warningBorder,
+  warningText: tokens.bg.app === '#f8f8fb' ? '#b45309' : '#fde08a',
 });
 
 type PresetThemeKey =

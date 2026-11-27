@@ -641,8 +641,8 @@ export function OfficePage({ session }: { session: Session }) {
       world.goToPantry();
       setNotice(
         next === 'coffee'
-          ? '☕ Indo para a copa tomar um café (você está indisponível para chamadas).'
-          : '🍽️ Indo para a copa almoçar (você está indisponível para chamadas).',
+          ? 'Indo para a copa tomar um café (você está indisponível para chamadas).'
+          : 'Indo para a copa almoçar (você está indisponível para chamadas).',
       );
     } else if (next === 'busy') {
       reachedPantryRef.current = false;
@@ -1066,7 +1066,7 @@ export function OfficePage({ session }: { session: Session }) {
           onFinishBreak={() => {
             setPantryExitPrompt(null);
             handleStatusChange('available');
-            setNotice('🟢 Você voltou a ficar Disponível!');
+            setNotice('Você voltou a ficar Disponível.');
           }}
           onReturnToPantry={() => {
             setPantryExitPrompt(null);

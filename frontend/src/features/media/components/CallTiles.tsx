@@ -459,8 +459,10 @@ export function CallTiles({
             type="button"
             className={styles.screenCollapsedBtn}
             onClick={() => toggleScreenCollapsed(screen.key)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            🖥️ Mostrar tela
+            <Icon name="screen" size={14} color="currentColor" />
+            <span>Mostrar tela</span>
           </button>
           {!compact ? (
             <TileButton

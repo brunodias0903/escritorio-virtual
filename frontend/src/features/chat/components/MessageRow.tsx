@@ -1,3 +1,4 @@
+import { Ban, CornerUpLeft, MessageSquare } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 import { FaceAvatar } from '@/features/office/components/FaceAvatar';
@@ -80,7 +81,13 @@ export function MessageRow({
         ) : null}
 
         {isDeleted ? (
-          <p className={styles.deletedText}>🚫 Mensagem apagada</p>
+          <p
+            className={styles.deletedText}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Ban size={13} aria-hidden={true} />
+            <span>Mensagem apagada</span>
+          </p>
         ) : editing ? (
           <form className={styles.editForm} onSubmit={submitEdit}>
             <input
@@ -146,10 +153,22 @@ export function MessageRow({
               type="button"
               className={styles.replies}
               onClick={() => onOpenThread(message.id)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
-              {message.replyCount > 0
-                ? `💬 ${message.replyCount} ${message.replyCount === 1 ? 'resposta' : 'respostas'}`
-                : '↩ Responder'}
+              {message.replyCount > 0 ? (
+                <>
+                  <MessageSquare size={12} aria-hidden={true} />
+                  <span>
+                    {message.replyCount}{' '}
+                    {message.replyCount === 1 ? 'resposta' : 'respostas'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CornerUpLeft size={12} aria-hidden={true} />
+                  <span>Responder</span>
+                </>
+              )}
             </button>
           ) : null}
 

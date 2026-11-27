@@ -1,3 +1,5 @@
+import { X } from 'lucide-react';
+
 import {
   ACCOUNT_TIER_COLORS,
   ACCOUNT_TIER_LABELS,
@@ -191,7 +193,7 @@ export function PeoplePanel({
             onClick={onClose}
             className={styles.close}
           >
-            ✕
+            <X size={15} aria-hidden={true} />
           </button>
         </div>
       ) : null}
@@ -214,7 +216,7 @@ export function PeoplePanel({
             onClick={() => onQuery('')}
             className={styles.clear}
           >
-            ✕
+            <X size={13} aria-hidden={true} />
           </button>
         ) : null}
       </div>

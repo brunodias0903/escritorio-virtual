@@ -1,5 +1,15 @@
-import { useEffect, useState } from 'react';
-import { Button, Text, XStack, YStack } from 'tamagui';
+import {
+  CheckCircle2,
+  Download,
+  Menu,
+  MoreVertical,
+  PlusSquare,
+  Share,
+  Smartphone,
+  X,
+} from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Text, XStack, YStack } from 'tamagui';
 
 import { APP_NAME } from '@/shared/domain';
 import { useI18n } from '@/shared/i18n';
@@ -9,17 +19,37 @@ import {
   isInstallPromptDismissed,
   type MobileEnvironment,
 } from '@/shared/lib/mobileInstall';
-import { ActionButton, SurfaceCard } from '@/shared/ui/tamagui';
+import { ActionButton, IconButton, SurfaceCard } from '@/shared/ui/tamagui';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
+type InstallStepIcon = 'share' | 'add' | 'done' | 'menu' | 'more' | 'install';
+
 type InstallStep = {
-  icon: string;
+  icon: InstallStepIcon;
   text: string;
 };
+
+function renderStepIcon(icon: InstallStepIcon): ReactNode {
+  const color = 'var(--accent-link)';
+  switch (icon) {
+    case 'share':
+      return <Share size={14} color={color} aria-hidden={true} />;
+    case 'add':
+      return <PlusSquare size={14} color={color} aria-hidden={true} />;
+    case 'done':
+      return <CheckCircle2 size={14} color="#31e0c1" aria-hidden={true} />;
+    case 'menu':
+      return <Menu size={14} color={color} aria-hidden={true} />;
+    case 'more':
+      return <MoreVertical size={14} color={color} aria-hidden={true} />;
+    case 'install':
+      return <Smartphone size={14} color={color} aria-hidden={true} />;
+  }
+}
 
 function getInstallSteps(env: MobileEnvironment): {
   heading: string;
@@ -32,15 +62,15 @@ function getInstallSteps(env: MobileEnvironment): {
         heading: 'Como instalar no iPhone / iPad (Safari)',
         steps: [
           {
-            icon: '⬆️',
+            icon: 'share',
             text: 'Toque no botão Compartilhar (quadrado com seta para cima) na barra do Safari.',
           },
           {
-            icon: '➕',
+            icon: 'add',
             text: 'Role as opções e toque em "Adicionar à Tela de Início".',
           },
           {
-            icon: '✅',
+            icon: 'done',
             text: 'Toque em "Adicionar" no topo direito. O Escritório Virtual vai aparecer como um app normal na sua tela inicial.',
           },
         ],
@@ -51,11 +81,11 @@ function getInstallSteps(env: MobileEnvironment): {
       heading: 'Como instalar no iPhone / iPad',
       steps: [
         {
-          icon: '⬆️',
+          icon: 'share',
           text: 'Toque no botão Compartilhar (ícone de seta para cima na barra de endereço) ou no menu do navegador.',
         },
         {
-          icon: '➕',
+          icon: 'add',
           text: 'Escolha "Adicionar à Tela de Início" e confirme tocando em "Adicionar".',
         },
       ],
@@ -68,15 +98,15 @@ function getInstallSteps(env: MobileEnvironment): {
       heading: 'Como instalar no Android (Samsung Internet)',
       steps: [
         {
-          icon: '☰',
+          icon: 'menu',
           text: 'Toque no menu (três linhas) na barra inferior do navegador.',
         },
         {
-          icon: '➕',
-          text: 'Toque em "Adicionar página a" → "Tela inicial".',
+          icon: 'add',
+          text: 'Toque em "Adicionar página a" e depois em "Tela inicial".',
         },
         {
-          icon: '✅',
+          icon: 'done',
           text: 'Confirme tocando em "Adicionar" para abrir o Escritório Virtual em tela cheia.',
         },
       ],
@@ -88,15 +118,15 @@ function getInstallSteps(env: MobileEnvironment): {
       heading: 'Como instalar no Android (Firefox)',
       steps: [
         {
-          icon: '⋮',
+          icon: 'more',
           text: 'Toque no menu (três pontinhos) na barra do Firefox.',
         },
         {
-          icon: '📲',
+          icon: 'install',
           text: 'Toque em "Instalar" ou "Adicionar à tela inicial".',
         },
         {
-          icon: '✅',
+          icon: 'done',
           text: 'Confirme para criar o atalho em modo aplicativo.',
         },
       ],
@@ -107,15 +137,15 @@ function getInstallSteps(env: MobileEnvironment): {
     heading: 'Como instalar no Android',
     steps: [
       {
-        icon: '⋮',
+        icon: 'more',
         text: 'Toque no menu (três pontinhos) no canto superior direito do navegador.',
       },
       {
-        icon: '📲',
+        icon: 'install',
         text: 'Toque em "Instalar aplicativo" ou "Adicionar à tela inicial".',
       },
       {
-        icon: '✅',
+        icon: 'done',
         text: 'Confirme em "Instalar" para abrir o Escritório Virtual em tela cheia como um app.',
       },
     ],
@@ -227,24 +257,20 @@ export function MobileInstallPrompt() {
               {t('pwa.subtitle', { device: deviceLabel })}
             </Text>
           </YStack>
-          <Button
-            width={28}
-            height={28}
+          <IconButton
+            size="xs"
             circular
-            backgroundColor="$bgControl"
-            borderColor="$borderSubtle"
-            borderWidth={1}
-            color="$textSecondary"
             aria-label="Fechar recomendação por enquanto"
+            icon={<X size={13} aria-hidden={true} />}
             onPress={() => handleDismiss('later')}
-          >
-            ✕
-          </Button>
+          />
         </XStack>
 
         <XStack gap="$2">
           <ActionButton
             flex={1}
+            size="sm"
+            icon={<Download size={14} aria-hidden={true} />}
             onPress={() => {
               void handlePrimaryAction();
             }}
@@ -257,6 +283,7 @@ export function MobileInstallPrompt() {
           </ActionButton>
           <ActionButton
             variant="secondary"
+            size="sm"
             onPress={() => handleDismiss('forever')}
           >
             {t('pwa.neverShow')}
@@ -273,12 +300,21 @@ export function MobileInstallPrompt() {
             >
               {guide.heading}
             </Text>
-            <YStack gap="$1.5">
+            <YStack gap="$2">
               {guide.steps.map((step, index) => (
                 <XStack key={index} gap="$2" alignItems="flex-start">
-                  <Text fontSize="$3" aria-hidden={true}>
-                    {step.icon}
-                  </Text>
+                  <YStack
+                    width={22}
+                    height={22}
+                    borderRadius="$sm"
+                    backgroundColor="$bgControl"
+                    alignItems="center"
+                    justifyContent="center"
+                    flexShrink={0}
+                    marginTop={1}
+                  >
+                    {renderStepIcon(step.icon)}
+                  </YStack>
                   <Text
                     flex={1}
                     fontFamily="$body"

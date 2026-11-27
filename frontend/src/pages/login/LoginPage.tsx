@@ -1,3 +1,4 @@
+import { ShieldAlert, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, Text, XStack, YStack } from 'tamagui';
 
@@ -299,7 +300,7 @@ export function LoginPage() {
                 color="$dangerText"
                 onPress={clearNotice}
               >
-                ✕
+                <X size={15} aria-hidden={true} />
               </Button>
             </XStack>
           ) : null}
@@ -326,24 +327,36 @@ export function LoginPage() {
             borderTopColor="$borderGlass"
             alignItems="center"
           >
-            <Text
-              fontFamily="$body"
-              fontSize="$2"
-              color="$textMuted"
-              textAlign="center"
+            <XStack
+              alignItems="center"
+              justifyContent="center"
+              gap="$1.5"
+              flexWrap="wrap"
             >
-              🔞 Uso profissional exclusivo para maiores de 18 anos (ECA) ·{' '}
+              <ShieldAlert
+                size={13}
+                color="var(--text-muted)"
+                aria-hidden={true}
+              />
               <Text
-                role="button"
-                tabIndex={0}
-                color="$accentLink"
-                textDecorationLine="underline"
-                cursor="pointer"
-                onPress={() => setLegalOpen(true)}
+                fontFamily="$body"
+                fontSize="$2"
+                color="$textMuted"
+                textAlign="center"
               >
-                Termos de Uso & Privacidade (LGPD)
+                Uso profissional exclusivo para maiores de 18 anos (ECA) ·{' '}
+                <Text
+                  role="button"
+                  tabIndex={0}
+                  color="$accentLink"
+                  textDecorationLine="underline"
+                  cursor="pointer"
+                  onPress={() => setLegalOpen(true)}
+                >
+                  Termos de Uso & Privacidade (LGPD)
+                </Text>
               </Text>
-            </Text>
+            </XStack>
           </YStack>
         </SurfaceCard>
       </section>

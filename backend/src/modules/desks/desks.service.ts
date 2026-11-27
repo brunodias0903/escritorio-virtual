@@ -63,16 +63,22 @@ export class DeskService {
     who: Person,
     where: Place,
     deskId: string,
+    serverId = 'default',
   ): Promise<Result<DeskInfo>> {
-    const map = resolveMap(where.map, await this.list());
+    const map = resolveMap(where.map, await this.list(serverId));
     if (!deskOf(map, deskId)) return fail('invalid_desk');
     if (callZoneId(map, where) !== deskId) return fail('not_in_desk');
-    if (await this.desks.get(where.map, deskId)) return fail('desk_taken');
-    if (await this.desks.byOwner(who.email)) return fail('desk_limit');
+    if (await this.desks.get(where.map, deskId, serverId)) {
+      return fail('desk_taken');
+    }
+    if (await this.desks.byOwner(who.email, serverId)) {
+      return fail('desk_limit');
+    }
 
     const record: DeskRecord = {
       map: where.map,
       deskId,
+      serverId,
       ownerEmail: who.email,
       ownerName: who.name,
       ownerRole: who.role ?? '',
@@ -88,8 +94,8 @@ export class DeskService {
    * O nome ou o cargo da pessoa mudou (ela editou a conta): a mesa dela passa
    * a mostrar os dados novos. Devolve a mesa atualizada, ou null se nada mudou.
    */
-  async syncOwner(who: Person): Promise<DeskInfo | null> {
-    const record = await this.desks.byOwner(who.email);
+  async syncOwner(who: Person, serverId = 'default'): Promise<DeskInfo | null> {
+    const record = await this.desks.byOwner(who.email, serverId);
     const role = who.role ?? '';
     if (!record || (record.ownerName === who.name && record.ownerRole === role))
       return null;
@@ -101,11 +107,12 @@ export class DeskService {
     who: { email: string; admin: boolean },
     map: MapId,
     deskId: string,
+    serverId = 'default',
   ): Promise<Result<DeskInfo>> {
-    const record = await this.desks.get(map, deskId);
+    const record = await this.desks.get(map, deskId, serverId);
     if (!record) return fail('invalid_desk');
     if (record.ownerEmail !== who.email && !who.admin) return fail('not_owner');
-    await this.desks.release(map, deskId);
+    await this.desks.release(map, deskId, serverId);
     return ok(freeDesk(map, deskId));
   }
 
@@ -113,10 +120,13 @@ export class DeskService {
    * Remove automaticamente a mesa adotada por um usuário (ex.: ao banir,
    * kickar, restringir ou excluir a conta). Devolve a mesa liberada ou null.
    */
-  async releaseByOwner(email: string): Promise<DeskInfo | null> {
-    const record = await this.desks.byOwner(email);
+  async releaseByOwner(
+    email: string,
+    serverId = 'default',
+  ): Promise<DeskInfo | null> {
+    const record = await this.desks.byOwner(email, serverId);
     if (!record) return null;
-    await this.desks.release(record.map, record.deskId);
+    await this.desks.release(record.map, record.deskId, serverId);
     return freeDesk(record.map as MapId, record.deskId);
   }
 
@@ -125,8 +135,9 @@ export class DeskService {
     map: MapId,
     deskId: string,
     config: DeskConfig,
+    serverId = 'default',
   ): Promise<Result<DeskInfo>> {
-    const record = await this.desks.get(map, deskId);
+    const record = await this.desks.get(map, deskId, serverId);
     if (!record) return fail('invalid_desk');
     if (record.ownerEmail !== email) return fail('not_owner');
     // Posição da mesa só muda pelo método `move` (que valida colisão e áreas protegidas).
@@ -135,7 +146,13 @@ export class DeskService {
       position: record.config.position ?? null,
     };
     const updated = { ...record, config: safeConfig, updatedAt: this.now() };
-    await this.desks.setConfig(map, deskId, safeConfig, updated.updatedAt);
+    await this.desks.setConfig(
+      map,
+      deskId,
+      safeConfig,
+      updated.updatedAt,
+      serverId,
+    );
     return ok(toInfo(updated));
   }
 
@@ -147,11 +164,12 @@ export class DeskService {
     col: number,
     row: number,
     occupied: readonly Point[] = [],
+    serverId = 'default',
   ): Promise<Result<DeskInfo>> {
-    const record = await this.desks.get(map, deskId);
+    const record = await this.desks.get(map, deskId, serverId);
     if (!record) return fail('invalid_desk');
     if (record.ownerEmail !== email) return fail('not_owner');
-    const all = await this.list();
+    const all = await this.list(serverId);
     if (!canPlaceDesk(getMap(map), deskId, col, row, all)) {
       return fail('invalid_desk_position');
     }
@@ -171,7 +189,13 @@ export class DeskService {
       position: { col, row },
     };
     const updated = { ...record, config, updatedAt: this.now() };
-    await this.desks.setConfig(map, deskId, config, updated.updatedAt);
+    await this.desks.setConfig(
+      map,
+      deskId,
+      config,
+      updated.updatedAt,
+      serverId,
+    );
     return ok(toInfo(updated));
   }
 }

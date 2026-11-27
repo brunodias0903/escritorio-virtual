@@ -1,3 +1,4 @@
+import { Volume2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { DevicePopover } from '@/features/media/components/DevicePopover';
@@ -370,8 +371,12 @@ export function BottomBar({
             className={styles.hintButton}
             onClick={call.startAudio}
           >
-            <span className={styles.hintText}>
-              🔊 O navegador bloqueou o som. Clique aqui para ativar.
+            <span
+              className={styles.hintText}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Volume2 size={14} aria-hidden={true} />
+              <span>O navegador bloqueou o som. Clique aqui para ativar.</span>
             </span>
           </button>
         ) : null}
@@ -397,7 +402,7 @@ export function BottomBar({
               className={styles.dismissButton}
               onClick={() => setDismissedCallSession(call.sessionId)}
             >
-              ✕
+              <X size={13} aria-hidden={true} />
             </button>
           </div>
         ) : null}

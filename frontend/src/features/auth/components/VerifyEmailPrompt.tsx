@@ -1,9 +1,16 @@
+import { Mail, MailCheck, Send } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { Text, XStack, YStack } from 'tamagui';
 
 import { authApi } from '@/app/api';
 import { errorMessage } from '@/shared/domain';
-
-import styles from './VerifyEmailPrompt.module.css';
+import {
+  ActionButton,
+  ModalFrame,
+  StatusBadge,
+  SurfaceCard,
+  TextField,
+} from '@/shared/ui/tamagui';
 
 type Props = {
   token: string;
@@ -13,8 +20,7 @@ type Props = {
 };
 
 /**
- * Destaque exibido logo ao entrar para contas criadas antes da verificação
- * obrigatória de e-mail, incentivando a confirmação com código de 6 dígitos.
+ * Destaque em Tamagui exibido para contas pendentes de verificação de e-mail.
  */
 export function VerifyEmailPrompt({
   token,
@@ -61,92 +67,129 @@ export function VerifyEmailPrompt({
   };
 
   return (
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Confirme seu e-mail"
-      data-scroll-lock="true"
+    <ModalFrame
+      title="Confirme seu e-mail"
+      subtitle="Proteja sua conta e habilite recuperação de senha e 2FA."
+      icon={
+        <MailCheck size={18} color="var(--accent-link)" aria-hidden={true} />
+      }
+      maxWidth={460}
+      onClose={onDismiss}
     >
-      <div className={styles.card}>
-        <div className={styles.badge}>✉️ Verificação pendente</div>
-        <h2 className={styles.title}>
-          Confirme seu e-mail para proteger sua conta
-        </h2>
-        <p className={styles.subtitle}>
-          Sua conta (<strong>{email}</strong>) foi criada antes da confirmação
-          por código. Verifique seu e-mail agora para garantir recuperação de
-          senha e mais segurança no Escritório Virtual.
-        </p>
+      <YStack gap="$3.5">
+        <StatusBadge
+          tone="warning"
+          icon={<Mail size={12} aria-hidden={true} />}
+        >
+          Verificação pendente
+        </StatusBadge>
+
+        <Text
+          fontFamily="$body"
+          fontSize="$3"
+          color="$textSecondary"
+          lineHeight={20}
+        >
+          Sua conta (
+          <Text fontWeight="700" color="$textPrimary">
+            {email}
+          </Text>
+          ) foi criada antes da confirmação por código. Verifique seu e-mail
+          agora para mais segurança no Escritório Virtual.
+        </Text>
 
         {!codeSent ? (
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.primaryBtn}
-              disabled={busy}
-              onClick={() => void sendCode()}
+          <YStack gap="$2">
+            <ActionButton
+              loading={busy}
+              fullWidth
+              icon={<Send size={14} aria-hidden={true} />}
+              onPress={() => void sendCode()}
             >
               {busy ? 'Enviando código…' : 'Enviar código de verificação'}
-            </button>
-            <button
-              type="button"
-              className={styles.secondaryBtn}
+            </ActionButton>
+            <ActionButton
+              variant="secondary"
               disabled={busy}
-              onClick={onDismiss}
+              fullWidth
+              onPress={onDismiss}
             >
               Verificar depois
-            </button>
-          </div>
+            </ActionButton>
+          </YStack>
         ) : (
-          <form className={styles.form} onSubmit={(e) => void confirm(e)}>
-            {info ? <p className={styles.info}>{info}</p> : null}
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              className={styles.codeInput}
-              placeholder="000000"
-              maxLength={6}
-              value={code}
-              onChange={(e) =>
-                setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-              }
-              autoFocus
-            />
-            <div className={styles.actions}>
-              <button
-                type="submit"
-                className={styles.primaryBtn}
-                disabled={busy || code.length !== 6}
-              >
-                {busy ? 'Confirmando…' : 'Confirmar e-mail'}
-              </button>
-              <button
+          <form onSubmit={(e) => void confirm(e)}>
+            <YStack gap="$3">
+              {info ? (
+                <SurfaceCard variant="success" padding="$3">
+                  <Text
+                    fontFamily="$body"
+                    fontSize="$2"
+                    color="$presenceAvailable"
+                  >
+                    {info}
+                  </Text>
+                </SurfaceCard>
+              ) : null}
+
+              <TextField
+                id="verify-email-code"
+                label="Código de 6 dígitos"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000000"
+                maxLength={6}
+                value={code}
+                onChangeText={(val) =>
+                  setCode(val.replace(/\D/g, '').slice(0, 6))
+                }
+                error={error}
+                autoFocus
+              />
+
+              <XStack gap="$2">
+                <ActionButton
+                  type="submit"
+                  flex={1}
+                  loading={busy}
+                  disabled={code.length !== 6}
+                >
+                  {busy ? 'Confirmando…' : 'Confirmar e-mail'}
+                </ActionButton>
+                <ActionButton
+                  type="button"
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => void sendCode()}
+                >
+                  Reenviar
+                </ActionButton>
+              </XStack>
+
+              <ActionButton
                 type="button"
-                className={styles.secondaryBtn}
-                disabled={busy}
-                onClick={() => void sendCode()}
+                variant="ghost"
+                size="sm"
+                fullWidth
+                onPress={onDismiss}
               >
-                Reenviar código
-              </button>
-            </div>
-            <button
-              type="button"
-              className={styles.laterLink}
-              onClick={onDismiss}
-            >
-              Fazer isso depois
-            </button>
+                Fazer isso depois
+              </ActionButton>
+            </YStack>
           </form>
         )}
 
-        {error ? (
-          <p className={styles.error} role="alert">
+        {error && !codeSent ? (
+          <Text
+            fontFamily="$body"
+            fontSize="$2"
+            color="$dangerText"
+            role="alert"
+          >
             {error}
-          </p>
+          </Text>
         ) : null}
-      </div>
-    </div>
+      </YStack>
+    </ModalFrame>
   );
 }

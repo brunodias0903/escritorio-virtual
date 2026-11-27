@@ -1,4 +1,39 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import {
+  AlertCircle,
+  Armchair,
+  BookOpen,
+  Bug,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Compass,
+  Copy,
+  FlaskConical,
+  GitBranch,
+  HelpCircle,
+  Lightbulb,
+  Link2,
+  Lock,
+  Megaphone,
+  MessageSquare,
+  Mic,
+  Plus,
+  RotateCcw,
+  Send,
+  Smartphone,
+  Wrench,
+} from 'lucide-react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  Accordion,
+  Button,
+  Separator,
+  Spinner,
+  Tabs,
+  Text,
+  XStack,
+  YStack,
+} from 'tamagui';
 
 import { workspaceApi } from '@/app/api';
 import {
@@ -18,8 +53,16 @@ import {
   type Session,
 } from '@/shared/domain';
 import { useI18n, type TranslationKey } from '@/shared/i18n';
-
-import styles from './HelpFeedbackModal.module.css';
+import {
+  ActionButton,
+  EmptyState,
+  ModalFrame,
+  StatusBadge,
+  SurfaceCard,
+  TextAreaField,
+  TextField,
+  type StatusBadgeTone,
+} from '@/shared/ui/tamagui';
 
 type Props = {
   session: Session;
@@ -44,13 +87,30 @@ const STATUS_KEY: Record<FeedbackStatus, TranslationKey> = {
   closed: 'feedback.status.closed',
 };
 
-const KIND_EMOJI: Record<FeedbackKind, string> = {
-  suggestion: '💡',
-  bug: '🐛',
-  complaint: '📣',
-  question: '❓',
+const STATUS_TONE: Record<FeedbackStatus, StatusBadgeTone> = {
+  open: 'accent',
+  in_progress: 'warning',
+  testing: 'accent',
+  done: 'success',
+  closed: 'neutral',
 };
 
+const renderKindIcon = (kind: FeedbackKind, size = 13): ReactNode => {
+  switch (kind) {
+    case 'suggestion':
+      return <Lightbulb size={size} aria-hidden={true} />;
+    case 'bug':
+      return <Bug size={size} aria-hidden={true} />;
+    case 'complaint':
+      return <Megaphone size={size} aria-hidden={true} />;
+    case 'question':
+      return <HelpCircle size={size} aria-hidden={true} />;
+  }
+};
+
+/**
+ * Central de Ajuda e Feedback em Tamagui (`Dialog`, `Tabs`, `Accordion`, `Card`) com ícones Lucide.
+ */
 export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
   const { t } = useI18n();
   const tiers = effectiveTiersOf(
@@ -74,7 +134,6 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [mrDrafts, setMrDrafts] = useState<Record<string, string>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
     {},
@@ -123,7 +182,6 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
       return;
     }
     setItems((prev) => [res.data.item, ...prev]);
-    setExpandedId(res.data.item.id);
     setTitle('');
     setDescription('');
     setCreating(false);
@@ -172,427 +230,772 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
   const filtered =
     filter === 'all' ? items : items.filter((it) => it.status === filter);
 
+  const guideItems = [
+    {
+      icon: <Compass size={18} color="var(--accent-link)" aria-hidden={true} />,
+      title: t('help.guide.moveTitle'),
+      desc: t('help.guide.moveDesc'),
+    },
+    {
+      icon: (
+        <Armchair size={18} color="var(--accent-link)" aria-hidden={true} />
+      ),
+      title: t('help.guide.desksTitle'),
+      desc: t('help.guide.desksDesc'),
+    },
+    {
+      icon: <Mic size={18} color="var(--accent-link)" aria-hidden={true} />,
+      title: t('help.guide.callsTitle'),
+      desc: t('help.guide.callsDesc'),
+    },
+    {
+      icon: (
+        <Smartphone size={18} color="var(--accent-link)" aria-hidden={true} />
+      ),
+      title: t('help.guide.pwaTitle'),
+      desc: t('help.guide.pwaDesc'),
+    },
+  ];
+
   return (
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('help.modal.title')}
-      data-scroll-lock="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <ModalFrame
+      title={t('help.modal.title')}
+      subtitle="Tire dúvidas rápidas sobre o escritório ou acompanhe sugestões e melhorias."
+      icon={
+        <HelpCircle size={18} color="var(--accent-link)" aria-hidden={true} />
+      }
+      maxWidth={780}
+      onClose={onClose}
     >
-      <div className={styles.modal}>
-        <div className={styles.header}>
-          <h2 className={styles.title}>{t('help.modal.title')}</h2>
-          <button
-            type="button"
-            className={styles.closeBtn}
-            aria-label={t('common.close')}
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </div>
+      <Tabs
+        value={tab}
+        onValueChange={(val) => setTab(val as Tab)}
+        orientation="horizontal"
+        flexDirection="column"
+        gap="$4"
+      >
+        <Tabs.List
+          backgroundColor="$bgSurface"
+          padding="$1"
+          borderRadius="$lg"
+          borderWidth={1}
+          borderColor="$borderSubtle"
+          gap="$1"
+        >
+          <Tabs.Tab value="feedback" asChild flex={1}>
+            <Button
+              flex={1}
+              paddingVertical="$2"
+              borderRadius="$md"
+              backgroundColor={
+                tab === 'feedback' ? '$accentChip' : 'transparent'
+              }
+              borderWidth={1}
+              borderColor={
+                tab === 'feedback' ? '$accentBorderSoft' : 'transparent'
+              }
+              cursor="pointer"
+            >
+              <XStack alignItems="center" justifyContent="center" gap="$1.5">
+                <MessageSquare size={14} aria-hidden={true} />
+                <Text
+                  fontFamily="$body"
+                  fontSize="$3"
+                  fontWeight={tab === 'feedback' ? '700' : '500'}
+                  color={tab === 'feedback' ? '$textPrimary' : '$textSecondary'}
+                >
+                  {t('help.tab.feedback')} ({items.length})
+                </Text>
+              </XStack>
+            </Button>
+          </Tabs.Tab>
 
-        <div className={styles.tabs}>
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${tab === 'feedback' ? styles.tabActive : ''}`}
-            onClick={() => setTab('feedback')}
-          >
-            💬 {t('help.tab.feedback')} ({items.length})
-          </button>
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${tab === 'guide' ? styles.tabActive : ''}`}
-            onClick={() => setTab('guide')}
-          >
-            ❓ {t('help.tab.guide')}
-          </button>
-        </div>
+          <Tabs.Tab value="guide" asChild flex={1}>
+            <Button
+              flex={1}
+              paddingVertical="$2"
+              borderRadius="$md"
+              backgroundColor={tab === 'guide' ? '$accentChip' : 'transparent'}
+              borderWidth={1}
+              borderColor={
+                tab === 'guide' ? '$accentBorderSoft' : 'transparent'
+              }
+              cursor="pointer"
+            >
+              <XStack alignItems="center" justifyContent="center" gap="$1.5">
+                <BookOpen size={14} aria-hidden={true} />
+                <Text
+                  fontFamily="$body"
+                  fontSize="$3"
+                  fontWeight={tab === 'guide' ? '700' : '500'}
+                  color={tab === 'guide' ? '$textPrimary' : '$textSecondary'}
+                >
+                  {t('help.tab.guide')}
+                </Text>
+              </XStack>
+            </Button>
+          </Tabs.Tab>
+        </Tabs.List>
 
-        {error ? <div className={styles.error}>{error}</div> : null}
+        {error ? (
+          <SurfaceCard
+            variant="danger"
+            padding="$3"
+            flexDirection="row"
+            alignItems="center"
+            gap="$2"
+          >
+            <AlertCircle
+              size={15}
+              color="var(--danger-text)"
+              aria-hidden={true}
+            />
+            <Text fontFamily="$body" fontSize="$3" color="$dangerText" flex={1}>
+              {error}
+            </Text>
+          </SurfaceCard>
+        ) : null}
 
-        <div className={styles.body}>
-          {tab === 'guide' ? (
-            <div className={styles.guideGrid}>
-              <div className={styles.guideCard}>
-                <div className={styles.guideTitle}>
-                  🧭 {t('help.guide.moveTitle')}
-                </div>
-                <p className={styles.guideDesc}>{t('help.guide.moveDesc')}</p>
-              </div>
-              <div className={styles.guideCard}>
-                <div className={styles.guideTitle}>
-                  🪑 {t('help.guide.desksTitle')}
-                </div>
-                <p className={styles.guideDesc}>{t('help.guide.desksDesc')}</p>
-              </div>
-              <div className={styles.guideCard}>
-                <div className={styles.guideTitle}>
-                  🎙️ {t('help.guide.callsTitle')}
-                </div>
-                <p className={styles.guideDesc}>{t('help.guide.callsDesc')}</p>
-              </div>
-              <div className={styles.guideCard}>
-                <div className={styles.guideTitle}>
-                  📱 {t('help.guide.pwaTitle')}
-                </div>
-                <p className={styles.guideDesc}>{t('help.guide.pwaDesc')}</p>
-              </div>
-            </div>
-          ) : (
-            <div className={styles.feedbackPane}>
-              <div className={styles.toolbar}>
-                <div className={styles.filters}>
-                  <button
-                    type="button"
-                    className={`${styles.filterChip} ${filter === 'all' ? styles.filterActive : ''}`}
-                    onClick={() => setFilter('all')}
+        {tab === 'guide' ? (
+          <XStack flexWrap="wrap" gap="$3">
+            {guideItems.map((card) => (
+              <SurfaceCard
+                key={card.title}
+                flexBasis="47%"
+                flexGrow={1}
+                minWidth={260}
+                padding="$4"
+                gap="$2.5"
+              >
+                <XStack alignItems="center" gap="$2.5">
+                  <YStack
+                    width={36}
+                    height={36}
+                    borderRadius="$md"
+                    backgroundColor="$bgControl"
+                    borderWidth={1}
+                    borderColor="$borderSubtle"
+                    alignItems="center"
+                    justifyContent="center"
+                    flexShrink={0}
+                  >
+                    {card.icon}
+                  </YStack>
+                  <Text
+                    fontFamily="$heading"
+                    fontSize="$4"
+                    fontWeight="700"
+                    color="$textPrimary"
+                    flex={1}
+                  >
+                    {card.title}
+                  </Text>
+                </XStack>
+                <Text
+                  fontFamily="$body"
+                  fontSize="$3"
+                  color="$textSecondary"
+                  lineHeight={19}
+                >
+                  {card.desc}
+                </Text>
+              </SurfaceCard>
+            ))}
+          </XStack>
+        ) : (
+          <YStack gap="$3.5">
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              gap="$2"
+              flexWrap="wrap"
+            >
+              <XStack gap="$1.5" flexWrap="wrap">
+                <Button
+                  paddingHorizontal="$3"
+                  paddingVertical="$1.5"
+                  minHeight={30}
+                  borderRadius="$pill"
+                  backgroundColor={
+                    filter === 'all' ? '$accentChip' : '$bgSurface'
+                  }
+                  borderColor={
+                    filter === 'all' ? '$accentBorderSoft' : '$borderSubtle'
+                  }
+                  borderWidth={1}
+                  cursor="pointer"
+                  onPress={() => setFilter('all')}
+                >
+                  <Text
+                    fontFamily="$body"
+                    fontSize="$2"
+                    fontWeight={filter === 'all' ? '700' : '500'}
+                    color={filter === 'all' ? '$textPrimary' : '$textSecondary'}
                   >
                     {t('feedback.status.all')}
-                  </button>
-                  {FEEDBACK_STATUSES.map((st) => (
-                    <button
+                  </Text>
+                </Button>
+                {FEEDBACK_STATUSES.map((st) => {
+                  const active = filter === st;
+                  return (
+                    <Button
                       key={st}
-                      type="button"
-                      className={`${styles.filterChip} ${filter === st ? styles.filterActive : ''}`}
-                      onClick={() => setFilter(st)}
+                      paddingHorizontal="$3"
+                      paddingVertical="$1.5"
+                      minHeight={30}
+                      borderRadius="$pill"
+                      backgroundColor={active ? '$accentChip' : '$bgSurface'}
+                      borderColor={
+                        active ? '$accentBorderSoft' : '$borderSubtle'
+                      }
+                      borderWidth={1}
+                      cursor="pointer"
+                      onPress={() => setFilter(st)}
                     >
-                      {t(STATUS_KEY[st])}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  onClick={() => setCreating((v) => !v)}
-                >
-                  {creating ? t('common.cancel') : `+ ${t('feedback.new')}`}
-                </button>
-              </div>
-
-              {creating ? (
-                <form
-                  className={styles.createForm}
-                  onSubmit={(e) => void handleCreate(e)}
-                >
-                  <div className={styles.kindRow}>
-                    {FEEDBACK_KINDS.map((k) => (
-                      <button
-                        key={k}
-                        type="button"
-                        className={`${styles.kindChip} ${kind === k ? styles.kindActive : ''}`}
-                        onClick={() => setKind(k)}
+                      <Text
+                        fontFamily="$body"
+                        fontSize="$2"
+                        fontWeight={active ? '700' : '500'}
+                        color={active ? '$textPrimary' : '$textSecondary'}
                       >
-                        {KIND_EMOJI[k]} {t(KIND_KEY[k])}
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    className={styles.input}
-                    placeholder={t('feedback.form.titlePlaceholder')}
+                        {t(STATUS_KEY[st])}
+                      </Text>
+                    </Button>
+                  );
+                })}
+              </XStack>
+
+              <ActionButton
+                size="sm"
+                variant={creating ? 'secondary' : 'primary'}
+                icon={
+                  creating ? undefined : <Plus size={14} aria-hidden={true} />
+                }
+                onPress={() => setCreating((v) => !v)}
+              >
+                {creating ? t('common.cancel') : t('feedback.new')}
+              </ActionButton>
+            </XStack>
+
+            {creating ? (
+              <SurfaceCard variant="elevated" padding="$4" gap="$3">
+                <form
+                  onSubmit={(e) => void handleCreate(e)}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+                >
+                  <XStack gap="$1.5" flexWrap="wrap">
+                    {FEEDBACK_KINDS.map((k) => {
+                      const active = kind === k;
+                      return (
+                        <Button
+                          key={k}
+                          paddingHorizontal="$3"
+                          paddingVertical="$1.5"
+                          minHeight={32}
+                          borderRadius="$pill"
+                          backgroundColor={
+                            active ? '$accentChip' : '$bgControl'
+                          }
+                          borderColor={
+                            active ? '$accentBorderSoft' : '$borderSubtle'
+                          }
+                          borderWidth={1}
+                          cursor="pointer"
+                          onPress={() => setKind(k)}
+                        >
+                          <XStack alignItems="center" gap="$1.5">
+                            {renderKindIcon(k)}
+                            <Text
+                              fontFamily="$body"
+                              fontSize="$2"
+                              fontWeight={active ? '700' : '500'}
+                              color={active ? '$textPrimary' : '$textSecondary'}
+                            >
+                              {t(KIND_KEY[k])}
+                            </Text>
+                          </XStack>
+                        </Button>
+                      );
+                    })}
+                  </XStack>
+
+                  <TextField
+                    id="feedback-title"
+                    compact
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChangeText={setTitle}
+                    placeholder={t('feedback.form.titlePlaceholder')}
                     maxLength={120}
                     required
                   />
-                  <textarea
-                    className={styles.textarea}
-                    rows={3}
-                    placeholder={t('feedback.form.descriptionPlaceholder')}
+                  <TextAreaField
+                    id="feedback-desc"
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChangeText={setDescription}
+                    placeholder={t('feedback.form.descriptionPlaceholder')}
                     maxLength={2000}
+                    numberOfLines={3}
                     required
                   />
-                  <div className={styles.formActions}>
-                    <button
+                  <XStack justifyContent="flex-end">
+                    <ActionButton
                       type="submit"
-                      className={styles.primaryBtn}
-                      disabled={submitting}
+                      size="sm"
+                      loading={submitting}
+                      icon={<Send size={13} aria-hidden={true} />}
                     >
                       {submitting ? t('common.sending') : t('common.send')}
-                    </button>
-                  </div>
+                    </ActionButton>
+                  </XStack>
                 </form>
-              ) : null}
+              </SurfaceCard>
+            ) : null}
 
-              {loading ? (
-                <p className={styles.empty}>{t('common.loading')}</p>
-              ) : filtered.length === 0 ? (
-                <p className={styles.empty}>{t('feedback.empty')}</p>
-              ) : (
-                <div className={styles.list}>
-                  {filtered.map((item) => {
-                    const isOpen = expandedId === item.id;
-                    const mrDraft = mrDrafts[item.id] ?? item.mrUrl ?? '';
-                    const commentDraft = commentDrafts[item.id] ?? '';
-                    const busy = busyId === item.id;
-                    const ticketTag =
-                      item.ticketKey ??
-                      `EV-${item.id.slice(0, 6).toUpperCase()}`;
-                    const branchName = suggestedFeedbackBranch(item);
+            {loading ? (
+              <XStack
+                alignItems="center"
+                justifyContent="center"
+                padding="$6"
+                gap="$2"
+              >
+                <Spinner size="small" color="$accent" />
+                <Text fontFamily="$body" fontSize="$3" color="$textMuted">
+                  {t('common.loading')}
+                </Text>
+              </XStack>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon={
+                  <MessageSquare
+                    size={20}
+                    color="var(--text-muted)"
+                    aria-hidden={true}
+                  />
+                }
+                title={t('feedback.empty')}
+                description="Use o botão acima para enviar uma sugestão, relatar um bug ou tirar uma dúvida."
+              />
+            ) : (
+              <Accordion type="single" collapsible gap="$2.5">
+                {filtered.map((item) => {
+                  const mrDraft = mrDrafts[item.id] ?? item.mrUrl ?? '';
+                  const commentDraft = commentDrafts[item.id] ?? '';
+                  const busy = busyId === item.id;
+                  const ticketTag =
+                    item.ticketKey ?? `EV-${item.id.slice(0, 6).toUpperCase()}`;
+                  const branchName = suggestedFeedbackBranch(item);
 
-                    return (
-                      <article key={item.id} className={styles.card}>
-                        <button
-                          type="button"
-                          className={styles.cardHeader}
-                          onClick={() => setExpandedId(isOpen ? null : item.id)}
-                        >
-                          <div className={styles.cardMeta}>
-                            <span className={styles.ticketKeyBadge}>
-                              {ticketTag}
-                            </span>
-                            <span className={styles.kindBadge}>
-                              {KIND_EMOJI[item.kind]} {t(KIND_KEY[item.kind])}
-                            </span>
-                            <span
-                              className={`${styles.statusBadge} ${styles[`status_${item.status}`]}`}
-                            >
-                              {t(STATUS_KEY[item.status])}
-                            </span>
-                            {showMr && item.mrUrl ? (
-                              <span className={styles.mrPill}>MR</span>
-                            ) : null}
-                          </div>
-                          <div className={styles.cardTitle}>{item.title}</div>
-                          <div className={styles.cardSub}>
-                            <span>{item.authorName}</span>
-                            <span>•</span>
-                            <span>
-                              {t('feedback.comments.count', {
-                                count: item.comments.length,
-                              })}
-                            </span>
-                          </div>
-                        </button>
-
-                        {isOpen ? (
-                          <div className={styles.cardBody}>
-                            <p className={styles.desc}>{item.description}</p>
-
-                            {/* Seção de MR (visível apenas para master, admin, developer e tester) */}
-                            {showMr ? (
-                              <div className={styles.mrBox}>
-                                <div className={styles.branchRow}>
-                                  <span className={styles.branchLabel}>
-                                    🌿 Branch sugerida:
-                                  </span>
-                                  <code className={styles.branchCode}>
-                                    {branchName}
-                                  </code>
-                                  <button
-                                    type="button"
-                                    className={styles.copyBtn}
-                                    onClick={() =>
-                                      copyText(
-                                        `branch:${item.id}`,
-                                        branchName,
-                                        `Branch ${branchName} copiada!`,
-                                      )
-                                    }
-                                  >
-                                    {copiedKey === `branch:${item.id}`
-                                      ? 'Copiado!'
-                                      : 'Copiar'}
-                                  </button>
-                                </div>
-                                <div className={styles.mrLabel}>
-                                  🔗 {t('feedback.mr.label')}
-                                </div>
-                                {item.mrUrl ? (
-                                  <a
-                                    href={item.mrUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={styles.mrLink}
-                                  >
-                                    {t('feedback.mr.view')}: {item.mrUrl}
-                                  </a>
-                                ) : null}
-                                {canEditMr ? (
-                                  <div className={styles.mrForm}>
-                                    <input
-                                      type="url"
-                                      className={styles.input}
-                                      placeholder={t('feedback.mr.placeholder')}
-                                      value={mrDraft}
-                                      onChange={(e) =>
-                                        setMrDrafts((prev) => ({
-                                          ...prev,
-                                          [item.id]: e.target.value,
-                                        }))
-                                      }
-                                    />
-                                    <div className={styles.actionRow}>
-                                      <button
-                                        type="button"
-                                        className={styles.secondaryBtn}
-                                        disabled={busy || !mrDraft.trim()}
-                                        onClick={() =>
-                                          void handleUpdate(item.id, {
-                                            mrUrl: mrDraft.trim(),
-                                            status: 'in_progress',
-                                          })
-                                        }
-                                      >
-                                        {t('feedback.mr.saveProgress')}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={styles.secondaryBtn}
-                                        disabled={busy || !mrDraft.trim()}
-                                        onClick={() =>
-                                          void handleUpdate(item.id, {
-                                            mrUrl: mrDraft.trim(),
-                                            status: 'testing',
-                                          })
-                                        }
-                                      >
-                                        {t('feedback.mr.saveTesting')}
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </div>
-                            ) : null}
-
-                            {/* Ações de status por tier */}
-                            {canProgress || canResolve ? (
-                              <div className={styles.actionRow}>
-                                {canProgress &&
-                                item.status !== 'in_progress' ? (
-                                  <button
-                                    type="button"
-                                    className={styles.secondaryBtn}
-                                    disabled={busy}
-                                    onClick={() =>
-                                      void handleUpdate(item.id, {
-                                        status: 'in_progress',
-                                      })
-                                    }
-                                  >
-                                    🛠️ {t('feedback.action.inProgress')}
-                                  </button>
-                                ) : null}
-                                {canProgress && item.status !== 'testing' ? (
-                                  <button
-                                    type="button"
-                                    className={styles.secondaryBtn}
-                                    disabled={busy}
-                                    onClick={() =>
-                                      void handleUpdate(item.id, {
-                                        status: 'testing',
-                                      })
-                                    }
-                                  >
-                                    🧪 {t('feedback.action.testing')}
-                                  </button>
-                                ) : null}
-                                {canResolve && item.status !== 'done' ? (
-                                  <button
-                                    type="button"
-                                    className={styles.doneBtn}
-                                    disabled={busy}
-                                    onClick={() =>
-                                      void handleUpdate(item.id, {
-                                        status: 'done',
-                                      })
-                                    }
-                                  >
-                                    ✅ {t('feedback.action.markDone')}
-                                  </button>
-                                ) : null}
-                                {canResolve && item.status !== 'closed' ? (
-                                  <button
-                                    type="button"
-                                    className={styles.closeThreadBtn}
-                                    disabled={busy}
-                                    onClick={() =>
-                                      void handleUpdate(item.id, {
-                                        status: 'closed',
-                                      })
-                                    }
-                                  >
-                                    🔒 {t('feedback.action.close')}
-                                  </button>
-                                ) : null}
-                                {canResolve &&
-                                (item.status === 'done' ||
-                                  item.status === 'closed') ? (
-                                  <button
-                                    type="button"
-                                    className={styles.secondaryBtn}
-                                    disabled={busy}
-                                    onClick={() =>
-                                      void handleUpdate(item.id, {
-                                        status: 'open',
-                                      })
-                                    }
-                                  >
-                                    ↺ {t('feedback.action.reopen')}
-                                  </button>
-                                ) : null}
-                              </div>
-                            ) : null}
-
-                            {/* Comentários da thread */}
-                            <div className={styles.comments}>
-                              {item.comments.map((c) => (
-                                <div key={c.id} className={styles.comment}>
-                                  <div className={styles.commentHead}>
-                                    <strong>{c.authorName}</strong>
-                                    <span className={styles.commentTier}>
-                                      {ACCOUNT_TIER_LABELS[c.authorTier]}
-                                    </span>
-                                  </div>
-                                  <p className={styles.commentBody}>{c.body}</p>
-                                </div>
-                              ))}
-                              <form
-                                className={styles.commentForm}
-                                onSubmit={(e) => void handleComment(item.id, e)}
+                  return (
+                    <Accordion.Item
+                      key={item.id}
+                      value={item.id}
+                      borderRadius="$xl"
+                      borderWidth={1}
+                      borderColor="$borderSubtle"
+                      backgroundColor="$bgSurface"
+                      overflow="hidden"
+                    >
+                      <Accordion.Trigger
+                        backgroundColor="transparent"
+                        borderWidth={0}
+                        padding="$3.5"
+                      >
+                        {({ open }: { open: boolean }) => (
+                          <XStack
+                            alignItems="flex-start"
+                            justifyContent="space-between"
+                            gap="$3"
+                            width="100%"
+                          >
+                            <YStack flex={1} gap="$1.5" alignItems="flex-start">
+                              <XStack
+                                gap="$1.5"
+                                flexWrap="wrap"
+                                alignItems="center"
                               >
-                                <input
-                                  type="text"
-                                  className={styles.input}
-                                  placeholder={t(
-                                    'feedback.comments.placeholder',
-                                  )}
-                                  value={commentDraft}
-                                  maxLength={1000}
-                                  onChange={(e) =>
-                                    setCommentDrafts((prev) => ({
-                                      ...prev,
-                                      [item.id]: e.target.value,
-                                    }))
-                                  }
+                                <StatusBadge tone="neutral">
+                                  {ticketTag}
+                                </StatusBadge>
+                                <StatusBadge
+                                  tone="neutral"
+                                  icon={renderKindIcon(item.kind, 11)}
+                                >
+                                  {t(KIND_KEY[item.kind])}
+                                </StatusBadge>
+                                <StatusBadge tone={STATUS_TONE[item.status]}>
+                                  {t(STATUS_KEY[item.status])}
+                                </StatusBadge>
+                                {showMr && item.mrUrl ? (
+                                  <StatusBadge
+                                    tone="accent"
+                                    icon={
+                                      <GitBranch size={11} aria-hidden={true} />
+                                    }
+                                  >
+                                    MR
+                                  </StatusBadge>
+                                ) : null}
+                              </XStack>
+                              <Text
+                                fontFamily="$heading"
+                                fontSize="$4"
+                                fontWeight="700"
+                                color="$textPrimary"
+                                textAlign="left"
+                              >
+                                {item.title}
+                              </Text>
+                              <Text
+                                fontFamily="$body"
+                                fontSize="$2"
+                                color="$textMuted"
+                              >
+                                {item.authorName} ·{' '}
+                                {t('feedback.comments.count', {
+                                  count: item.comments.length,
+                                })}
+                              </Text>
+                            </YStack>
+                            <ChevronDown
+                              size={16}
+                              color="var(--text-muted)"
+                              aria-hidden={true}
+                              style={{
+                                transform: open
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                                transition: 'transform 160ms ease',
+                                flexShrink: 0,
+                                marginTop: 4,
+                              }}
+                            />
+                          </XStack>
+                        )}
+                      </Accordion.Trigger>
+
+                      <Accordion.Content
+                        backgroundColor="$bgSurface"
+                        paddingHorizontal="$4"
+                        paddingTop={0}
+                        paddingBottom="$4"
+                      >
+                        <YStack gap="$3">
+                          <Separator borderColor="$borderSubtle" />
+
+                          <Text
+                            fontFamily="$body"
+                            fontSize="$3"
+                            color="$textBody"
+                            lineHeight={20}
+                          >
+                            {item.description}
+                          </Text>
+
+                          {showMr ? (
+                            <SurfaceCard
+                              variant="elevated"
+                              padding="$3"
+                              gap="$2.5"
+                            >
+                              <XStack
+                                alignItems="center"
+                                gap="$2"
+                                flexWrap="wrap"
+                              >
+                                <GitBranch
+                                  size={14}
+                                  color="var(--accent-link)"
+                                  aria-hidden={true}
                                 />
-                                <button
+                                <Text
+                                  fontFamily="$body"
+                                  fontSize="$2"
+                                  fontWeight="600"
+                                  color="$textSecondary"
+                                >
+                                  Branch sugerida:
+                                </Text>
+                                <Text
+                                  fontFamily="$mono"
+                                  fontSize="$2"
+                                  color="$textPrimary"
+                                  backgroundColor="$bgControl"
+                                  paddingHorizontal="$2"
+                                  paddingVertical="$0.5"
+                                  borderRadius="$sm"
+                                >
+                                  {branchName}
+                                </Text>
+                                <ActionButton
+                                  variant="secondary"
+                                  size="sm"
+                                  icon={
+                                    copiedKey === `branch:${item.id}` ? (
+                                      <Check size={12} aria-hidden={true} />
+                                    ) : (
+                                      <Copy size={12} aria-hidden={true} />
+                                    )
+                                  }
+                                  onPress={() =>
+                                    copyText(
+                                      `branch:${item.id}`,
+                                      branchName,
+                                      `Branch ${branchName} copiada!`,
+                                    )
+                                  }
+                                >
+                                  {copiedKey === `branch:${item.id}`
+                                    ? 'Copiado'
+                                    : 'Copiar'}
+                                </ActionButton>
+                              </XStack>
+
+                              <XStack alignItems="center" gap="$1.5">
+                                <Link2
+                                  size={14}
+                                  color="var(--text-muted)"
+                                  aria-hidden={true}
+                                />
+                                <Text
+                                  fontFamily="$body"
+                                  fontSize="$2"
+                                  fontWeight="600"
+                                  color="$textSecondary"
+                                >
+                                  {t('feedback.mr.label')}
+                                </Text>
+                              </XStack>
+
+                              {item.mrUrl ? (
+                                <a
+                                  href={item.mrUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    color: 'var(--accent-link)',
+                                    fontSize: 12.5,
+                                    wordBreak: 'break-all',
+                                  }}
+                                >
+                                  {t('feedback.mr.view')}: {item.mrUrl}
+                                </a>
+                              ) : null}
+
+                              {canEditMr ? (
+                                <YStack gap="$2">
+                                  <TextField
+                                    id={`mr-url-${item.id}`}
+                                    compact
+                                    value={mrDraft}
+                                    placeholder={t('feedback.mr.placeholder')}
+                                    onChangeText={(val) =>
+                                      setMrDrafts((prev) => ({
+                                        ...prev,
+                                        [item.id]: val,
+                                      }))
+                                    }
+                                  />
+                                  <XStack gap="$2" flexWrap="wrap">
+                                    <ActionButton
+                                      variant="secondary"
+                                      size="sm"
+                                      disabled={busy || !mrDraft.trim()}
+                                      onPress={() =>
+                                        void handleUpdate(item.id, {
+                                          mrUrl: mrDraft.trim(),
+                                          status: 'in_progress',
+                                        })
+                                      }
+                                    >
+                                      {t('feedback.mr.saveProgress')}
+                                    </ActionButton>
+                                    <ActionButton
+                                      variant="secondary"
+                                      size="sm"
+                                      disabled={busy || !mrDraft.trim()}
+                                      onPress={() =>
+                                        void handleUpdate(item.id, {
+                                          mrUrl: mrDraft.trim(),
+                                          status: 'testing',
+                                        })
+                                      }
+                                    >
+                                      {t('feedback.mr.saveTesting')}
+                                    </ActionButton>
+                                  </XStack>
+                                </YStack>
+                              ) : null}
+                            </SurfaceCard>
+                          ) : null}
+
+                          {canProgress || canResolve ? (
+                            <XStack gap="$2" flexWrap="wrap">
+                              {canProgress && item.status !== 'in_progress' ? (
+                                <ActionButton
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled={busy}
+                                  icon={<Wrench size={13} aria-hidden={true} />}
+                                  onPress={() =>
+                                    void handleUpdate(item.id, {
+                                      status: 'in_progress',
+                                    })
+                                  }
+                                >
+                                  {t('feedback.action.inProgress')}
+                                </ActionButton>
+                              ) : null}
+                              {canProgress && item.status !== 'testing' ? (
+                                <ActionButton
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled={busy}
+                                  icon={
+                                    <FlaskConical
+                                      size={13}
+                                      aria-hidden={true}
+                                    />
+                                  }
+                                  onPress={() =>
+                                    void handleUpdate(item.id, {
+                                      status: 'testing',
+                                    })
+                                  }
+                                >
+                                  {t('feedback.action.testing')}
+                                </ActionButton>
+                              ) : null}
+                              {canResolve && item.status !== 'done' ? (
+                                <ActionButton
+                                  size="sm"
+                                  disabled={busy}
+                                  icon={
+                                    <CheckCircle2
+                                      size={13}
+                                      aria-hidden={true}
+                                    />
+                                  }
+                                  onPress={() =>
+                                    void handleUpdate(item.id, {
+                                      status: 'done',
+                                    })
+                                  }
+                                >
+                                  {t('feedback.action.markDone')}
+                                </ActionButton>
+                              ) : null}
+                              {canResolve && item.status !== 'closed' ? (
+                                <ActionButton
+                                  variant="danger"
+                                  size="sm"
+                                  disabled={busy}
+                                  icon={<Lock size={13} aria-hidden={true} />}
+                                  onPress={() =>
+                                    void handleUpdate(item.id, {
+                                      status: 'closed',
+                                    })
+                                  }
+                                >
+                                  {t('feedback.action.close')}
+                                </ActionButton>
+                              ) : null}
+                              {canResolve &&
+                              (item.status === 'done' ||
+                                item.status === 'closed') ? (
+                                <ActionButton
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled={busy}
+                                  icon={
+                                    <RotateCcw size={13} aria-hidden={true} />
+                                  }
+                                  onPress={() =>
+                                    void handleUpdate(item.id, {
+                                      status: 'open',
+                                    })
+                                  }
+                                >
+                                  {t('feedback.action.reopen')}
+                                </ActionButton>
+                              ) : null}
+                            </XStack>
+                          ) : null}
+
+                          <Separator borderColor="$borderSubtle" />
+
+                          <YStack gap="$2">
+                            {item.comments.map((c) => (
+                              <SurfaceCard
+                                key={c.id}
+                                variant="elevated"
+                                padding="$2.5"
+                                gap="$1"
+                              >
+                                <XStack alignItems="center" gap="$2">
+                                  <Text
+                                    fontFamily="$body"
+                                    fontSize="$2"
+                                    fontWeight="700"
+                                    color="$textPrimary"
+                                  >
+                                    {c.authorName}
+                                  </Text>
+                                  <StatusBadge tone="neutral">
+                                    {ACCOUNT_TIER_LABELS[c.authorTier]}
+                                  </StatusBadge>
+                                </XStack>
+                                <Text
+                                  fontFamily="$body"
+                                  fontSize="$3"
+                                  color="$textSecondary"
+                                >
+                                  {c.body}
+                                </Text>
+                              </SurfaceCard>
+                            ))}
+
+                            <form
+                              onSubmit={(e) => void handleComment(item.id, e)}
+                            >
+                              <XStack gap="$2" alignItems="center">
+                                <YStack flex={1}>
+                                  <TextField
+                                    id={`comment-${item.id}`}
+                                    compact
+                                    value={commentDraft}
+                                    maxLength={1000}
+                                    placeholder={t(
+                                      'feedback.comments.placeholder',
+                                    )}
+                                    onChangeText={(val) =>
+                                      setCommentDrafts((prev) => ({
+                                        ...prev,
+                                        [item.id]: val,
+                                      }))
+                                    }
+                                  />
+                                </YStack>
+                                <ActionButton
                                   type="submit"
-                                  className={styles.primaryBtn}
+                                  size="sm"
                                   disabled={busy || !commentDraft.trim()}
+                                  icon={<Send size={13} aria-hidden={true} />}
                                 >
                                   {t('common.send')}
-                                </button>
-                              </form>
-                            </div>
-                          </div>
-                        ) : null}
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+                                </ActionButton>
+                              </XStack>
+                            </form>
+                          </YStack>
+                        </YStack>
+                      </Accordion.Content>
+                    </Accordion.Item>
+                  );
+                })}
+              </Accordion>
+            )}
+          </YStack>
+        )}
+      </Tabs>
+    </ModalFrame>
   );
 }

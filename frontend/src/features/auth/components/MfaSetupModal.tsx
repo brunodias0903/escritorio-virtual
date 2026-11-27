@@ -1,10 +1,23 @@
+import {
+  Check,
+  CheckCircle2,
+  Copy,
+  KeyRound,
+  QrCode,
+  ShieldCheck,
+} from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { Text, XStack, YStack } from 'tamagui';
 
 import { authApi } from '@/app/api';
 import { errorMessage, type MfaSetupResponse } from '@/shared/domain';
-
-import styles from './MfaSetupModal.module.css';
+import {
+  ActionButton,
+  ModalFrame,
+  StatusBadge,
+  SurfaceCard,
+  TextField,
+} from '@/shared/ui/tamagui';
 
 type Props = {
   token: string;
@@ -14,8 +27,7 @@ type Props = {
 };
 
 /**
- * Configuração de Autenticação em 2 Etapas (MFA / TOTP) compatível com
- * Google Authenticator, Microsoft Authenticator, Authy, 1Password e similares.
+ * Configuração de Autenticação em 2 Etapas (MFA / TOTP) em Tamagui com ícones Lucide.
  */
 export function MfaSetupModal({
   token,
@@ -92,180 +104,223 @@ export function MfaSetupModal({
     }
   };
 
-  return createPortal(
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Autenticação em 2 etapas (MFA)"
-      data-scroll-lock="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !recoveryCodes) onClose();
-      }}
+  return (
+    <ModalFrame
+      title="Autenticação em 2 etapas (MFA)"
+      subtitle="Proteção adicional com aplicativo autenticador TOTP."
+      icon={
+        <KeyRound size={18} color="var(--accent-link)" aria-hidden={true} />
+      }
+      maxWidth={480}
+      closeDisabled={Boolean(recoveryCodes)}
+      zIndex={1350}
+      onClose={onClose}
     >
-      <div className={styles.modal}>
-        <div className={styles.header}>
-          <h2 className={styles.title}>🔐 Autenticação em 2 etapas (MFA)</h2>
-          <button
-            type="button"
-            className={styles.closeBtn}
-            aria-label="Fechar"
-            onClick={onClose}
+      {recoveryCodes ? (
+        <YStack gap="$3.5">
+          <StatusBadge
+            tone="success"
+            icon={<CheckCircle2 size={13} aria-hidden={true} />}
           >
-            ✕
-          </button>
-        </div>
-
-        <div className={styles.body}>
-          {recoveryCodes ? (
-            <>
-              <div className={styles.successBadge}>
-                ✅ Autenticação em 2 etapas ativada!
-              </div>
-              <p className={styles.desc}>
-                Guarde estes <strong>8 códigos de recuperação</strong> em um
-                local seguro. Cada código pode ser usado uma única vez caso você
-                perca acesso ao celular.
-              </p>
-              <div className={styles.codesGrid}>
-                {recoveryCodes.map((c) => (
-                  <code key={c} className={styles.recoveryCode}>
-                    {c}
-                  </code>
-                ))}
-              </div>
-              <div className={styles.btnRow}>
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={() => void copyText(recoveryCodes.join('\n'))}
-                >
-                  {copied ? '✓ Códigos copiados!' : 'Copiar todos os códigos'}
-                </button>
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  onClick={onClose}
-                >
-                  Já salvei, concluir
-                </button>
-              </div>
-            </>
-          ) : mfaEnabled ? (
-            <form
-              className={styles.form}
-              onSubmit={(e) => void handleDisable(e)}
-            >
-              <div className={styles.successBadge}>
-                🛡️ Proteção em 2 etapas ativa
-              </div>
-              <p className={styles.desc}>
-                Sua conta exige um código do aplicativo autenticador (Google
-                Authenticator, Microsoft Authenticator, Authy, etc.) ao entrar.
-                Para desativar, confirme sua senha e um código válido:
-              </p>
-              <input
-                type="password"
-                className={styles.input}
-                placeholder="Senha atual"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="Código de 6 dígitos ou código de recuperação"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                required
-              />
-              {error ? <p className={styles.error}>{error}</p> : null}
-              <button
-                type="submit"
-                className={styles.dangerBtn}
-                disabled={busy}
+            Autenticação em 2 etapas ativada
+          </StatusBadge>
+          <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
+            Guarde estes{' '}
+            <Text fontWeight="700" color="$textPrimary">
+              8 códigos de recuperação
+            </Text>{' '}
+            em um local seguro. Cada código pode ser usado uma única vez caso
+            você perca acesso ao celular.
+          </Text>
+          <XStack flexWrap="wrap" gap="$2">
+            {recoveryCodes.map((c) => (
+              <YStack
+                key={c}
+                flexBasis="47%"
+                flexGrow={1}
+                paddingVertical="$2"
+                paddingHorizontal="$3"
+                borderRadius="$md"
+                backgroundColor="$bgSurface"
+                borderWidth={1}
+                borderColor="$borderSubtle"
+                alignItems="center"
               >
-                {busy ? 'Desativando…' : 'Desativar autenticação em 2 etapas'}
-              </button>
-            </form>
-          ) : !setup ? (
-            <>
-              <p className={styles.desc}>
-                Adicione uma camada extra de proteção usando{' '}
-                <strong>Google Authenticator</strong>,{' '}
-                <strong>Microsoft Authenticator</strong>, <strong>Authy</strong>{' '}
-                ou qualquer aplicativo TOTP compatível.
-              </p>
-              {error ? <p className={styles.error}>{error}</p> : null}
-              <button
-                type="button"
-                className={styles.primaryBtn}
-                disabled={busy}
-                onClick={() => void startSetup()}
-              >
-                {busy
-                  ? 'Gerando QR Code…'
-                  : 'Configurar aplicativo autenticador'}
-              </button>
-            </>
-          ) : (
-            <form
-              className={styles.form}
-              onSubmit={(e) => void handleEnable(e)}
+                <Text
+                  fontFamily="$mono"
+                  fontSize="$3"
+                  fontWeight="700"
+                  color="$textPrimary"
+                  letterSpacing={1}
+                >
+                  {c}
+                </Text>
+              </YStack>
+            ))}
+          </XStack>
+          <XStack gap="$2.5" justifyContent="flex-end" flexWrap="wrap">
+            <ActionButton
+              variant="secondary"
+              size="sm"
+              icon={
+                copied ? (
+                  <Check size={14} aria-hidden={true} />
+                ) : (
+                  <Copy size={14} aria-hidden={true} />
+                )
+              }
+              onPress={() => void copyText(recoveryCodes.join('\n'))}
             >
-              <p className={styles.desc}>
-                1. Escaneie o QR Code abaixo no seu aplicativo autenticador (ou
-                copie a chave manual):
-              </p>
-              <div className={styles.qrBox}>
+              {copied ? 'Códigos copiados' : 'Copiar todos os códigos'}
+            </ActionButton>
+            <ActionButton size="sm" onPress={onClose}>
+              Já salvei, concluir
+            </ActionButton>
+          </XStack>
+        </YStack>
+      ) : mfaEnabled ? (
+        <form onSubmit={(e) => void handleDisable(e)}>
+          <YStack gap="$3.5">
+            <StatusBadge
+              tone="success"
+              icon={<ShieldCheck size={13} aria-hidden={true} />}
+            >
+              Proteção em 2 etapas ativa
+            </StatusBadge>
+            <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
+              Sua conta exige um código do aplicativo autenticador ao entrar.
+              Para desativar, confirme sua senha e um código válido:
+            </Text>
+            <TextField
+              id="mfa-disable-password"
+              label="Senha atual"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Digite sua senha atual"
+            />
+            <TextField
+              id="mfa-disable-code"
+              label="Código do autenticador ou recuperação"
+              value={code}
+              onChangeText={setCode}
+              placeholder="000000"
+              error={error}
+            />
+            <ActionButton
+              type="submit"
+              variant="danger"
+              loading={busy}
+              fullWidth
+            >
+              {busy ? 'Desativando…' : 'Desativar autenticação em 2 etapas'}
+            </ActionButton>
+          </YStack>
+        </form>
+      ) : !setup ? (
+        <YStack gap="$3.5">
+          <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
+            Adicione uma camada extra de proteção usando Google Authenticator,
+            Microsoft Authenticator, Authy ou qualquer aplicativo TOTP
+            compatível.
+          </Text>
+          {error ? (
+            <Text fontFamily="$body" fontSize="$3" color="$dangerText">
+              {error}
+            </Text>
+          ) : null}
+          <ActionButton
+            loading={busy}
+            fullWidth
+            icon={<QrCode size={15} aria-hidden={true} />}
+            onPress={() => void startSetup()}
+          >
+            {busy ? 'Gerando QR Code…' : 'Configurar aplicativo autenticador'}
+          </ActionButton>
+        </YStack>
+      ) : (
+        <form onSubmit={(e) => void handleEnable(e)}>
+          <YStack gap="$3.5">
+            <Text fontFamily="$body" fontSize="$3" color="$textSecondary">
+              1. Escaneie o QR Code abaixo no seu aplicativo autenticador ou
+              copie a chave manual:
+            </Text>
+            <SurfaceCard alignItems="center" padding="$4" gap="$3">
+              <YStack
+                padding="$2.5"
+                borderRadius="$lg"
+                backgroundColor="#ffffff"
+              >
                 <img
                   src={setup.qrDataUrl}
                   alt="QR Code para aplicativo autenticador"
-                  className={styles.qrImg}
+                  style={{ width: 176, height: 176, display: 'block' }}
                 />
-                <div className={styles.secretRow}>
-                  <code className={styles.secretText}>{setup.secret}</code>
-                  <button
-                    type="button"
-                    className={styles.copyBtn}
-                    onClick={() => void copyText(setup.secret)}
-                  >
-                    {copied ? 'Copiado!' : 'Copiar chave'}
-                  </button>
-                </div>
-              </div>
-
-              <p className={styles.desc}>
-                2. Digite o código de 6 dígitos gerado pelo aplicativo para
-                ativar:
-              </p>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                className={styles.codeInput}
-                placeholder="000000"
-                maxLength={6}
-                value={code}
-                onChange={(e) =>
-                  setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                }
-                autoFocus
-              />
-              {error ? <p className={styles.error}>{error}</p> : null}
-              <button
-                type="submit"
-                className={styles.primaryBtn}
-                disabled={busy || code.length !== 6}
+              </YStack>
+              <XStack
+                alignItems="center"
+                justifyContent="space-between"
+                gap="$2"
+                width="100%"
+                padding="$2.5"
+                borderRadius="$md"
+                backgroundColor="$bgSurfaceElevated"
+                borderWidth={1}
+                borderColor="$borderSubtle"
               >
-                {busy ? 'Validando…' : 'Ativar autenticação em 2 etapas'}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body,
+                <Text
+                  fontFamily="$mono"
+                  fontSize="$2"
+                  color="$textPrimary"
+                  flex={1}
+                  numberOfLines={1}
+                >
+                  {setup.secret}
+                </Text>
+                <ActionButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={
+                    copied ? (
+                      <Check size={13} aria-hidden={true} />
+                    ) : (
+                      <Copy size={13} aria-hidden={true} />
+                    )
+                  }
+                  onPress={() => void copyText(setup.secret)}
+                >
+                  {copied ? 'Copiado' : 'Copiar chave'}
+                </ActionButton>
+              </XStack>
+            </SurfaceCard>
+
+            <TextField
+              id="mfa-enable-code"
+              label="2. Código de 6 dígitos do aplicativo"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={6}
+              value={code}
+              onChangeText={(val) =>
+                setCode(val.replace(/\D/g, '').slice(0, 6))
+              }
+              error={error}
+              autoFocus
+            />
+
+            <ActionButton
+              type="submit"
+              loading={busy}
+              disabled={code.length !== 6}
+              fullWidth
+            >
+              {busy ? 'Validando…' : 'Ativar autenticação em 2 etapas'}
+            </ActionButton>
+          </YStack>
+        </form>
+      )}
+    </ModalFrame>
   );
 }

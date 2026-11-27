@@ -1,3 +1,4 @@
+import { Volume2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { DevicePopover } from '@/features/media/components/DevicePopover';
@@ -236,8 +237,10 @@ export function MobileCallBar({
             type="button"
             className={styles.toastAction}
             onClick={call.startAudio}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            🔊 Toque para liberar o som da chamada
+            <Volume2 size={14} aria-hidden={true} />
+            <span>Toque para liberar o som da chamada</span>
           </button>
         ) : null}
         {showMutedBanner ? (
@@ -259,7 +262,7 @@ export function MobileCallBar({
               aria-label="Fechar aviso"
               onClick={() => setDismissedSession(call.sessionId)}
             >
-              ✕
+              <X size={12} aria-hidden={true} />
             </button>
           </div>
         ) : null}

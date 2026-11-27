@@ -16,16 +16,21 @@ export type DeskRecord = {
 /** Mesinhas adotadas. Mesinha livre é a que não tem registro. */
 export interface DeskRepository {
   all(serverId?: string): Promise<DeskRecord[]>;
-  get(map: string, deskId: string): Promise<DeskRecord | undefined>;
-  byOwner(email: string): Promise<DeskRecord | undefined>;
+  get(
+    map: string,
+    deskId: string,
+    serverId?: string,
+  ): Promise<DeskRecord | undefined>;
+  byOwner(email: string, serverId?: string): Promise<DeskRecord | undefined>;
   /** Adota. Devolve false se a mesa já tem dono ou se a pessoa já tem outra mesa. */
   adopt(record: DeskRecord): Promise<boolean>;
-  release(map: string, deskId: string): Promise<boolean>;
+  release(map: string, deskId: string, serverId?: string): Promise<boolean>;
   setConfig(
     map: string,
     deskId: string,
     config: DeskConfig,
     at: number,
+    serverId?: string,
   ): Promise<boolean>;
   /** A pessoa mudou o nome ou o cargo: atualiza a mesa dela, se tiver. */
   setOwner(email: string, name: string, role: string): Promise<boolean>;

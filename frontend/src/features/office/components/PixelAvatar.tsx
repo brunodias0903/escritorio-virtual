@@ -252,7 +252,7 @@ export function PixelAvatar({
               <rect x={6} y={1} width={3} height={2} fill="#52ab3a" />
             </g>
           )}
-          {/* Ícone flutuante de status (☕ ou 🍽️) ao lado da cabeça */}
+          {/* Ícone vetorial flutuante de status (café ou almoço) ao lado da cabeça */}
           <g
             transform={`translate(14, ${top + 4 - (Math.floor(time / 600) % 2) * 2})`}
           >
@@ -267,9 +267,30 @@ export function PixelAvatar({
               stroke={player.status === 'coffee' ? '#e07a4b' : '#f39c12'}
               strokeWidth={1.2}
             />
-            <text x={0} y={3.5} fontSize={10} textAnchor="middle">
-              {player.status === 'coffee' ? '☕' : '🍽️'}
-            </text>
+            {player.status === 'coffee' ? (
+              <g
+                stroke="#f5c6aa"
+                strokeWidth={1.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              >
+                <path d="M-3.5 -1.5h6v3.5a2.5 2.5 0 0 1-2.5 2.5h-1a2.5 2.5 0 0 1-2.5-2.5z" />
+                <path d="M2.5 -0.8h1.2a1.3 1.3 0 0 1 0 2.6H2.5" />
+                <path d="M-1.8 -3.6v1M0.5 -3.6v1" />
+              </g>
+            ) : (
+              <g
+                stroke="#fde08a"
+                strokeWidth={1.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              >
+                <path d="M-2.4 -4v3.2M-3.6 -4v1.8a1.2 1.2 0 0 0 2.4 0V-4M-2.4 -0.8v4.8" />
+                <path d="M2.6 -4v8M2.6 -4c1.3 0.7 1.3 2.7 0 3.4" />
+              </g>
+            )}
           </g>
         </g>
       ) : null}

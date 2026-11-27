@@ -46,7 +46,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
     id: 'default',
     name: 'Cósmico (Padrão)',
     subtitle: 'Índigo profundo com destaque violeta e verde-água.',
-    badge: '✨',
+    badge: '◆',
     colors: {
       rail: '#0d102c',
       surface: '#1f1f36',
@@ -68,7 +68,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
     id: 'games',
     name: 'Arcade',
     subtitle: 'Preto gamer com neon magenta, roxo elétrico e ciano.',
-    badge: '🎮',
+    badge: '◆',
     colors: {
       rail: '#0f091d',
       surface: '#17102b',
@@ -90,7 +90,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
     id: 'fantasy',
     name: 'Reino da Floresta',
     subtitle: 'Verde-musgo antigo, pergaminho quente e ouro forjado.',
-    badge: '🌿',
+    badge: '◆',
     colors: {
       rail: '#0c1712',
       surface: '#16261f',
@@ -112,7 +112,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
     id: 'scifi',
     name: 'Ordem Estelar',
     subtitle: 'Casco espacial grafite com plasma azul e aço escovado.',
-    badge: '🚀',
+    badge: '◆',
     colors: {
       rail: '#070a11',
       surface: '#121826',

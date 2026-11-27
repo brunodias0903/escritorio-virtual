@@ -1,5 +1,6 @@
+import { Check, Globe, Link2, Lock, Plus, Server } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Text, XStack, YStack } from 'tamagui';
+import { Button, Tabs, Text, XStack, YStack } from 'tamagui';
 
 import { workspaceApi } from '@/app/api';
 import { errorMessage, type WorkspaceServer } from '@/shared/domain';
@@ -97,36 +98,132 @@ export function CreateServerModal({
           ? 'Configure um novo espaço para sua equipe trabalhar junta.'
           : 'Digite o código de convite recebido para acessar outro servidor.'
       }
+      icon={
+        mode === 'create' ? (
+          <Server size={18} color="var(--accent-link)" aria-hidden={true} />
+        ) : (
+          <Link2 size={18} color="var(--accent-link)" aria-hidden={true} />
+        )
+      }
       onClose={onClose}
-    >
-      <YStack gap="$4">
-        {canCreate ? (
-          <XStack gap="$2">
+      footer={
+        <>
+          <ActionButton variant="secondary" size="sm" onPress={onClose}>
+            Cancelar
+          </ActionButton>
+          {mode === 'create' ? (
             <ActionButton
-              flex={1}
-              variant={mode === 'create' ? 'primary' : 'secondary'}
-              onPress={() => {
-                setMode('create');
-                setError('');
-              }}
+              size="sm"
+              loading={busy}
+              icon={<Plus size={14} aria-hidden={true} />}
+              onPress={() => void handleCreate()}
             >
               Criar servidor
             </ActionButton>
+          ) : (
             <ActionButton
-              flex={1}
-              variant={mode === 'join' ? 'primary' : 'secondary'}
-              onPress={() => {
-                setMode('join');
-                setError('');
-              }}
+              size="sm"
+              loading={busy}
+              icon={<Link2 size={14} aria-hidden={true} />}
+              onPress={() => void handleJoin()}
             >
-              Entrar com convite
+              Entrar no servidor
             </ActionButton>
-          </XStack>
+          )}
+        </>
+      }
+    >
+      <YStack gap="$4">
+        {canCreate ? (
+          <Tabs
+            value={mode}
+            onValueChange={(val) => {
+              setMode(val as 'create' | 'join');
+              setError('');
+            }}
+            orientation="horizontal"
+          >
+            <Tabs.List
+              backgroundColor="$bgSurface"
+              padding="$1"
+              borderRadius="$lg"
+              borderWidth={1}
+              borderColor="$borderSubtle"
+              gap="$1"
+              width="100%"
+            >
+              <Tabs.Tab value="create" asChild flex={1}>
+                <Button
+                  flex={1}
+                  paddingVertical="$2"
+                  borderRadius="$md"
+                  backgroundColor={
+                    mode === 'create' ? '$accentChip' : 'transparent'
+                  }
+                  borderWidth={1}
+                  borderColor={
+                    mode === 'create' ? '$accentBorderSoft' : 'transparent'
+                  }
+                  cursor="pointer"
+                >
+                  <XStack
+                    alignItems="center"
+                    justifyContent="center"
+                    gap="$1.5"
+                  >
+                    <Server size={14} aria-hidden={true} />
+                    <Text
+                      fontFamily="$body"
+                      fontSize="$3"
+                      fontWeight={mode === 'create' ? '700' : '500'}
+                      color={
+                        mode === 'create' ? '$textPrimary' : '$textSecondary'
+                      }
+                    >
+                      Criar servidor
+                    </Text>
+                  </XStack>
+                </Button>
+              </Tabs.Tab>
+              <Tabs.Tab value="join" asChild flex={1}>
+                <Button
+                  flex={1}
+                  paddingVertical="$2"
+                  borderRadius="$md"
+                  backgroundColor={
+                    mode === 'join' ? '$accentChip' : 'transparent'
+                  }
+                  borderWidth={1}
+                  borderColor={
+                    mode === 'join' ? '$accentBorderSoft' : 'transparent'
+                  }
+                  cursor="pointer"
+                >
+                  <XStack
+                    alignItems="center"
+                    justifyContent="center"
+                    gap="$1.5"
+                  >
+                    <Link2 size={14} aria-hidden={true} />
+                    <Text
+                      fontFamily="$body"
+                      fontSize="$3"
+                      fontWeight={mode === 'join' ? '700' : '500'}
+                      color={
+                        mode === 'join' ? '$textPrimary' : '$textSecondary'
+                      }
+                    >
+                      Entrar com convite
+                    </Text>
+                  </XStack>
+                </Button>
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs>
         ) : null}
 
         {mode === 'create' ? (
-          <>
+          <YStack gap="$3.5">
             <SurfaceCard alignItems="center" flexDirection="row" gap="$3">
               <YStack
                 width={48}
@@ -199,18 +296,26 @@ export function CreateServerModal({
                   return (
                     <Button
                       key={color}
-                      width={32}
-                      height={32}
+                      width={34}
+                      height={34}
+                      padding={0}
                       circular
                       backgroundColor={color}
-                      borderWidth={selected ? 3 : 1}
+                      borderWidth={selected ? 2 : 1}
                       borderColor={
                         selected ? '#ffffff' : 'rgba(255,255,255,0.2)'
                       }
                       aria-label={`Selecionar cor ${color}`}
                       aria-pressed={selected}
+                      cursor="pointer"
+                      alignItems="center"
+                      justifyContent="center"
                       onPress={() => setAccentColor(color)}
-                    />
+                    >
+                      {selected ? (
+                        <Check size={15} color="#ffffff" aria-hidden={true} />
+                      ) : null}
+                    </Button>
                   );
                 })}
               </XStack>
@@ -228,54 +333,38 @@ export function CreateServerModal({
               <XStack gap="$2">
                 <ActionButton
                   flex={1}
+                  size="sm"
                   variant={visibility === 'invite' ? 'primary' : 'secondary'}
+                  icon={<Lock size={14} aria-hidden={true} />}
                   onPress={() => setVisibility('invite')}
                 >
                   Por convite
                 </ActionButton>
                 <ActionButton
                   flex={1}
+                  size="sm"
                   variant={visibility === 'open' ? 'primary' : 'secondary'}
+                  icon={<Globe size={14} aria-hidden={true} />}
                   onPress={() => setVisibility('open')}
                 >
                   Aberto
                 </ActionButton>
               </XStack>
             </YStack>
-
-            <XStack gap="$2.5" justifyContent="flex-end" marginTop="$1">
-              <ActionButton variant="secondary" onPress={onClose}>
-                Cancelar
-              </ActionButton>
-              <ActionButton loading={busy} onPress={() => void handleCreate()}>
-                Criar servidor
-              </ActionButton>
-            </XStack>
-          </>
+          </YStack>
         ) : (
-          <>
-            <TextField
-              id="join-server-code"
-              label="Código de convite"
-              value={inviteCode}
-              onChangeText={(val) => {
-                setInviteCode(val.toUpperCase());
-                if (error) setError('');
-              }}
-              placeholder="Ex.: A1B2C3D4"
-              maxLength={32}
-              error={error}
-            />
-
-            <XStack gap="$2.5" justifyContent="flex-end">
-              <ActionButton variant="secondary" onPress={onClose}>
-                Cancelar
-              </ActionButton>
-              <ActionButton loading={busy} onPress={() => void handleJoin()}>
-                Entrar no servidor
-              </ActionButton>
-            </XStack>
-          </>
+          <TextField
+            id="join-server-code"
+            label="Código de convite"
+            value={inviteCode}
+            onChangeText={(val) => {
+              setInviteCode(val.toUpperCase());
+              if (error) setError('');
+            }}
+            placeholder="Ex.: A1B2C3D4"
+            maxLength={32}
+            error={error}
+          />
         )}
       </YStack>
     </ModalFrame>

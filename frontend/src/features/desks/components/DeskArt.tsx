@@ -1053,7 +1053,7 @@ export function DeskTooltip({ desk, config, owner }: TooltipProps) {
           fill={locked ? '#ff9aa8' : '#9af5e6'}
           textAnchor="middle"
         >
-          {locked ? '🔒 Bloqueada pelo dono' : '🔓 Aberta'}
+          {locked ? 'Bloqueada pelo dono' : 'Aberta'}
         </text>
       ) : null}
     </g>

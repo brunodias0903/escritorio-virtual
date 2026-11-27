@@ -1,17 +1,19 @@
 import { useState, type ReactNode } from 'react';
 import { Input, Label, Text, XStack, YStack, type InputProps } from 'tamagui';
 
-type Props = Omit<InputProps, 'onChangeText'> & {
-  label: string;
+type Props = Omit<InputProps, 'onChangeText' | 'size'> & {
+  label?: string;
   value: string;
   onChangeText: (value: string) => void;
   hint?: string;
   error?: string;
   leadingIcon?: ReactNode;
+  trailingElement?: ReactNode;
+  compact?: boolean;
 };
 
 /**
- * Campo de entrada usando `Input` e `Label` originais do Tamagui.
+ * Campo de entrada construído com `Input` e `Label` originais do Tamagui.
  */
 export function TextField({
   label,
@@ -20,6 +22,8 @@ export function TextField({
   hint,
   error,
   leadingIcon,
+  trailingElement,
+  compact = false,
   id,
   ...rest
 }: Props) {
@@ -27,15 +31,18 @@ export function TextField({
 
   return (
     <YStack gap="$1.5" width="100%">
-      <Label
-        htmlFor={id}
-        fontFamily="$body"
-        fontSize="$3"
-        fontWeight="600"
-        color="$textSecondary"
-      >
-        {label}
-      </Label>
+      {label ? (
+        <Label
+          htmlFor={id}
+          fontFamily="$body"
+          fontSize="$3"
+          fontWeight="600"
+          color="$textSecondary"
+          lineHeight={16}
+        >
+          {label}
+        </Label>
+      ) : null}
       <XStack
         alignItems="center"
         gap="$2"
@@ -46,10 +53,10 @@ export function TextField({
         borderWidth={1}
         borderRadius="$md"
         paddingHorizontal="$3"
-        minHeight={42}
+        minHeight={compact ? 36 : 40}
       >
         {leadingIcon ? (
-          <XStack alignItems="center" opacity={0.8}>
+          <XStack alignItems="center" opacity={0.78} flexShrink={0}>
             {leadingIcon}
           </XStack>
         ) : null}
@@ -63,13 +70,20 @@ export function TextField({
           backgroundColor="transparent"
           borderWidth={0}
           paddingHorizontal={0}
+          paddingVertical={0}
+          height={compact ? 34 : 38}
           color="$textPrimary"
           placeholderTextColor="$textPlaceholder"
           fontFamily="$body"
-          fontSize="$4"
+          fontSize={compact ? '$3' : '$4'}
           outlineStyle="none"
           {...rest}
         />
+        {trailingElement ? (
+          <XStack alignItems="center" flexShrink={0}>
+            {trailingElement}
+          </XStack>
+        ) : null}
       </XStack>
       {error ? (
         <Text fontFamily="$body" fontSize="$2" color="$dangerText" role="alert">

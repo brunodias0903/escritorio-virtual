@@ -1,3 +1,4 @@
+import { ArrowLeft, GripVertical, Hash, Lock } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -368,11 +369,21 @@ export function SlackChatView({
                                   aria-hidden="true"
                                   title="Arraste para reordenar"
                                 >
-                                  ⋮⋮
+                                  <GripVertical size={12} aria-hidden={true} />
                                 </span>
                               ) : null}
-                              <span className={styles.hash}>
-                                {restricted ? '🔒' : '#'}
+                              <span
+                                className={styles.hash}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                {restricted ? (
+                                  <Lock size={13} aria-hidden={true} />
+                                ) : (
+                                  <Hash size={13} aria-hidden={true} />
+                                )}
                               </span>
                               <span
                                 className={`${styles.itemLabel} ${bold ? styles.itemBold : ''}`}
@@ -528,8 +539,14 @@ export function SlackChatView({
                     type="button"
                     onClick={closeThread}
                     className={styles.back}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                    }}
                   >
-                    ← Voltar
+                    <ArrowLeft size={14} aria-hidden={true} />
+                    <span>Voltar</span>
                   </button>
                   <span className={styles.chatTitle}>
                     Thread em {prefix}
@@ -538,11 +555,23 @@ export function SlackChatView({
                 </>
               ) : (
                 <div className={styles.chatHeaderMeta}>
-                  <span className={styles.chatTitle}>
-                    {channel.kind === 'public' && isRestrictedChannel(channel)
-                      ? '🔒'
-                      : prefix}{' '}
-                    {title}
+                  <span
+                    className={styles.chatTitle}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    {channel.kind === 'public' &&
+                    isRestrictedChannel(channel) ? (
+                      <Lock size={14} aria-hidden={true} />
+                    ) : channel.kind === 'public' ? (
+                      <Hash size={14} aria-hidden={true} />
+                    ) : (
+                      prefix
+                    )}
+                    <span>{title}</span>
                   </span>
                   {channel.topic ? (
                     <span className={styles.chatTopic}>{channel.topic}</span>
@@ -639,8 +668,17 @@ export function SlackChatView({
             ) : null}
 
             {!canSendInActive ? (
-              <div className={styles.readOnlyNotice}>
-                🔒 {t('chat.readOnlyChannel', { channel: title })}
+              <div
+                className={styles.readOnlyNotice}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <Lock size={13} aria-hidden={true} />
+                <span>{t('chat.readOnlyChannel', { channel: title })}</span>
               </div>
             ) : (
               <Composer

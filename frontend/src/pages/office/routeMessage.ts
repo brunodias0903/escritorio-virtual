@@ -60,7 +60,7 @@ export function routeServerMessage(
         useAccessibilityStore.getState().prefs.visualAlerts &&
         message.message.authorId !== chat.me
       ) {
-        notify(`🔔 Nova mensagem de ${message.message.author} no chat.`);
+        notify(`Nova mensagem de ${message.message.author} no chat.`);
       }
       break;
     case 'chatUpdated':

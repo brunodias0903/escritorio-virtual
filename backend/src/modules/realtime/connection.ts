@@ -233,9 +233,13 @@ export class Connection {
     if (!result.ok) {
       return this.deps.send({ type: 'deskError', code: result.error });
     }
-    this.deps.office.setDeskLock(result.value);
+    this.deps.office.setDeskLock(result.value, this.serverId);
     await this.deps.cluster.dispatch(this.deps.id, [
-      { to: 'all', message: { type: 'desk', desk: result.value } },
+      {
+        to: 'all',
+        serverId: this.serverId,
+        message: { type: 'desk', desk: result.value },
+      },
     ]);
   }
 
@@ -294,11 +298,14 @@ export class Connection {
       this.deps.send({ type: 'multiDeviceNotice', activeElsewhere: true });
     }
     // A pessoa mudou nome ou cargo na conta: a mesa dela mostra os novos para todos.
-    const desk = await this.deps.desks.syncOwner({
-      email: claims.email,
-      name: office.players.get(id)!.name,
-      role: claims.role,
-    });
+    const desk = await this.deps.desks.syncOwner(
+      {
+        email: claims.email,
+        name: office.players.get(id)!.name,
+        role: claims.role,
+      },
+      this.serverId,
+    );
     if (desk) {
       await cluster.dispatch(id, [
         { to: 'all', message: { type: 'desk', desk } },
@@ -352,11 +359,18 @@ export class Connection {
         if (!result.ok) {
           // Restrição automática no chat (mute por abuso/ódio): remove a mesa do usuário.
           if (result.error === 'chat_muted') {
-            const freed = await this.deps.desks.releaseByOwner(claims.email);
+            const freed = await this.deps.desks.releaseByOwner(
+              claims.email,
+              this.serverId,
+            );
             if (freed) {
-              this.deps.office.setDeskLock(freed);
+              this.deps.office.setDeskLock(freed, this.serverId);
               await cluster.dispatch(id, [
-                { to: 'all', message: { type: 'desk', desk: freed } },
+                {
+                  to: 'all',
+                  serverId: this.serverId,
+                  message: { type: 'desk', desk: freed },
+                },
               ]);
             }
           }
@@ -557,6 +571,7 @@ export class Connection {
           { email: claims.email, name: player.name, role: claims.role },
           player,
           message.deskId,
+          this.serverId,
         );
         return this.announceDesk(result);
       }
@@ -567,6 +582,7 @@ export class Connection {
           { email: claims.email, admin: claims.admin || canManageDesks(tiers) },
           player.map,
           message.deskId,
+          this.serverId,
         );
         return this.announceDesk(result);
       }
@@ -577,13 +593,14 @@ export class Connection {
           player.map,
           message.deskId,
           message.config,
+          this.serverId,
         );
         return this.announceDesk(result);
       }
 
       case 'deskMove': {
         const occupied = office
-          .playersIn(player.map)
+          .playersIn(player.map, undefined, this.serverId)
           .map((p) => ({ x: p.x, y: p.y }));
         const result = await this.deps.desks.move(
           claims.email,
@@ -592,6 +609,7 @@ export class Connection {
           message.col,
           message.row,
           occupied,
+          this.serverId,
         );
         return this.announceDesk(result);
       }
@@ -615,15 +633,18 @@ export class Connection {
         // Cada zona (mesa ou sala de reunião) tem a sua chamada.
         // Na estrada, só conversa quem está perto; sozinho, nenhuma.
         const zone = callKey(
-          office.mapOf(player.map),
+          office.mapOf(player.map, this.serverId),
           player,
-          office.playersIn(player.map),
+          office.playersIn(player.map, undefined, this.serverId),
         );
         if (!zone) return send({ type: 'mediaNone' });
         const access = await media.accessFor(
           id,
           player.name,
-          callRoomName(player.map, zone),
+          callRoomName(
+            player.map,
+            this.serverId === 'default' ? zone : `${this.serverId}:${zone}`,
+          ),
         );
         return send(
           access

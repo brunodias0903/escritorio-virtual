@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Check, Palette } from 'lucide-react';
 import { Text, XStack, YStack } from 'tamagui';
 
 import { ActionButton, ModalFrame, SurfaceCard } from '@/shared/ui/tamagui';
@@ -11,8 +11,7 @@ type Props = {
 };
 
 /**
- * Modal de tema e aparência com grade espaçada, sem textos longos e
- * seletor Claro/Escuro exibido apenas nos presets que suportam modo claro.
+ * Modal de tema e aparência em Tamagui com grade de presets e alternância Claro/Escuro.
  */
 export function ThemeModal({ onClose }: Props) {
   const presetId = useThemeStore((s) => s.presetId);
@@ -21,80 +20,18 @@ export function ThemeModal({ onClose }: Props) {
   const setMode = useThemeStore((s) => s.setMode);
   const canToggleLight = supportsLightMode(presetId);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
   return (
-    <ModalFrame title="Tema e aparência" maxWidth={720} onClose={onClose}>
-      <YStack gap="$4">
-        <XStack flexWrap="wrap" gap="$3">
-          {THEME_PRESETS.map((preset) => {
-            const active = preset.id === presetId;
-            return (
-              <SurfaceCard
-                key={preset.id}
-                role="button"
-                tabIndex={0}
-                aria-pressed={active}
-                onPress={() => selectPreset(preset.id)}
-                flexBasis="47%"
-                flexGrow={1}
-                minWidth={260}
-                padding="$4"
-                backgroundColor={active ? '$bgControlHover' : '$bgSurface'}
-                borderWidth={active ? 2 : 1}
-                borderColor={active ? '$accent' : '$borderSubtle'}
-                cursor="pointer"
-              >
-                <XStack
-                  alignItems="center"
-                  justifyContent="space-between"
-                  gap="$3"
-                >
-                  <Text
-                    fontFamily="$heading"
-                    fontSize="$4"
-                    fontWeight="700"
-                    color="$textPrimary"
-                  >
-                    {preset.name}
-                  </Text>
-
-                  <XStack gap="$1.5" aria-hidden={true}>
-                    {[
-                      preset.colors.rail,
-                      preset.colors.surface,
-                      preset.colors.accent,
-                      preset.colors.presence,
-                    ].map((hex, index) => (
-                      <YStack
-                        key={index}
-                        width={12}
-                        height={12}
-                        borderRadius="$pill"
-                        backgroundColor={hex}
-                        borderWidth={1}
-                        borderColor="$borderSubtle"
-                      />
-                    ))}
-                  </XStack>
-                </XStack>
-              </SurfaceCard>
-            );
-          })}
-        </XStack>
-
+    <ModalFrame
+      title="Tema e aparência"
+      subtitle="Personalize a paleta de cores da interface."
+      icon={<Palette size={18} color="var(--accent-link)" aria-hidden={true} />}
+      maxWidth={720}
+      onClose={onClose}
+      footer={
         <XStack
           justifyContent={canToggleLight ? 'space-between' : 'flex-end'}
           alignItems="center"
-          paddingTop="$3"
-          borderTopWidth={1}
-          borderTopColor="$borderSubtle"
+          width="100%"
           gap="$3"
         >
           {canToggleLight ? (
@@ -119,9 +56,84 @@ export function ThemeModal({ onClose }: Props) {
             </XStack>
           ) : null}
 
-          <ActionButton onPress={onClose}>Concluir</ActionButton>
+          <ActionButton size="sm" onPress={onClose}>
+            Concluir
+          </ActionButton>
         </XStack>
-      </YStack>
+      }
+    >
+      <XStack flexWrap="wrap" gap="$3">
+        {THEME_PRESETS.map((preset) => {
+          const active = preset.id === presetId;
+          return (
+            <SurfaceCard
+              key={preset.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={active}
+              onPress={() => selectPreset(preset.id)}
+              flexBasis="47%"
+              flexGrow={1}
+              minWidth={250}
+              padding="$3.5"
+              backgroundColor={active ? '$bgControlHover' : '$bgSurface'}
+              borderWidth={active ? 2 : 1}
+              borderColor={active ? '$accent' : '$borderSubtle'}
+              cursor="pointer"
+              gap="$2"
+            >
+              <XStack
+                alignItems="center"
+                justifyContent="space-between"
+                gap="$2.5"
+              >
+                <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+                  {active ? (
+                    <YStack
+                      width={18}
+                      height={18}
+                      borderRadius="$pill"
+                      backgroundColor="$accent"
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      <Check size={11} color="#ffffff" aria-hidden={true} />
+                    </YStack>
+                  ) : null}
+                  <Text
+                    fontFamily="$heading"
+                    fontSize="$4"
+                    fontWeight="700"
+                    color="$textPrimary"
+                    numberOfLines={1}
+                  >
+                    {preset.name}
+                  </Text>
+                </XStack>
+
+                <XStack gap="$1.5" aria-hidden={true}>
+                  {[
+                    preset.colors.rail,
+                    preset.colors.surface,
+                    preset.colors.accent,
+                    preset.colors.presence,
+                  ].map((hex, index) => (
+                    <YStack
+                      key={index}
+                      width={13}
+                      height={13}
+                      borderRadius="$pill"
+                      backgroundColor={hex}
+                      borderWidth={1}
+                      borderColor="$borderSubtle"
+                    />
+                  ))}
+                </XStack>
+              </XStack>
+            </SurfaceCard>
+          );
+        })}
+      </XStack>
     </ModalFrame>
   );
 }

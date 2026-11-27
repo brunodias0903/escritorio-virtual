@@ -1,5 +1,6 @@
+import { Accessibility, Check, Lock, RotateCcw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Switch, Text, XStack, YStack } from 'tamagui';
+import { Button, Separator, Text, XStack, YStack } from 'tamagui';
 
 import {
   ACCESSIBILITY_NEEDS,
@@ -9,7 +10,12 @@ import {
   type AccessibilityPrefs,
   type ColorblindMode,
 } from '@/shared/domain';
-import { ActionButton, ModalFrame, SurfaceCard } from '@/shared/ui/tamagui';
+import {
+  ActionButton,
+  ModalFrame,
+  SettingSwitchRow,
+  SurfaceCard,
+} from '@/shared/ui/tamagui';
 
 import {
   recommendedPrefsForNeeds,
@@ -32,65 +38,8 @@ type Props = {
   onClose: () => void;
 };
 
-function ToggleRow({
-  title,
-  description,
-  checked,
-  onCheckedChange,
-}: {
-  title: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (next: boolean) => void;
-}) {
-  return (
-    <XStack
-      alignItems="center"
-      justifyContent="space-between"
-      gap="$3"
-      padding="$3"
-      borderRadius="$lg"
-      backgroundColor="$bgSurface"
-      borderColor="$borderSubtle"
-      borderWidth={1}
-    >
-      <YStack flex={1} gap="$0.5">
-        <Text
-          fontFamily="$body"
-          fontSize="$4"
-          fontWeight="600"
-          color="$textPrimary"
-        >
-          {title}
-        </Text>
-        <Text fontFamily="$body" fontSize="$2" color="$textMuted">
-          {description}
-        </Text>
-      </YStack>
-      <Switch
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        backgroundColor={checked ? '$accent' : '$bgControl'}
-        borderColor="$borderSubtle"
-        borderWidth={1}
-        width={44}
-        height={24}
-        padding={2}
-      >
-        <Switch.Thumb
-          backgroundColor="#ffffff"
-          width={18}
-          height={18}
-          borderRadius="$pill"
-        />
-      </Switch>
-    </XStack>
-  );
-}
-
 /**
- * Painel de Acessibilidade (WCAG / LBI) construído com Tamagui:
- * permite ativar recursos em tempo real e registrar necessidades privadas (LGPD Art. 11).
+ * Painel de Acessibilidade (WCAG / LBI) construído com Tamagui e ícones Lucide.
  */
 export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
   const prefs = useAccessibilityStore((s) => s.prefs);
@@ -121,8 +70,43 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
     <ModalFrame
       title="Acessibilidade"
       subtitle="Ajuste a interface em tempo real para o seu conforto visual, auditivo, motor e cognitivo."
-      maxWidth={600}
+      icon={
+        <Accessibility
+          size={18}
+          color="var(--accent-link)"
+          aria-hidden={true}
+        />
+      }
+      maxWidth={620}
+      zIndex={1350}
       onClose={onClose}
+      footer={
+        <XStack
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+          gap="$3"
+        >
+          <ActionButton
+            variant="ghost"
+            size="sm"
+            icon={<RotateCcw size={14} aria-hidden={true} />}
+            onPress={() => {
+              reset();
+              setNeeds([]);
+            }}
+          >
+            Restaurar padrão
+          </ActionButton>
+          <ActionButton
+            size="sm"
+            loading={saving}
+            onPress={() => void handleSave()}
+          >
+            {saving ? 'Salvando…' : 'Salvar na conta'}
+          </ActionButton>
+        </XStack>
+      }
     >
       <YStack gap="$4">
         <YStack gap="$2">
@@ -135,31 +119,31 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
             Recursos ativos na tela
           </Text>
 
-          <ToggleRow
+          <SettingSwitchRow
             title="Alto contraste e foco reforçado"
             description="Aumenta o contraste de bordas, textos e navegação por teclado."
             checked={prefs.highContrast}
             onCheckedChange={(highContrast) => setPrefs({ highContrast })}
           />
-          <ToggleRow
+          <SettingSwitchRow
             title="Reduzir animações e movimento"
             description="Desativa transições, pulsações e giro 3D (conforto sensorial)."
             checked={prefs.reducedMotion}
             onCheckedChange={(reducedMotion) => setPrefs({ reducedMotion })}
           />
-          <ToggleRow
+          <SettingSwitchRow
             title="Texto ampliado"
             description="Aumenta o tamanho base dos textos em toda a interface."
             checked={prefs.largeText}
             onCheckedChange={(largeText) => setPrefs({ largeText })}
           />
-          <ToggleRow
+          <SettingSwitchRow
             title="Leitura facilitada (dislexia / TDAH)"
             description="Amplia espaçamento entre letras, palavras e linhas."
             checked={prefs.dyslexiaFont}
             onCheckedChange={(dyslexiaFont) => setPrefs({ dyslexiaFont })}
           />
-          <ToggleRow
+          <SettingSwitchRow
             title="Alertas visuais para mensagens e menções"
             description="Exibe avisos visuais destacados além de notificações sonoras."
             checked={prefs.visualAlerts}
@@ -181,7 +165,6 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
                 return (
                   <Button
                     key={mode}
-                    type="button"
                     aria-pressed={active}
                     paddingHorizontal="$3"
                     paddingVertical="$2"
@@ -189,6 +172,7 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
                     backgroundColor={active ? '$accent' : '$bgControl'}
                     borderColor={active ? '$accent' : '$borderSubtle'}
                     borderWidth={1}
+                    cursor="pointer"
                     onPress={() => setPrefs({ colorblindMode: mode })}
                   >
                     <Text
@@ -206,6 +190,8 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
           </YStack>
         </YStack>
 
+        <Separator borderColor="$borderSubtle" />
+
         <SurfaceCard gap="$2.5">
           <Text
             fontFamily="$heading"
@@ -215,18 +201,25 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
           >
             Necessidades de acessibilidade (opcional e privado)
           </Text>
-          <Text fontFamily="$body" fontSize="$2" color="$textMuted">
-            🔒 Informação estritamente privada (LGPD Art. 11) — nunca exibida
-            publicamente a outros usuários. Serve apenas para sugerir os
-            melhores recursos para você.
-          </Text>
+          <XStack alignItems="flex-start" gap="$2">
+            <Lock
+              size={14}
+              color="var(--text-muted)"
+              aria-hidden={true}
+              style={{ marginTop: 2, flexShrink: 0 }}
+            />
+            <Text fontFamily="$body" fontSize="$2" color="$textMuted" flex={1}>
+              Informação estritamente privada (LGPD Art. 11) — nunca exibida
+              publicamente a outros usuários. Serve apenas para sugerir os
+              melhores recursos para você.
+            </Text>
+          </XStack>
           <XStack flexWrap="wrap" gap="$2">
             {ACCESSIBILITY_NEEDS.map((need) => {
               const active = needs.includes(need);
               return (
                 <Button
                   key={need}
-                  type="button"
                   aria-pressed={active}
                   paddingHorizontal="$3"
                   paddingVertical="$2"
@@ -234,48 +227,37 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
                   backgroundColor={active ? '$accentChip' : '$bgControl'}
                   borderColor={active ? '$accent' : '$borderSubtle'}
                   borderWidth={1}
+                  cursor="pointer"
                   onPress={() => toggleNeed(need)}
                 >
-                  <Text
-                    fontFamily="$body"
-                    fontSize="$2"
-                    fontWeight="600"
-                    color={active ? '#ffffff' : '$textSecondary'}
-                  >
-                    {active ? '✓ ' : ''}
-                    {ACCESSIBILITY_NEED_LABELS[need]}
-                  </Text>
+                  <XStack alignItems="center" gap="$1.5">
+                    {active ? (
+                      <Check size={12} color="#ffffff" aria-hidden={true} />
+                    ) : null}
+                    <Text
+                      fontFamily="$body"
+                      fontSize="$2"
+                      fontWeight="600"
+                      color={active ? '#ffffff' : '$textSecondary'}
+                    >
+                      {ACCESSIBILITY_NEED_LABELS[need]}
+                    </Text>
+                  </XStack>
                 </Button>
               );
             })}
           </XStack>
           {needs.length > 0 ? (
-            <ActionButton variant="secondary" onPress={applyRecommended}>
-              ✨ Ativar recursos recomendados para minhas seleções
+            <ActionButton
+              variant="secondary"
+              size="sm"
+              icon={<Sparkles size={14} aria-hidden={true} />}
+              onPress={applyRecommended}
+            >
+              Ativar recursos recomendados para minhas seleções
             </ActionButton>
           ) : null}
         </SurfaceCard>
-
-        <XStack
-          justifyContent="space-between"
-          alignItems="center"
-          paddingTop="$2"
-          borderTopWidth={1}
-          borderTopColor="$borderSubtle"
-        >
-          <ActionButton
-            variant="ghost"
-            onPress={() => {
-              reset();
-              setNeeds([]);
-            }}
-          >
-            Restaurar padrão
-          </ActionButton>
-          <ActionButton loading={saving} onPress={() => void handleSave()}>
-            {saving ? 'Salvando…' : 'Salvar na conta'}
-          </ActionButton>
-        </XStack>
       </YStack>
     </ModalFrame>
   );

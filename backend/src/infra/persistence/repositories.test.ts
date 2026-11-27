@@ -598,6 +598,7 @@ describe.each(suites)('repositórios (%s)', (_name, setup) => {
     const record = (deskId: string, email: string, map = 'lobby') => ({
       map,
       deskId,
+      serverId: 'default',
       ownerEmail: email,
       ownerName: email.split('@')[0]!,
       ownerRole: 'Dev',

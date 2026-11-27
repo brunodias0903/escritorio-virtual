@@ -255,4 +255,29 @@ describe('mover mesa', () => {
       error: 'invalid_desk_position',
     });
   });
+
+  it('isola mesas por serverId permitindo mesma mesa e mesmo dono em servidores diferentes', async () => {
+    expect(
+      await service.adopt(ANA, AT_DESK_1, 'mesa-1', 'default'),
+    ).toMatchObject({
+      ok: true,
+    });
+    expect(
+      await service.adopt(ANA, AT_DESK_1, 'mesa-1', 'srv-2'),
+    ).toMatchObject({
+      ok: true,
+    });
+    expect(await service.list('default')).toHaveLength(1);
+    expect(await service.list('srv-2')).toHaveLength(1);
+    expect(
+      await service.release(
+        { ...ANA, admin: false },
+        'lobby',
+        'mesa-1',
+        'srv-2',
+      ),
+    ).toMatchObject({ ok: true });
+    expect(await service.list('default')).toHaveLength(1);
+    expect(await service.list('srv-2')).toEqual([]);
+  });
 });
