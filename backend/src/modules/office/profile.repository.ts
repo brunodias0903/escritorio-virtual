@@ -17,8 +17,14 @@ export interface ProfileRepository {
   /** Cria ou atualiza o nome e a hora do último acesso. Não mexe na aparência. */
   touch(email: string, name: string, at: number): Promise<void>;
   setAppearance(email: string, appearance: Appearance): Promise<void>;
-  /** Guarda onde a pessoa está, para ela voltar ao mesmo lugar ao entrar de novo. */
-  setPosition(email: string, position: SavedPosition): Promise<void>;
+  /** Guarda onde a pessoa está em um servidor, para ela voltar ao mesmo lugar ao entrar de novo. */
+  setPosition(
+    email: string,
+    position: SavedPosition,
+    serverId?: string,
+  ): Promise<void>;
+  /** Recupera a última posição salva da pessoa no servidor informado. */
+  getPosition(email: string, serverId?: string): Promise<SavedPosition | null>;
   /** Perfis cujo início do e-mail (antes do @) está na lista. */
   byHandles(handles: string[]): Promise<Profile[]>;
   directory(limit: number): Promise<Profile[]>;

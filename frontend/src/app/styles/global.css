@@ -152,6 +152,12 @@ select:focus-visible {
   }
 }
 
+@keyframes dsIconSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* --- Recursos de Acessibilidade (WCAG / LBI) -------------------------------- */
 
 :root[data-high-contrast='true'] {

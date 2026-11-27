@@ -263,11 +263,15 @@ export class Connection {
     const player = this.deps.office.players.get(this.deps.id);
     if (!player || !this.claims) return;
     this.savedAt = this.now();
-    await this.deps.profiles.setPosition(this.claims.email, {
-      map: player.map,
-      x: player.x,
-      y: player.y,
-    });
+    await this.deps.profiles.setPosition(
+      this.claims.email,
+      {
+        map: player.map,
+        x: player.x,
+        y: player.y,
+      },
+      this.serverId,
+    );
   }
 
   /** Avisa todo mundo da mudança numa mesinha, ou só quem pediu do erro. */
@@ -308,6 +312,10 @@ export class Connection {
 
     await profiles.touch(claims.email, claims.name, this.now());
     const profile = await profiles.get(claims.email);
+    const savedPosition = await profiles.getPosition(
+      claims.email,
+      this.serverId,
+    );
     office.replaceRemote(await cluster.remotePlayers());
 
     this.deps.attach();
@@ -316,7 +324,7 @@ export class Connection {
       claims.name,
       claims.email,
       profile?.appearance ?? defaultAppearance(claims.email),
-      profile?.position,
+      savedPosition,
       this.serverId,
     );
     this.state = 'joined';

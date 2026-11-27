@@ -564,6 +564,27 @@ describe.each(suites)('repositórios (%s)', (_name, setup) => {
         x: 176,
         y: 304,
       });
+      expect(await profiles.getPosition('ana@x.com', 'default')).toEqual({
+        map: 'andar-2',
+        x: 176,
+        y: 304,
+      });
+      await profiles.setPosition(
+        'ana@x.com',
+        { map: 'lobby', x: 80, y: 112 },
+        'srv-2',
+      );
+      expect(await profiles.getPosition('ana@x.com', 'srv-2')).toEqual({
+        map: 'lobby',
+        x: 80,
+        y: 112,
+      });
+      expect(await profiles.getPosition('ana@x.com', 'default')).toEqual({
+        map: 'andar-2',
+        x: 176,
+        y: 304,
+      });
+      expect(await profiles.getPosition('ana@x.com', 'srv-3')).toBeNull();
     });
 
     it('acha pessoas pelo início do e-mail, sem confundir curingas', async () => {

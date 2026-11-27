@@ -268,9 +268,14 @@
     transform 120ms ease;
 }
 
-.iconBtn:hover {
+.iconBtn:hover:not(:disabled) {
   background: var(--bg-control-hover);
   transform: translateY(-1px);
+}
+
+.iconBtn:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 
 .iconBtnPrimary {
@@ -310,9 +315,18 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   transition: background 140ms ease;
 }
 
-.adoptBtn:hover {
+.adoptBtn:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+
+.adoptBtn:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }

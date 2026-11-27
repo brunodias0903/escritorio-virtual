@@ -144,6 +144,10 @@ type Props = {
   inCall?: boolean;
   /** Mesa para focar suavemente com a câmera (ex.: hover no botão "Ir até a mesa"). */
   previewDeskId?: string | null;
+  pendingDeskAction?: {
+    deskId: string;
+    action: 'adopt' | 'release' | 'lock';
+  } | null;
   onAdoptDesk: (deskId: string) => void;
   onSitDesk?: (deskId: string) => void;
   onMoveDesk: (deskId: string) => void;
@@ -169,6 +173,7 @@ export function OfficeMap({
   isAdmin,
   inCall = false,
   previewDeskId = null,
+  pendingDeskAction = null,
   onAdoptDesk,
   onSitDesk,
   onMoveDesk,
@@ -553,6 +558,11 @@ export function OfficeMap({
             isSeated={isSeated}
             expanded={expanded}
             closing={isClosing}
+            pendingAction={
+              pendingDeskAction?.deskId === desk.id
+                ? pendingDeskAction.action
+                : null
+            }
             onMouseEnter={() => {
               balloonHoverDeskRef.current = desk.id;
               enterDesk(desk.id);

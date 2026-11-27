@@ -23,6 +23,8 @@ type Props = {
   closing?: boolean;
   /** Usuário já está sentado exatamente na cadeira central da mesa. */
   isSeated?: boolean;
+  /** Ação em andamento nesta mesa (desabilita cliques repetidos e exibe spinner). */
+  pendingAction?: 'adopt' | 'release' | 'lock' | null;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   onExpand: () => void;
@@ -50,6 +52,7 @@ export function DeskBalloon({
   placeBelow = false,
   expanded,
   closing = false,
+  pendingAction = null,
   onMouseEnter,
   onMouseLeave,
   onExpand,
@@ -80,6 +83,7 @@ export function DeskBalloon({
   const occupancy = `${capacityText(state.people)} ${state.people === 1 ? 'pessoa' : 'pessoas'}`;
   const isLocked =
     (state.kind === 'mine' || state.kind === 'other') && state.locked;
+  const busy = pendingAction !== null;
 
   return (
     <div
@@ -175,6 +179,7 @@ export function DeskBalloon({
                     type="button"
                     className={styles.iconBtn}
                     aria-label="Mover mesa"
+                    disabled={busy}
                     onClick={onMove}
                   >
                     <Icon name="move" size={15} />
@@ -190,9 +195,20 @@ export function DeskBalloon({
                       state.locked ? 'Desbloquear mesa' : 'Bloquear mesa'
                     }
                     aria-pressed={state.locked}
+                    aria-busy={pendingAction === 'lock'}
+                    disabled={busy}
                     onClick={onToggleLock}
                   >
-                    <Icon name={state.locked ? 'unlock' : 'lock'} size={15} />
+                    <Icon
+                      name={
+                        pendingAction === 'lock'
+                          ? 'loader'
+                          : state.locked
+                            ? 'unlock'
+                            : 'lock'
+                      }
+                      size={15}
+                    />
                   </button>
                 </Tip>
                 <Tip label="Personalizar mesa">
@@ -200,6 +216,7 @@ export function DeskBalloon({
                     type="button"
                     className={`${styles.iconBtn} ${styles.iconBtnPrimary}`}
                     aria-label="Personalizar mesa"
+                    disabled={busy}
                     onClick={onEdit}
                   >
                     <Icon name="pencil" size={15} />
@@ -210,9 +227,14 @@ export function DeskBalloon({
                     type="button"
                     className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
                     aria-label="Devolver mesa"
+                    aria-busy={pendingAction === 'release'}
+                    disabled={busy}
                     onClick={onRelease}
                   >
-                    <Icon name="undo" size={15} />
+                    <Icon
+                      name={pendingAction === 'release' ? 'loader' : 'undo'}
+                      size={15}
+                    />
                   </button>
                 </Tip>
               </div>
@@ -224,9 +246,18 @@ export function DeskBalloon({
                   <button
                     type="button"
                     className={styles.adoptBtn}
+                    aria-busy={pendingAction === 'adopt'}
+                    disabled={busy}
                     onClick={onAdopt}
                   >
-                    Adotar esta mesa
+                    {pendingAction === 'adopt' ? (
+                      <>
+                        <Icon name="loader" size={14} />
+                        Adotando...
+                      </>
+                    ) : (
+                      'Adotar esta mesa'
+                    )}
                   </button>
                 </div>
               ) : !isStanding && onSit ? (
@@ -234,6 +265,7 @@ export function DeskBalloon({
                   <button
                     type="button"
                     className={styles.adoptBtn}
+                    disabled={busy}
                     onClick={onSit}
                   >
                     Sentar na mesa
@@ -249,6 +281,7 @@ export function DeskBalloon({
                   <button
                     type="button"
                     className={styles.adoptBtn}
+                    disabled={busy}
                     onClick={onSit}
                   >
                     Sentar na mesa
@@ -260,9 +293,14 @@ export function DeskBalloon({
                       type="button"
                       className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
                       aria-label="Remover mesa (administração)"
+                      aria-busy={pendingAction === 'release'}
+                      disabled={busy}
                       onClick={onRelease}
                     >
-                      <Icon name="undo" size={15} />
+                      <Icon
+                        name={pendingAction === 'release' ? 'loader' : 'undo'}
+                        size={15}
+                      />
                     </button>
                   </Tip>
                 ) : null}

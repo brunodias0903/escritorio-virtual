@@ -8,6 +8,7 @@ import {
   Gamepad2,
   HeadphoneOff,
   Headphones,
+  Loader2,
   Lock,
   LogOut,
   Maximize2,
@@ -74,7 +75,8 @@ export type IconName =
   | 'undo'
   | 'palette'
   | 'settings'
-  | 'remote';
+  | 'remote'
+  | 'loader';
 
 const LUCIDE_MAP: Record<IconName, LucideIcon> = {
   mic: Mic,
@@ -113,6 +115,7 @@ const LUCIDE_MAP: Record<IconName, LucideIcon> = {
   palette: Palette,
   settings: Settings,
   remote: Gamepad2,
+  loader: Loader2,
 };
 
 type Props = { name: IconName; size?: number; color?: string };
@@ -127,7 +130,12 @@ export function Icon({ name, size = 20, color = 'currentColor' }: Props) {
       strokeWidth={2}
       aria-hidden={true}
       focusable={false}
-      style={{ display: 'block', flexShrink: 0 }}
+      style={{
+        display: 'block',
+        flexShrink: 0,
+        animation:
+          name === 'loader' ? 'dsIconSpin 0.8s linear infinite' : undefined,
+      }}
     />
   );
 }

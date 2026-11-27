@@ -80,11 +80,62 @@ export class PgProfileRepository implements ProfileRepository {
     );
   }
 
-  async setPosition(email: string, position: SavedPosition) {
+  async setPosition(
+    email: string,
+    position: SavedPosition,
+    serverId = 'default',
+  ) {
     await this.db.query(
-      'UPDATE profiles SET last_map = $2, last_x = $3, last_y = $4 WHERE email = $1',
-      [email, position.map, position.x, position.y],
+      `INSERT INTO profile_server_positions (email, server_id, last_map, last_x, last_y)
+       SELECT $1, $2, $3, $4::integer, $5::integer
+       WHERE EXISTS (SELECT 1 FROM profiles WHERE email = $1)
+       ON CONFLICT (email, server_id) DO UPDATE SET
+         last_map = EXCLUDED.last_map,
+         last_x = EXCLUDED.last_x,
+         last_y = EXCLUDED.last_y`,
+      [email, serverId, position.map, position.x, position.y],
     );
+    if (serverId === 'default') {
+      await this.db.query(
+        'UPDATE profiles SET last_map = $2, last_x = $3, last_y = $4 WHERE email = $1',
+        [email, position.map, position.x, position.y],
+      );
+    }
+  }
+
+  async getPosition(
+    email: string,
+    serverId = 'default',
+  ): Promise<SavedPosition | null> {
+    const { rows } = await this.db.query(
+      `SELECT last_map, last_x, last_y
+       FROM profile_server_positions
+       WHERE email = $1 AND server_id = $2
+       LIMIT 1`,
+      [email, serverId],
+    );
+    const row = rows[0] as
+      | {
+          last_map: string | null;
+          last_x: number | null;
+          last_y: number | null;
+        }
+      | undefined;
+    if (row) {
+      const parsed = MapIdSchema.safeParse(row.last_map);
+      if (parsed.success && row.last_x !== null && row.last_y !== null) {
+        return {
+          map: parsed.data,
+          x: Number(row.last_x),
+          y: Number(row.last_y),
+        };
+      }
+    }
+    if (serverId === 'default') {
+      const profile = await this.get(email);
+      return profile?.position ?? null;
+    }
+    return null;
   }
 
   async byHandles(handles: string[]) {

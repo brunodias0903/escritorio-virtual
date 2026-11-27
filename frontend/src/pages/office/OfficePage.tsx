@@ -177,10 +177,15 @@ export function OfficePage({ session }: { session: Session }) {
   const selectServer = useServerStore((s) => s.selectServer);
   const [createServerOpen, setCreateServerOpen] = useState(false);
   const [switchingServer, setSwitchingServer] = useState(false);
+  const [pendingDeskAction, setPendingDeskAction] = useState<{
+    deskId: string;
+    action: 'adopt' | 'release' | 'lock';
+  } | null>(null);
 
   const handleSelectServer = (id: string) => {
     if (id === activeServerId) return;
     setSwitchingServer(true);
+    setPendingDeskAction(null);
     setServerSettingsOpen(false);
     setEditingDeskId(null);
     setMovingDeskId(null);
@@ -198,6 +203,12 @@ export function OfficePage({ session }: { session: Session }) {
     const timer = window.setTimeout(() => setSwitchingServer(false), 6000);
     return () => window.clearTimeout(timer);
   }, [switchingServer]);
+
+  useEffect(() => {
+    if (!pendingDeskAction) return;
+    const timer = window.setTimeout(() => setPendingDeskAction(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [pendingDeskAction]);
 
   useEffect(() => {
     let alive = true;
@@ -384,6 +395,13 @@ export function OfficePage({ session }: { session: Session }) {
       onMessage: (message) => {
         if (message.type === 'init') {
           setSwitchingServer(false);
+          setPendingDeskAction(null);
+        } else if (
+          message.type === 'desk' ||
+          message.type === 'desks' ||
+          message.type === 'deskError'
+        ) {
+          setPendingDeskAction(null);
         }
         routeServerMessage(
           message,
@@ -818,28 +836,47 @@ export function OfficePage({ session }: { session: Session }) {
               ? previewDesk.deskId
               : null
           }
+          pendingDeskAction={pendingDeskAction}
           onAdoptDesk={(deskId) => {
-            sendConnected(
-              { type: 'deskAdopt', deskId },
-              'Sem conexão com o servidor para adotar a mesa.',
-            );
+            if (pendingDeskAction) return;
+            setPendingDeskAction({ deskId, action: 'adopt' });
+            if (
+              !sendConnected(
+                { type: 'deskAdopt', deskId },
+                'Sem conexão com o servidor para adotar a mesa.',
+              )
+            ) {
+              setPendingDeskAction(null);
+            }
           }}
           onSitDesk={(deskId) => world.goTo({ map: view.snapshot.map, deskId })}
           onMoveDesk={(deskId) => setMovingDeskId(deskId)}
           onToggleDeskLock={(deskId) => {
+            if (pendingDeskAction) return;
             const info = desks[deskKey(map.id, deskId)];
             if (!info) return;
-            saveDeskConfig(deskId, {
-              ...info.config,
-              locked: !info.config.locked,
-            });
+            setPendingDeskAction({ deskId, action: 'lock' });
+            if (
+              !saveDeskConfig(deskId, {
+                ...info.config,
+                locked: !info.config.locked,
+              })
+            ) {
+              setPendingDeskAction(null);
+            }
           }}
           onEditDesk={(deskId) => setEditingDeskId(deskId)}
           onReleaseDesk={(deskId) => {
-            sendConnected(
-              { type: 'deskRelease', deskId },
-              'Sem conexão com o servidor para devolver a mesa.',
-            );
+            if (pendingDeskAction) return;
+            setPendingDeskAction({ deskId, action: 'release' });
+            if (
+              !sendConnected(
+                { type: 'deskRelease', deskId },
+                'Sem conexão com o servidor para devolver a mesa.',
+              )
+            ) {
+              setPendingDeskAction(null);
+            }
           }}
           movingDeskId={
             movingDeskId && mine?.map === view.snapshot.map
