@@ -1,4 +1,8 @@
-import { isMobileViewport, type MobileNavTab } from '@design-system';
+import {
+  MOBILE_NAV_TABS,
+  isMobileViewport,
+  type MobileNavTab,
+} from '@design-system';
 import { useEffect, useRef, useState } from 'react';
 
 import { authApi, workspaceApi } from '@/app/api';
@@ -108,6 +112,9 @@ const STATUS_LABEL: Record<SocketStatus, string> = {
 
 const SIDEBAR_OPEN_KEY = 'ev.sidebar.open';
 const SIDEBAR_TAB_KEY = 'ev.sidebar.tab';
+const MOBILE_TAB_KEY = 'ev.mobile.tab';
+const MAP_ZOOM_KEY = 'ev.map.zoom';
+const ACTIVE_CHANNEL_BY_SERVER_KEY = 'ev.chat.activeByServer';
 
 const readSavedSidebarOpen = (fallback: boolean): boolean => {
   try {
@@ -130,13 +137,84 @@ const readSavedSidebarTab = (): SidebarTab => {
   return 'channels';
 };
 
+const readSavedMobileTab = (): MobileNavTab => {
+  try {
+    const raw = window.localStorage.getItem(MOBILE_TAB_KEY);
+    if (raw && MOBILE_NAV_TABS.some((tab) => tab.id === raw)) {
+      return raw as MobileNavTab;
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return 'map';
+};
+
+const readSavedZoom = (): number => {
+  try {
+    const raw = window.localStorage.getItem(MAP_ZOOM_KEY);
+    const parsed = raw ? Number(raw) : Number.NaN;
+    if (Number.isFinite(parsed) && parsed > 0) return clampZoom(parsed);
+  } catch {
+    // ignore storage errors
+  }
+  return DEFAULT_ZOOM;
+};
+
+const readSavedChannelForServer = (serverId: string): string | null => {
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_CHANNEL_BY_SERVER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const value = (parsed as Record<string, unknown>)[serverId];
+      if (typeof value === 'string' && value.trim()) return value;
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return null;
+};
+
+const saveChannelForServer = (serverId: string, channelId: string): void => {
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_CHANNEL_BY_SERVER_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const map: Record<string, string> =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? { ...(parsed as Record<string, string>) }
+        : {};
+    map[serverId] = channelId;
+    window.localStorage.setItem(
+      ACTIVE_CHANNEL_BY_SERVER_KEY,
+      JSON.stringify(map),
+    );
+  } catch {
+    // ignore storage errors
+  }
+};
+
 export function OfficePage({ session }: { session: Session }) {
   const windowSize = useWindowSize();
   const isMobile = isMobileViewport(windowSize.width, windowSize.height);
   const wide = !isMobile && windowSize.width >= WIDE_BREAKPOINT;
   const compact = isMobile || windowSize.width < COMPACT_BREAKPOINT;
   const showJoystick = useShowJoystick();
-  const [mobileTab, setMobileTab] = useState<MobileNavTab>('map');
+  const [mobileTab, setMobileTab] = useState<MobileNavTab>(() =>
+    readSavedMobileTab(),
+  );
+  const wideRef = useRef(wide);
+  useEffect(() => {
+    wideRef.current = wide;
+  }, [wide]);
+
+  const persistMobileTab = (next: MobileNavTab) => {
+    try {
+      window.localStorage.setItem(MOBILE_TAB_KEY, next);
+    } catch {
+      // ignore storage errors
+    }
+    setMobileTab(next);
+  };
 
   const panelOpen = useChatStore((state) => state.panelOpen);
   const setPanelOpen = useChatStore((state) => state.setPanelOpen);
@@ -158,7 +236,14 @@ export function OfficePage({ session }: { session: Session }) {
   const [leftCallKey, setLeftCallKey] = useState<string | null>(null);
   /** Câmera ampliada em destaque centralizado na parte inferior ('self' ou tile.key). */
   const [spotlightKey, setSpotlightKey] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [zoom, setZoom] = useState(() => readSavedZoom());
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MAP_ZOOM_KEY, String(zoom));
+    } catch {
+      // ignore storage errors
+    }
+  }, [zoom]);
   const [gameNode, setGameNode] = useState<HTMLElement | null>(null);
   const gameSize = useElementSize(gameNode, windowSize);
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -398,7 +483,17 @@ export function OfficePage({ session }: { session: Session }) {
   }, [chatVisible, active]);
 
   useEffect(() => {
-    useChatStore.getState().setMe(session.user.email);
+    if (allChannels.some((c) => c.id === active)) {
+      saveChannelForServer(activeServerId, active);
+    }
+  }, [activeServerId, active, allChannels]);
+
+  useEffect(() => {
+    const chatState = useChatStore.getState();
+    chatState.setMe(session.user.email);
+    chatState.setPanelOpen(readSavedSidebarOpen(wideRef.current));
+    const savedChannel = readSavedChannelForServer(activeServerId);
+    if (savedChannel) chatState.setActive(savedChannel);
     const socket = connectOffice({
       url: WS_URL,
       token: session.token,
@@ -751,7 +846,7 @@ export function OfficePage({ session }: { session: Session }) {
       {isMobile ? (
         <MobileBottomNav
           activeTab={mobileTab}
-          onSelectTab={setMobileTab}
+          onSelectTab={persistMobileTab}
           serverName={
             servers.find((s) => s.id === activeServerId)?.name ??
             serverSettings.name
