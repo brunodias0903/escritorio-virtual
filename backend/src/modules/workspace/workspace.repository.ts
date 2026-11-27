@@ -9,14 +9,22 @@ import type {
 } from '../../shared/domain/index.js';
 
 export interface ServerSettingsRepository {
-  get(): Promise<ServerSettings>;
-  save(settings: ServerSettings, updatedBy: string): Promise<ServerSettings>;
+  get(serverId?: string): Promise<ServerSettings>;
+  save(
+    settings: ServerSettings,
+    updatedBy: string,
+    serverId?: string,
+  ): Promise<ServerSettings>;
 }
 
 export interface ServerRepository {
   listForUser(email: string): Promise<WorkspaceServer[]>;
   get(id: string): Promise<WorkspaceServer | undefined>;
   create(server: WorkspaceServer, ownerEmail: string): Promise<WorkspaceServer>;
+  update?(
+    id: string,
+    patch: { name?: string; description?: string; accentColor?: string },
+  ): Promise<WorkspaceServer | undefined>;
   addMember(
     serverId: string,
     email: string,

@@ -4,6 +4,7 @@ import type {
 } from '../../../modules/chat/chat.repository.js';
 import {
   ACCOUNT_TIERS,
+  dmMembers,
   type AccountTier,
 } from '../../../shared/domain/index.js';
 import {
@@ -13,6 +14,7 @@ import {
 
 type ChannelDbRow = {
   id: string;
+  server_id?: string | null;
   name: string;
   kind: 'public' | 'dm';
   archived: boolean;
@@ -27,10 +29,11 @@ type ChannelDbRow = {
 };
 
 const CHANNEL_COLUMNS =
-  'id, name, kind, archived, position, topic, view_tiers, write_tiers, allowed_emails, blocked_emails, created_by, created_at';
+  'id, server_id, name, kind, archived, position, topic, view_tiers, write_tiers, allowed_emails, blocked_emails, created_by, created_at';
 
 const toChannel = (row: ChannelDbRow): ChannelRow => ({
   id: row.id,
+  serverId: row.server_id ?? 'default',
   name: row.name,
   kind: row.kind,
   archived: row.archived,
@@ -73,16 +76,16 @@ export class PgChannelRepository implements ChannelRepository {
     return rows.map((row) => toChannel(row as ChannelDbRow));
   }
 
-  async listDirect(email: string) {
-    // O id da conversa é "dm:a|b". O filtro exato abaixo protege contra curingas do LIKE.
+  async listDirect(email: string, serverId = 'default') {
+    // O id da conversa é "dm:a|b" (ou "dm:<serverId>:a|b"). O filtro exato abaixo protege contra curingas do LIKE.
     const { rows } = await this.db.query(
-      `SELECT ${CHANNEL_COLUMNS} FROM channels WHERE kind = 'dm'
+      `SELECT ${CHANNEL_COLUMNS} FROM channels WHERE kind = 'dm' AND server_id = $3
        AND (id LIKE $1 OR id LIKE $2)`,
-      [`dm:${email}|%`, `dm:%|${email}`],
+      [`dm:%${email}|%`, `dm:%|${email}`, serverId],
     );
     return rows
       .map((row) => toChannel(row as ChannelDbRow))
-      .filter((channel) => channel.id.slice(3).split('|').includes(email));
+      .filter((channel) => dmMembers(channel.id)?.includes(email));
   }
 
   async create(channel: ChannelRow) {

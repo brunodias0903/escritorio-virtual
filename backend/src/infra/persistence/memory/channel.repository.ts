@@ -48,17 +48,24 @@ export class MemoryChannelRepository implements ChannelRepository {
       );
   }
 
-  async listDirect(email: string) {
+  async listDirect(email: string, serverId = 'default') {
     return [...this.channels.values()].filter(
-      (c) => c.kind === 'dm' && dmMembers(c.id)?.includes(email),
+      (c) =>
+        c.kind === 'dm' &&
+        (c.serverId ?? 'default') === serverId &&
+        dmMembers(c.id)?.includes(email),
     );
   }
 
   async create(channel: ChannelRow) {
+    const targetServer = channel.serverId ?? 'default';
     const nameTaken =
       channel.kind === 'public' &&
       [...this.channels.values()].some(
-        (c) => c.kind === 'public' && c.name === channel.name,
+        (c) =>
+          c.kind === 'public' &&
+          (c.serverId ?? 'default') === targetServer &&
+          c.name === channel.name,
       );
     if (this.channels.has(channel.id) || nameTaken) return false;
     this.channels.set(channel.id, {

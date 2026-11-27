@@ -176,10 +176,32 @@ export function OfficePage({ session }: { session: Session }) {
   const addServer = useServerStore((s) => s.addServer);
   const selectServer = useServerStore((s) => s.selectServer);
   const [createServerOpen, setCreateServerOpen] = useState(false);
+  const [switchingServer, setSwitchingServer] = useState(false);
+
+  const handleSelectServer = (id: string) => {
+    if (id === activeServerId) return;
+    setSwitchingServer(true);
+    setServerSettingsOpen(false);
+    setEditingDeskId(null);
+    setMovingDeskId(null);
+    setPantryExitPrompt(null);
+    useChatStore.getState().reset();
+    useDeskStore.getState().reset();
+    usePeopleStore.getState().reset();
+    selectServer(id);
+    const target = servers.find((s) => s.id === id);
+    if (target) setNotice(`Servidor ativo: ${target.name}`);
+  };
+
+  useEffect(() => {
+    if (!switchingServer) return;
+    const timer = window.setTimeout(() => setSwitchingServer(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [switchingServer]);
 
   useEffect(() => {
     let alive = true;
-    void workspaceApi.getServerSettings().then((settings) => {
+    void workspaceApi.getServerSettings(activeServerId).then((settings) => {
       if (alive) setServerSettings(settings);
     });
     void workspaceApi.listServers(session.token).then((res) => {
@@ -188,7 +210,7 @@ export function OfficePage({ session }: { session: Session }) {
     return () => {
       alive = false;
     };
-  }, [session.token, setServerSettings, setServers]);
+  }, [session.token, activeServerId, setServerSettings, setServers]);
   const [editingDeskId, setEditingDeskId] = useState<string | null>(null);
   const [movingDeskId, setMovingDeskId] = useState<string | null>(null);
   const [previewDesk, setPreviewDesk] = useState<DeskInfo | null>(null);
@@ -359,7 +381,10 @@ export function OfficePage({ session }: { session: Session }) {
       url: WS_URL,
       token: session.token,
       serverId: activeServerId,
-      onMessage: (message) =>
+      onMessage: (message) => {
+        if (message.type === 'init') {
+          setSwitchingServer(false);
+        }
         routeServerMessage(
           message,
           world,
@@ -380,7 +405,8 @@ export function OfficePage({ session }: { session: Session }) {
           (update) => {
             patchSessionUser(update);
           },
-        ),
+        );
+      },
       onStatus: setStatus,
     });
     socketRef.current = socket;
@@ -703,11 +729,7 @@ export function OfficePage({ session }: { session: Session }) {
           }
           servers={servers}
           activeServerId={activeServerId}
-          onSelectServer={(id) => {
-            selectServer(id);
-            const target = servers.find((s) => s.id === id);
-            if (target) setNotice(`Servidor ativo: ${target.name}`);
-          }}
+          onSelectServer={handleSelectServer}
           onCreateOrJoinServer={() => setCreateServerOpen(true)}
           session={session}
           status={me?.status ?? 'available'}
@@ -743,14 +765,10 @@ export function OfficePage({ session }: { session: Session }) {
             servers.find((s) => s.id === activeServerId)?.name ??
             serverSettings.name
           }
-          serverIcon={activeServerId === 'default' ? serverSettings.icon : null}
+          serverIcon={serverSettings.icon}
           servers={servers}
           activeServerId={activeServerId}
-          onSelectServer={(id) => {
-            selectServer(id);
-            const target = servers.find((s) => s.id === id);
-            if (target) setNotice(`Servidor ativo: ${target.name}`);
-          }}
+          onSelectServer={handleSelectServer}
           session={session}
           status={me?.status ?? 'available'}
           appearance={me?.appearance}
@@ -1019,6 +1037,10 @@ export function OfficePage({ session }: { session: Session }) {
             ),
           )}
           onJoinedOrCreated={(server, action) => {
+            setSwitchingServer(true);
+            useChatStore.getState().reset();
+            useDeskStore.getState().reset();
+            usePeopleStore.getState().reset();
             addServer(server);
             setNotice(
               action === 'create'
@@ -1078,6 +1100,19 @@ export function OfficePage({ session }: { session: Session }) {
           token={session.token}
           onDone={() => setAskEmailPrefs(false)}
         />
+      ) : null}
+
+      {switchingServer ? (
+        <div
+          className={styles.serverSwitchOverlay}
+          role="status"
+          aria-live="polite"
+        >
+          <div className={styles.serverSwitchCard}>
+            <div className={styles.serverSwitchSpinner} aria-hidden="true" />
+            <span>Trocando de servidor…</span>
+          </div>
+        </div>
       ) : null}
     </div>
   );

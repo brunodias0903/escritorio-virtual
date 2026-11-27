@@ -534,12 +534,21 @@ export class Connection {
       }
 
       case 'openDm': {
-        const result = await chat.openDirect(claims.email, message.email);
+        const result = await chat.openDirect(
+          claims.email,
+          message.email,
+          this.serverId,
+        );
         if (!result.ok) return send({ type: 'chatError', code: result.error });
         send({ type: 'channelOpened', channel: result.value });
         const emails = result.value.members.map((m) => m.email);
         return cluster.dispatch(id, [
-          { to: 'others', message: { type: 'channelsChanged' }, emails },
+          {
+            to: 'others',
+            serverId: this.serverId,
+            message: { type: 'channelsChanged' },
+            emails,
+          },
         ]);
       }
 

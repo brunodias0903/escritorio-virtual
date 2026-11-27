@@ -81,32 +81,54 @@ async function request<T>(
   }
 }
 
+const withServer = (path: string, serverId?: string): string =>
+  serverId && serverId !== 'default'
+    ? `${path}${path.includes('?') ? '&' : '?'}serverId=${encodeURIComponent(serverId)}`
+    : path;
+
 export function createWorkspaceApi({ baseUrl }: { baseUrl: string }) {
   return {
-    getServerSettings: async (): Promise<ServerSettings> => {
-      const res = await request(baseUrl, '/api/server', ServerSettingsSchema);
+    getServerSettings: async (serverId?: string): Promise<ServerSettings> => {
+      const res = await request(
+        baseUrl,
+        withServer('/api/server', serverId),
+        ServerSettingsSchema,
+      );
       return res.ok ? res.data : DEFAULT_SERVER_SETTINGS;
     },
 
-    updateServerSettings: (token: string, body: UpdateServerSettings) =>
-      request(baseUrl, '/api/server', ServerSettingsSchema, {
-        method: 'PUT',
-        token,
-        body,
-      }),
-
-    listChannels: (token: string) =>
+    updateServerSettings: (
+      token: string,
+      body: UpdateServerSettings,
+      serverId?: string,
+    ) =>
       request(
         baseUrl,
-        '/api/server/channels',
+        withServer('/api/server', serverId),
+        ServerSettingsSchema,
+        {
+          method: 'PUT',
+          token,
+          body,
+        },
+      ),
+
+    listChannels: (token: string, serverId?: string) =>
+      request(
+        baseUrl,
+        withServer('/api/server/channels', serverId),
         z.object({ channels: z.array(ManagedChannelSchema) }),
         { token },
       ),
 
-    createChannel: (token: string, body: CreateChannelConfig) =>
+    createChannel: (
+      token: string,
+      body: CreateChannelConfig,
+      serverId?: string,
+    ) =>
       request(
         baseUrl,
-        '/api/server/channels',
+        withServer('/api/server/channels', serverId),
         z.object({ channel: ManagedChannelSchema }),
         { method: 'POST', token, body },
       ),
@@ -167,10 +189,10 @@ export function createWorkspaceApi({ baseUrl }: { baseUrl: string }) {
         { method: 'POST', token, body },
       ),
 
-    listAccounts: (token: string) =>
+    listAccounts: (token: string, serverId?: string) =>
       request(
         baseUrl,
-        '/api/server/accounts',
+        withServer('/api/server/accounts', serverId),
         z.object({ accounts: z.array(ManagedAccountSchema) }),
         { token },
       ),

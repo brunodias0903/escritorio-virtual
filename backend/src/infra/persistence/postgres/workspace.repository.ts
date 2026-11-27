@@ -36,10 +36,11 @@ export class PgServerSettingsRepository implements ServerSettingsRepository {
     this.db = db;
   }
 
-  async get(): Promise<ServerSettings> {
+  async get(serverId = 'default'): Promise<ServerSettings> {
     const { rows } = await this.db.query(
       `SELECT name, description, icon, welcome_message, allow_public_registration, updated_at
-       FROM server_settings WHERE id = 'default'`,
+       FROM server_settings WHERE id = $1`,
+      [serverId],
     );
     const row = rows[0] as ServerSettingsDbRow | undefined;
     if (!row) return { ...DEFAULT_SERVER_SETTINGS };
@@ -56,10 +57,11 @@ export class PgServerSettingsRepository implements ServerSettingsRepository {
   async save(
     settings: ServerSettings,
     updatedBy: string,
+    serverId = 'default',
   ): Promise<ServerSettings> {
     await this.db.query(
       `INSERT INTO server_settings (id, name, description, icon, welcome_message, allow_public_registration, updated_at, updated_by)
-       VALUES ('default', $1, $2, $3, $4, $5, $6, $7)
+       VALUES ($8, $1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (id) DO UPDATE SET
          name = EXCLUDED.name,
          description = EXCLUDED.description,
@@ -76,6 +78,7 @@ export class PgServerSettingsRepository implements ServerSettingsRepository {
         settings.allowPublicRegistration,
         settings.updatedAt,
         updatedBy,
+        serverId,
       ],
     );
     return { ...settings };
@@ -371,6 +374,28 @@ export class PgServerRepository implements ServerRepository {
     );
     await this.addMember(server.id, normalized, 'owner', server.createdAt);
     return { ...server };
+  }
+
+  async update(
+    id: string,
+    patch: { name?: string; description?: string; accentColor?: string },
+  ): Promise<WorkspaceServer | undefined> {
+    const { rows } = await this.db.query(
+      `UPDATE servers
+       SET name = COALESCE($2, name),
+           description = COALESCE($3, description),
+           accent_color = COALESCE($4, accent_color)
+       WHERE id = $1
+       RETURNING id, name, description, accent_color, visibility, owner_email, plan_tier, max_members, max_pending_invites, created_at`,
+      [
+        id,
+        patch.name ?? null,
+        patch.description ?? null,
+        patch.accentColor ?? null,
+      ],
+    );
+    const row = rows[0] as ServerDbRow | undefined;
+    return row ? toServer(row) : undefined;
   }
 
   async addMember(

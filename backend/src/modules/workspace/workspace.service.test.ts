@@ -591,6 +591,37 @@ describe('WorkspaceService', () => {
     const devServers = await service.listServers(dev);
     expect(devServers.some((s) => s.id === created.value.id)).toBe(true);
 
+    // Configurações, canais e contas escopados por serverId
+    const srvSettingsBefore = await service.getServerSettings(created.value.id);
+    expect(srvSettingsBefore.name).toBe('Equipe Mobile');
+    const updatedSrvSettings = await service.updateServerSettings(
+      admin,
+      {
+        name: 'Design Atualizado',
+        description: 'Nova desc',
+        welcomeMessage: 'Bem-vindo',
+        allowPublicRegistration: false,
+      },
+      created.value.id,
+    );
+    expect(updatedSrvSettings.ok).toBe(true);
+    const updatedServers = await service.listServers(admin);
+    expect(updatedServers.find((s) => s.id === created.value.id)?.name).toBe(
+      'Design Atualizado',
+    );
+    const srvAccounts = await service.listAccounts(admin, created.value.id);
+    expect(srvAccounts.ok).toBe(true);
+    if (srvAccounts.ok) {
+      expect(srvAccounts.value.some((a) => a.email === 'dev@setter.app')).toBe(
+        true,
+      );
+      expect(
+        srvAccounts.value.some((a) => a.email === 'tester@setter.app'),
+      ).toBe(false);
+    }
+    const srvChannels = await service.listPublicChannels(created.value.id);
+    expect(srvChannels.some((c) => c.name === 'geral')).toBe(true);
+
     // Tester tenta entrar com o mesmo código já esgotado
     const joinTester = await service.joinServerByInvite(
       tester,

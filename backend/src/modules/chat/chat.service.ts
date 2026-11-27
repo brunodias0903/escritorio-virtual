@@ -71,7 +71,7 @@ export class ChatService {
   ): Promise<ChannelInfo[]> {
     const [publicRows, directRows, reads] = await Promise.all([
       this.deps.channels.listPublic(serverId),
-      this.deps.channels.listDirect(email),
+      this.deps.channels.listDirect(email, serverId),
       this.deps.reads.all(email),
     ]);
     const visiblePublic = publicRows.filter(
@@ -481,15 +481,17 @@ export class ChatService {
   async openDirect(
     email: string,
     rawOther: string,
+    serverId = 'default',
   ): Promise<Result<ChannelInfo>> {
     const other = normalizeEmail(rawOther);
     if (other === email) return fail('invalid_name');
     const profile = await this.deps.profiles.get(other);
     if (!profile) return fail('not_found');
 
-    const id = dmChannelId(email, other);
+    const id = dmChannelId(email, other, serverId);
     await this.deps.channels.create({
       id,
+      serverId,
       name: id,
       kind: 'dm',
       archived: false,

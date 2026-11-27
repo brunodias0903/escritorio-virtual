@@ -13,6 +13,12 @@ type ServerState = {
   setSettings: (settings: ServerSettings) => void;
   setServers: (servers: WorkspaceServer[]) => void;
   addServer: (server: WorkspaceServer) => void;
+  updateServer: (
+    id: string,
+    patch: Partial<
+      Pick<WorkspaceServer, 'name' | 'description' | 'accentColor'>
+    >,
+  ) => void;
   selectServer: (id: string) => void;
 };
 
@@ -28,6 +34,11 @@ export const useServerStore = create<ServerState>((set) => ({
         ? state.servers
         : [...state.servers, server],
       activeServerId: server.id,
+    }));
+  },
+  updateServer: (id, patch) => {
+    set((state) => ({
+      servers: state.servers.map((s) => (s.id === id ? { ...s, ...patch } : s)),
     }));
   },
   selectServer: (activeServerId) => set({ activeServerId }),

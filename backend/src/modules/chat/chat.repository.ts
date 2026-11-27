@@ -22,7 +22,7 @@ export interface ChannelRepository {
   /** Canais públicos (inclusive arquivados). Conversas diretas ficam de fora. */
   listPublic(serverId?: string): Promise<ChannelRow[]>;
   /** Conversas diretas que têm este e-mail como uma das pessoas. */
-  listDirect(email: string): Promise<ChannelRow[]>;
+  listDirect(email: string, serverId?: string): Promise<ChannelRow[]>;
   /** Cria o canal. Devolve false se o id ou o nome já existe. */
   create(channel: ChannelRow): Promise<boolean>;
   setArchived(id: string, archived: boolean): Promise<boolean>;

@@ -43,10 +43,11 @@ export const handleWorkspaceRoutes = async (
   req: ApiRequest,
 ): Promise<ApiResponse | null> => {
   const { method, path, body } = req;
+  const serverId = req.query?.get('serverId')?.trim() || 'default';
 
   if (path === '/api/server') {
     if (method === 'GET') {
-      const settings = await workspace.getServerSettings();
+      const settings = await workspace.getServerSettings(serverId);
       return json(200, settings);
     }
     if (method === 'PUT') {
@@ -56,7 +57,7 @@ export const handleWorkspaceRoutes = async (
       const parsed = UpdateServerSettingsSchema.safeParse(body);
       if (!parsed.success) return error(400, 'invalid_request');
       return respond(
-        await workspace.updateServerSettings(claims, parsed.data),
+        await workspace.updateServerSettings(claims, parsed.data, serverId),
         (saved) => json(200, saved),
       );
     }
@@ -69,14 +70,14 @@ export const handleWorkspaceRoutes = async (
     if (!claims) return error(401, 'unauthorized');
 
     if (method === 'GET') {
-      const channels = await workspace.listPublicChannels();
+      const channels = await workspace.listPublicChannels(serverId);
       return json(200, { channels });
     }
     if (method === 'POST') {
       const parsed = CreateChannelConfigSchema.safeParse(body);
       if (!parsed.success) return error(400, 'invalid_request');
       return respond(
-        await workspace.createManagedChannel(claims, parsed.data),
+        await workspace.createManagedChannel(claims, parsed.data, serverId),
         (channel) => json(201, { channel }),
       );
     }
@@ -120,7 +121,7 @@ export const handleWorkspaceRoutes = async (
     const token = bearer(req.authorization);
     const claims = token ? await auth.authenticate(token) : null;
     if (!claims) return error(401, 'unauthorized');
-    return respond(await workspace.listAccounts(claims), (accounts) =>
+    return respond(await workspace.listAccounts(claims, serverId), (accounts) =>
       json(200, { accounts }),
     );
   }

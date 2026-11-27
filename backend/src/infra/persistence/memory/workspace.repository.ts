@@ -16,15 +16,23 @@ import {
 } from '../../../shared/domain/index.js';
 
 export class MemoryServerSettingsRepository implements ServerSettingsRepository {
-  private settings: ServerSettings = { ...DEFAULT_SERVER_SETTINGS };
+  private readonly byServer = new Map<string, ServerSettings>([
+    ['default', { ...DEFAULT_SERVER_SETTINGS }],
+  ]);
 
-  async get(): Promise<ServerSettings> {
-    return { ...this.settings };
+  async get(serverId = 'default'): Promise<ServerSettings> {
+    const found = this.byServer.get(serverId);
+    return found ? { ...found } : { ...DEFAULT_SERVER_SETTINGS };
   }
 
-  async save(settings: ServerSettings): Promise<ServerSettings> {
-    this.settings = { ...settings };
-    return { ...this.settings };
+  async save(
+    settings: ServerSettings,
+    _updatedBy: string,
+    serverId = 'default',
+  ): Promise<ServerSettings> {
+    const copy = { ...settings };
+    this.byServer.set(serverId, copy);
+    return { ...copy };
   }
 }
 
@@ -131,6 +139,26 @@ export class MemoryServerRepository implements ServerRepository {
     map.set(normalized, 'owner');
     this.members.set(server.id, map);
     return { ...server };
+  }
+
+  async update(
+    id: string,
+    patch: { name?: string; description?: string; accentColor?: string },
+  ): Promise<WorkspaceServer | undefined> {
+    const existing = this.servers.get(id);
+    if (!existing) return undefined;
+    const next: WorkspaceServer = {
+      ...existing,
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.description !== undefined
+        ? { description: patch.description }
+        : {}),
+      ...(patch.accentColor !== undefined
+        ? { accentColor: patch.accentColor }
+        : {}),
+    };
+    this.servers.set(id, next);
+    return { ...next };
   }
 
   async addMember(

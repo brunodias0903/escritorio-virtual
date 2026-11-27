@@ -3,8 +3,18 @@ import { normalizeEmail } from './auth.js';
 const DM_PREFIX = 'dm:';
 
 /** Id da conversa direta entre duas pessoas: igual não importa quem abre. */
-export const dmChannelId = (emailA: string, emailB: string): string =>
-  DM_PREFIX + [normalizeEmail(emailA), normalizeEmail(emailB)].sort().join('|');
+export const dmChannelId = (
+  emailA: string,
+  emailB: string,
+  serverId = 'default',
+): string => {
+  const pair = [normalizeEmail(emailA), normalizeEmail(emailB)]
+    .sort()
+    .join('|');
+  return serverId && serverId !== 'default'
+    ? `${DM_PREFIX}${serverId}:${pair}`
+    : `${DM_PREFIX}${pair}`;
+};
 
 export const isDmChannel = (channel: string): boolean =>
   channel.startsWith(DM_PREFIX);
@@ -12,7 +22,10 @@ export const isDmChannel = (channel: string): boolean =>
 /** As duas pessoas de uma conversa direta, ou null se o id não for de uma. */
 export const dmMembers = (channel: string): [string, string] | null => {
   if (!isDmChannel(channel)) return null;
-  const parts = channel.slice(DM_PREFIX.length).split('|');
+  const rest = channel.slice(DM_PREFIX.length);
+  const colon = rest.indexOf(':');
+  const pair = colon >= 0 ? rest.slice(colon + 1) : rest;
+  const parts = pair.split('|');
   return parts.length === 2 && parts[0] && parts[1]
     ? [parts[0], parts[1]]
     : null;

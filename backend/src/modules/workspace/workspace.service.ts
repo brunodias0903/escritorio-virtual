@@ -198,22 +198,38 @@ export class WorkspaceService {
 
   // --- Servidor & canais -----------------------------------------------------
 
-  async getServerSettings(): Promise<ServerSettings> {
-    return this.deps.settings.get();
+  async getServerSettings(serverId = 'default'): Promise<ServerSettings> {
+    const settings = await this.deps.settings.get(serverId);
+    if (
+      serverId !== 'default' &&
+      this.deps.servers &&
+      settings.updatedAt === 0
+    ) {
+      const srv = await this.deps.servers.get(serverId);
+      if (srv) {
+        return {
+          ...settings,
+          name: srv.name,
+          description: srv.description,
+        };
+      }
+    }
+    return settings;
   }
 
-  async listPublicChannels(): Promise<ChannelRow[]> {
-    return this.deps.channels.listPublic();
+  async listPublicChannels(serverId = 'default'): Promise<ChannelRow[]> {
+    return this.deps.channels.listPublic(serverId);
   }
 
   async updateServerSettings(
     claims: SessionClaims,
     input: UpdateServerSettings,
+    serverId = 'default',
   ): Promise<HttpResult<ServerSettings>> {
     const tiers = await this.tiersOf(claims);
     if (!canManageServer(tiers)) return httpFail(403, 'forbidden');
 
-    const current = await this.deps.settings.get();
+    const current = await this.getServerSettings(serverId);
     const next: ServerSettings = {
       name: input.name,
       description: input.description,
@@ -222,7 +238,11 @@ export class WorkspaceService {
       allowPublicRegistration: input.allowPublicRegistration,
       updatedAt: this.now(),
     };
-    const saved = await this.deps.settings.save(next, claims.email);
+    const saved = await this.deps.settings.save(next, claims.email, serverId);
+    await this.deps.servers?.update?.(serverId, {
+      name: input.name,
+      description: input.description,
+    });
     return ok(saved);
   }
 
@@ -246,6 +266,7 @@ export class WorkspaceService {
       >
     > &
       Pick<CreateChannelConfig, 'name'>,
+    serverId = 'default',
   ): Promise<HttpResult<ChannelRow>> {
     const tiers = await this.tiersOf(claims);
     if (!canManageServer(tiers)) return httpFail(403, 'forbidden');
@@ -265,12 +286,13 @@ export class WorkspaceService {
     const allowedEmails = this.normalizeEmails(
       input.allowedEmails ?? [],
     ).filter((email) => !blockedEmails.includes(email));
-    const existingPublic = await this.deps.channels.listPublic();
+    const existingPublic = await this.deps.channels.listPublic(serverId);
     const nextPosition =
       existingPublic.reduce((max, c) => Math.max(max, c.position ?? 0), -1) + 1;
 
     const row: ChannelRow = {
-      id: name,
+      id: serverId === 'default' ? name : `${serverId}:${name}`,
+      serverId,
       name,
       kind: 'public',
       archived: false,
@@ -480,14 +502,25 @@ export class WorkspaceService {
 
   async listAccounts(
     claims: SessionClaims,
+    serverId = 'default',
   ): Promise<HttpResult<ManagedAccount[]>> {
     const tiers = await this.tiersOf(claims);
     if (!canManageMembers(tiers)) return httpFail(403, 'forbidden');
 
-    const [accounts, deskList] = await Promise.all([
+    const [allAccounts, deskList] = await Promise.all([
       this.deps.accounts.all(),
-      this.deps.desks ? this.deps.desks.list() : Promise.resolve([]),
+      this.deps.desks ? this.deps.desks.list(serverId) : Promise.resolve([]),
     ]);
+    let accounts = allAccounts;
+    if (serverId !== 'default' && this.deps.servers) {
+      const checks = await Promise.all(
+        allAccounts.map(async (acc) => ({
+          acc,
+          member: await this.deps.servers!.isMember(serverId, acc.email),
+        })),
+      );
+      accounts = checks.filter((c) => c.member).map((c) => c.acc);
+    }
     const desksByOwner = new Map<string, DeskInfo>();
     for (const desk of deskList) {
       if (desk.owner) desksByOwner.set(desk.owner.email, desk);
@@ -738,6 +771,21 @@ export class WorkspaceService {
       createdAt: this.now(),
     };
     const created = await this.deps.servers.create(server, claims.email);
+    await this.deps.channels.create({
+      id: `${created.id}:geral`,
+      serverId: created.id,
+      name: 'geral',
+      kind: 'public',
+      archived: false,
+      position: 0,
+      topic: 'Canal principal do servidor',
+      viewTiers: [...ACCOUNT_TIERS],
+      writeTiers: [...ACCOUNT_TIERS],
+      allowedEmails: [],
+      blockedEmails: [],
+      createdBy: claims.email,
+      createdAt: this.now(),
+    });
     return ok(created);
   }
 

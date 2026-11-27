@@ -18,6 +18,9 @@ describe('conversa direta', () => {
     const id = dmChannelId('b@x.com', 'a@x.com');
     expect(isDmChannel(id)).toBe(true);
     expect(dmMembers(id)).toEqual(['a@x.com', 'b@x.com']);
+    const scopedId = dmChannelId('b@x.com', 'a@x.com', 'srv-1');
+    expect(scopedId).toBe('dm:srv-1:a@x.com|b@x.com');
+    expect(dmMembers(scopedId)).toEqual(['a@x.com', 'b@x.com']);
     expect(isDmChannel('geral')).toBe(false);
     expect(dmMembers('geral')).toBeNull();
     expect(dmMembers('dm:so-um')).toBeNull();

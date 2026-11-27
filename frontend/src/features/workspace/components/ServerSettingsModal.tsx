@@ -72,6 +72,7 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
   const { t } = useI18n();
   const settings = useServerStore((s) => s.settings);
   const setSettings = useServerStore((s) => s.setSettings);
+  const updateServer = useServerStore((s) => s.updateServer);
   const activeServerId = useServerStore((s) => s.activeServerId);
 
   const actorTiers = effectiveTiersOf(
@@ -171,31 +172,42 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
   useEffect(() => {
     if (tab !== 'channels' || channelsLoaded) return;
     let alive = true;
-    void workspaceApi.listChannels(session.token).then((res) => {
-      if (!alive) return;
-      setChannelsLoaded(true);
-      if (res.ok) setChannels(res.data.channels);
-      else setError(errorMessage(res.error));
-    });
+    void workspaceApi
+      .listChannels(session.token, activeServerId)
+      .then((res) => {
+        if (!alive) return;
+        setChannelsLoaded(true);
+        if (res.ok) setChannels(res.data.channels);
+        else setError(errorMessage(res.error));
+      });
     return () => {
       alive = false;
     };
-  }, [tab, channelsLoaded, session.token]);
+  }, [tab, channelsLoaded, session.token, activeServerId]);
 
   useEffect(() => {
     if ((tab !== 'members' && tab !== 'channels') || !canSeeMembers) return;
     if (tab === 'channels' && accountsLoaded) return;
     let alive = true;
-    void workspaceApi.listAccounts(session.token).then((res) => {
-      if (!alive) return;
-      setAccountsLoaded(true);
-      if (res.ok) setAccounts(res.data.accounts);
-      else setError(errorMessage(res.error));
-    });
+    void workspaceApi
+      .listAccounts(session.token, activeServerId)
+      .then((res) => {
+        if (!alive) return;
+        setAccountsLoaded(true);
+        if (res.ok) setAccounts(res.data.accounts);
+        else setError(errorMessage(res.error));
+      });
     return () => {
       alive = false;
     };
-  }, [tab, canSeeMembers, session.token, refreshTick, accountsLoaded]);
+  }, [
+    tab,
+    canSeeMembers,
+    session.token,
+    refreshTick,
+    accountsLoaded,
+    activeServerId,
+  ]);
 
   useEffect(() => {
     if (tab !== 'invites' || invitesLoaded) return;
@@ -324,19 +336,27 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
     e.preventDefault();
     setSaving(true);
     setError('');
-    const res = await workspaceApi.updateServerSettings(session.token, {
-      name: name.trim() || 'Setter',
-      description: description.trim(),
-      icon,
-      welcomeMessage: welcomeMessage.trim(),
-      allowPublicRegistration,
-    });
+    const res = await workspaceApi.updateServerSettings(
+      session.token,
+      {
+        name: name.trim() || 'Setter',
+        description: description.trim(),
+        icon,
+        welcomeMessage: welcomeMessage.trim(),
+        allowPublicRegistration,
+      },
+      activeServerId,
+    );
     setSaving(false);
     if (!res.ok) {
       setError(errorMessage(res.error));
       return;
     }
     setSettings(res.data);
+    updateServer(activeServerId, {
+      name: res.data.name,
+      description: res.data.description,
+    });
     onNotify(t('server.saved'));
   };
 
@@ -461,16 +481,20 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
       newChannelWriteMode === 'all'
         ? [...viewTiers]
         : newChannelWriteTiers.filter((tier) => viewTiers.includes(tier));
-    const res = await workspaceApi.createChannel(session.token, {
-      name: newChannelName.trim().toLowerCase(),
-      topic: newChannelTopic.trim(),
-      viewTiers,
-      writeTiers: writeTiers.includes('master')
-        ? writeTiers
-        : ['master', ...writeTiers],
-      allowedEmails: [],
-      blockedEmails: [],
-    });
+    const res = await workspaceApi.createChannel(
+      session.token,
+      {
+        name: newChannelName.trim().toLowerCase(),
+        topic: newChannelTopic.trim(),
+        viewTiers,
+        writeTiers: writeTiers.includes('master')
+          ? writeTiers
+          : ['master', ...writeTiers],
+        allowedEmails: [],
+        blockedEmails: [],
+      },
+      activeServerId,
+    );
     setBusyChannelId(null);
     if (!res.ok) {
       setError(errorMessage(res.error));
