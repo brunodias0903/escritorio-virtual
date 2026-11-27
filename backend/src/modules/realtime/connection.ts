@@ -314,20 +314,27 @@ export class Connection {
     return sortPeople(people);
   }
 
-  private async effectiveTiers(claims: SessionClaims): Promise<AccountTier[]> {
-    const account = await this.deps.accounts.byEmail(claims.email);
+  private async tiersForEmail(
+    email: string,
+    fallbackAdmin = false,
+  ): Promise<AccountTier[]> {
+    const account = await this.deps.accounts.byEmail(email);
     if (account?.tier === 'master') return ['master'];
     if (this.serverId !== 'default' && this.deps.servers?.getMemberRoles) {
       const roles = await this.deps.servers.getMemberRoles(
         this.serverId,
-        claims.email,
+        email,
       );
       return roles
         ? effectiveTiersOf(roles.tier, roles.secondaryTiers)
         : ['member'];
     }
-    const primary = account?.tier ?? (claims.admin ? 'admin' : 'member');
+    const primary = account?.tier ?? (fallbackAdmin ? 'admin' : 'member');
     return effectiveTiersOf(primary, account?.secondaryTiers);
+  }
+
+  private async effectiveTiers(claims: SessionClaims): Promise<AccountTier[]> {
+    return this.tiersForEmail(claims.email, claims.admin);
   }
 
   /** Grava onde a pessoa está, para ela voltar ao mesmo lugar ao entrar de novo. */
@@ -520,11 +527,7 @@ export class Connection {
           const allowed: string[] = [];
           await Promise.all(
             onlineEmails.map(async (email) => {
-              const acc = await this.deps.accounts.byEmail(email);
-              const accTiers = effectiveTiersOf(
-                acc?.tier ?? 'tester',
-                acc?.secondaryTiers,
-              );
+              const accTiers = await this.tiersForEmail(email);
               if (canViewChannel(accessRule, accTiers, email)) {
                 allowed.push(email);
               }
@@ -653,6 +656,10 @@ export class Connection {
       }
 
       case 'createChannel': {
+        const tiers = await this.effectiveTiers(claims);
+        if (!canManageServer(tiers)) {
+          return send({ type: 'chatError', code: 'forbidden' });
+        }
         const result = await chat.createChannel(
           claims.email,
           message.name,
@@ -674,7 +681,7 @@ export class Connection {
         const result = await chat.archiveChannel(
           claims.email,
           message.id,
-          claims.admin || canManageServer(tiers),
+          canManageServer(tiers),
         );
         if (!result.ok) return send({ type: 'chatError', code: result.error });
         return cluster.dispatch(id, [
@@ -734,7 +741,7 @@ export class Connection {
       case 'deskRelease': {
         const tiers = await this.effectiveTiers(claims);
         const result = await this.deps.desks.release(
-          { email: claims.email, admin: claims.admin || canManageDesks(tiers) },
+          { email: claims.email, admin: canManageDesks(tiers) },
           player.map,
           message.deskId,
           this.serverId,
@@ -826,11 +833,7 @@ export class Connection {
     const allowed: string[] = [];
     await Promise.all(
       onlineEmails.map(async (email) => {
-        const acc = await this.deps.accounts.byEmail(email);
-        const accTiers = effectiveTiersOf(
-          acc?.tier ?? 'tester',
-          acc?.secondaryTiers,
-        );
+        const accTiers = await this.tiersForEmail(email);
         if (canViewChannel(restrictedAccess, accTiers, email)) {
           allowed.push(email);
         }

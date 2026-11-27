@@ -21,6 +21,7 @@ import {
   canManageServer,
   defaultAppearance,
   effectiveTiersOf,
+  type AccountTier,
   type Appearance,
   type DeskInfo,
   type Session,
@@ -63,6 +64,8 @@ type Props = {
   onSelectServer?: (serverId: string) => void;
   onCreateOrJoinServer?: () => void;
   session: Session;
+  /** Cargos efetivos do usuário no servidor ativo. */
+  userTiers?: readonly AccountTier[];
   status: Status;
   appearance: Appearance | undefined;
   unread: number;
@@ -102,6 +105,7 @@ export function MobileBottomNav({
   onSelectServer,
   onCreateOrJoinServer,
   session,
+  userTiers: userTiersProp,
   status,
   appearance,
   unread,
@@ -129,10 +133,12 @@ export function MobileBottomNav({
     canRequestNotificationPermission(),
   );
 
-  const userTiers = effectiveTiersOf(
-    session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
-    session.user.secondaryTiers,
-  );
+  const userTiers =
+    userTiersProp ??
+    effectiveTiersOf(
+      session.user.tier ?? (session.user.admin ? 'admin' : 'member'),
+      session.user.secondaryTiers,
+    );
   const canConfigureServer =
     Boolean(onOpenServerSettings) && canManageServer(userTiers);
   const myAppearance = appearance ?? defaultAppearance(session.user.email);

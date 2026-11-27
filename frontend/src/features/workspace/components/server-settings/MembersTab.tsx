@@ -259,7 +259,11 @@ export function MembersTab({
   const handleReleaseDesk = async (email: string) => {
     setBusyEmail(email);
     onError('');
-    const res = await workspaceApi.releaseAccountDesk(session.token, email);
+    const res = await workspaceApi.releaseAccountDesk(
+      session.token,
+      email,
+      activeServerId,
+    );
     setBusyEmail(null);
     if (!res.ok) {
       onError(errorMessage(res.error));

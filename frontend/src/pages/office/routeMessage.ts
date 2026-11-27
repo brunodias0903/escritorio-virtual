@@ -138,6 +138,7 @@ export function routeServerMessage(
         role: message.role,
       });
       send({ type: 'channels' });
+      send({ type: 'people' });
       notify('Seus cargos e acessos neste servidor foram atualizados.');
       break;
     default:

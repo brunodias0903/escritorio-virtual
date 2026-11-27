@@ -139,10 +139,7 @@ export class MemoryServerRepository implements ServerRepository {
   ): Promise<WorkspaceServer> {
     const normalized = ownerEmail.trim().toLowerCase();
     this.servers.set(server.id, { ...server });
-    const map =
-      this.members.get(server.id) ?? new Map<string, ServerMemberRole>();
-    map.set(normalized, 'owner');
-    this.members.set(server.id, map);
+    await this.addMember(server.id, normalized, 'owner');
     return { ...server };
   }
 

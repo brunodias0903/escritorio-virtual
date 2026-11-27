@@ -65,12 +65,15 @@ import { useThemeStore } from '@/features/theme/themeStore';
 import { CreateServerModal } from '@/features/workspace/components/CreateServerModal';
 import { HelpFeedbackModal } from '@/features/workspace/components/HelpFeedbackModal';
 import { ServerSettingsModal } from '@/features/workspace/components/ServerSettingsModal';
+import { resolveActiveServerTiers } from '@/features/workspace/model/permissions';
 import { useServerStore } from '@/features/workspace/model/serverStore';
 import {
   APP_NAME,
   callKey,
   callZoneId,
   canCreateServer,
+  canManageDesks,
+  canManageServer,
   deskKey,
   effectiveTiersOf,
   isNearCall,
@@ -527,7 +530,9 @@ export function OfficePage({ session }: { session: Session }) {
             void endSession(session.token, `${labels[action]}${suffix}`);
           },
           (update) => {
-            patchSessionUser(update);
+            if (activeServerId === 'default') {
+              patchSessionUser(update);
+            }
           },
         );
       },
@@ -620,6 +625,12 @@ export function OfficePage({ session }: { session: Session }) {
   const myEmail = session.user.email;
   const mine = myDesk(desks, myEmail);
   const people = peopleList(allPeople, desks, myEmail, peopleQuery);
+  const activeUserTiers = resolveActiveServerTiers(
+    session.user,
+    activeServerId,
+    people.me?.person,
+  );
+  const canConfigureActiveServer = canManageServer(activeUserTiers);
   const onlinePeople = onlineCount(
     allPeople.filter((person) => person.email !== myEmail),
   );
@@ -856,6 +867,7 @@ export function OfficePage({ session }: { session: Session }) {
           onSelectServer={handleSelectServer}
           onCreateOrJoinServer={() => setCreateServerOpen(true)}
           session={session}
+          userTiers={activeUserTiers}
           status={me?.status ?? 'available'}
           appearance={me?.appearance}
           unread={notifyCounts.totalUnread}
@@ -894,6 +906,7 @@ export function OfficePage({ session }: { session: Session }) {
           activeServerId={activeServerId}
           onSelectServer={handleSelectServer}
           session={session}
+          userTiers={activeUserTiers}
           status={me?.status ?? 'available'}
           appearance={me?.appearance}
           wide={wide}
@@ -935,7 +948,7 @@ export function OfficePage({ session }: { session: Session }) {
           }
           myEmail={myEmail}
           iHaveDesk={mine !== undefined}
-          isAdmin={session.user.admin}
+          isAdmin={canManageDesks(activeUserTiers)}
           inCall={call.tiles.length > 0}
           previewDeskId={
             previewDesk && previewDesk.map === view.snapshot.map
@@ -1162,9 +1175,10 @@ export function OfficePage({ session }: { session: Session }) {
         />
       ) : null}
 
-      {serverSettingsOpen ? (
+      {serverSettingsOpen && canConfigureActiveServer ? (
         <ServerSettingsModal
           session={session}
+          userTiers={activeUserTiers}
           onClose={() => setServerSettingsOpen(false)}
           onNotify={setNotice}
         />

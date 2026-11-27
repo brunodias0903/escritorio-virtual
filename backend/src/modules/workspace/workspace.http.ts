@@ -70,8 +70,10 @@ export const handleWorkspaceRoutes = async (
     if (!claims) return error(401, 'unauthorized');
 
     if (method === 'GET') {
-      const channels = await workspace.listPublicChannels(serverId);
-      return json(200, { channels });
+      return respond(
+        await workspace.listManagedChannels(claims, serverId),
+        (channels) => json(200, { channels }),
+      );
     }
     if (method === 'POST') {
       const parsed = CreateChannelConfigSchema.safeParse(body);
@@ -188,7 +190,7 @@ export const handleWorkspaceRoutes = async (
     if (!claims) return error(401, 'unauthorized');
     const targetEmail = decodeURIComponent(accountDeskMatch[1]!);
     return respond(
-      await workspace.releaseUserDeskAsAdmin(claims, targetEmail),
+      await workspace.releaseUserDeskAsAdmin(claims, targetEmail, serverId),
       (result) => json(200, result),
     );
   }

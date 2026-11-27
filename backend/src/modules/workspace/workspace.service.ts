@@ -80,6 +80,7 @@ type Deps = {
       admin: boolean;
       role: string;
     },
+    serverId?: string,
   ) => Promise<void> | void;
   onUserModerated?: (
     email: string,
@@ -158,9 +159,12 @@ export class WorkspaceService {
     return [claims.admin ? 'admin' : 'member'];
   }
 
-  private async releaseUserDesk(email: string): Promise<DeskInfo | null> {
+  private async releaseUserDesk(
+    email: string,
+    serverId = 'default',
+  ): Promise<DeskInfo | null> {
     if (!this.deps.desks) return null;
-    const freed = await this.deps.desks.releaseByOwner(email);
+    const freed = await this.deps.desks.releaseByOwner(email, serverId);
     if (freed) await this.deps.onDeskChanged?.(freed);
     return freed;
   }
@@ -236,6 +240,15 @@ export class WorkspaceService {
 
   async listPublicChannels(serverId = 'default'): Promise<ChannelRow[]> {
     return this.deps.channels.listPublic(serverId);
+  }
+
+  async listManagedChannels(
+    claims: SessionClaims,
+    serverId = 'default',
+  ): Promise<HttpResult<ChannelRow[]>> {
+    const tiers = await this.tiersOf(claims, serverId);
+    if (!canManageServer(tiers)) return httpFail(403, 'forbidden');
+    return ok(await this.deps.channels.listPublic(serverId));
   }
 
   async updateServerSettings(
@@ -615,6 +628,13 @@ export class WorkspaceService {
 
     const target = await this.deps.accounts.byEmail(targetEmail);
     if (!target) return httpFail(404, 'not_found');
+    if (
+      serverId !== 'default' &&
+      this.deps.servers &&
+      !(await this.deps.servers.isMember(serverId, targetEmail))
+    ) {
+      return httpFail(404, 'not_found');
+    }
 
     const existingMemberRoles =
       serverId !== 'default'
@@ -695,12 +715,21 @@ export class WorkspaceService {
         ? cleanSecondary
         : this.resolveSecondaryTiers(updated, resolvedPrimary);
     const newEffective = effectiveTiersOf(resolvedPrimary, resolvedSecondary);
-    await this.deps.onAccountRolesChanged?.(targetEmail, {
+    const roleUpdate = {
       tier: resolvedPrimary,
       secondaryTiers: resolvedSecondary,
       admin: canManageServer(newEffective),
       role: updated.role,
-    });
+    };
+    if (serverId !== 'default') {
+      await this.deps.onAccountRolesChanged?.(
+        targetEmail,
+        roleUpdate,
+        serverId,
+      );
+    } else {
+      await this.deps.onAccountRolesChanged?.(targetEmail, roleUpdate);
+    }
 
     const deskList = this.deps.desks
       ? await this.deps.desks.list(serverId)
@@ -831,8 +860,9 @@ export class WorkspaceService {
   async releaseUserDeskAsAdmin(
     claims: SessionClaims,
     targetEmailRaw: string,
+    serverId = 'default',
   ): Promise<HttpResult<{ desk: DeskInfo }>> {
-    const actorTiers = await this.tiersOf(claims);
+    const actorTiers = await this.tiersOf(claims, serverId);
     if (!canManageDesks(actorTiers)) return httpFail(403, 'forbidden');
 
     const targetEmail = normalizeEmail(targetEmailRaw);
@@ -845,7 +875,7 @@ export class WorkspaceService {
       return httpFail(403, 'cannot_manage_higher_role');
     }
 
-    const freed = await this.releaseUserDesk(targetEmail);
+    const freed = await this.releaseUserDesk(targetEmail, serverId);
     if (!freed) return httpFail(404, 'invalid_desk');
     return ok({ desk: freed });
   }
@@ -903,7 +933,7 @@ export class WorkspaceService {
     if (!this.deps.invites || !this.deps.servers) {
       return httpFail(501, 'not_implemented');
     }
-    const actorTiers = await this.tiersOf(claims);
+    const actorTiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
     const srv = await this.deps.servers.get(serverId);
     if (!srv) return httpFail(404, 'server_not_found');
@@ -926,7 +956,7 @@ export class WorkspaceService {
     if (!this.deps.invites || !this.deps.servers) {
       return httpFail(501, 'not_implemented');
     }
-    const actorTiers = await this.tiersOf(claims);
+    const actorTiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
     const srv = await this.deps.servers.get(serverId);
     if (!srv) return httpFail(404, 'server_not_found');
@@ -965,7 +995,7 @@ export class WorkspaceService {
     code: string,
   ): Promise<HttpResult<{ ok: true }>> {
     if (!this.deps.invites) return httpFail(501, 'not_implemented');
-    const actorTiers = await this.tiersOf(claims);
+    const actorTiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
     const revoked = await this.deps.invites.revoke(code, serverId);
     if (!revoked) return httpFail(404, 'invite_not_found');
@@ -1030,7 +1060,7 @@ export class WorkspaceService {
     if (!this.deps.invites?.listInvitedEmails || !this.deps.servers) {
       return httpFail(501, 'not_implemented');
     }
-    const actorTiers = await this.tiersOf(claims);
+    const actorTiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
     const srv = await this.deps.servers.get(serverId);
     if (!srv) return httpFail(404, 'server_not_found');
@@ -1056,7 +1086,7 @@ export class WorkspaceService {
     ) {
       return httpFail(501, 'not_implemented');
     }
-    const actorTiers = await this.tiersOf(claims);
+    const actorTiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
     const srv = await this.deps.servers.get(serverId);
     if (!srv) return httpFail(404, 'server_not_found');
@@ -1095,7 +1125,7 @@ export class WorkspaceService {
     if (!this.deps.invites?.removeInvitedEmail) {
       return httpFail(501, 'not_implemented');
     }
-    const actorTiers = await this.tiersOf(claims);
+    const actorTiers = await this.tiersOf(claims, serverId);
     if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
     const removed = await this.deps.invites.removeInvitedEmail(
       serverId,

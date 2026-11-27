@@ -137,24 +137,20 @@ const world = (
     return client;
   };
 
-  const sessionFor = (email: string, name: string) =>
-    signSession(
-      { email, name, admin: false, kind: 'company' },
-      SECRET,
-      3600,
-      time,
-    );
+  const sessionFor = (email: string, name: string, admin = false) =>
+    signSession({ email, name, admin, kind: 'company' }, SECRET, 3600, time);
 
   const login = async (
     id: string,
     email: string,
     name: string,
     serverId?: string,
+    admin = false,
   ) => {
     const client = connect(id);
     await client.send({
       type: 'join',
-      token: sessionFor(email, name),
+      token: sessionFor(email, name, admin),
       ...(serverId ? { serverId } : {}),
     });
     return client;
@@ -400,10 +396,14 @@ describe('chat', () => {
     expect(ana.ofType('chatError').at(-1)?.code).toBe('not_found');
   });
 
-  it('cria e arquiva canais avisando todos', async () => {
+  it('cria e arquiva canais avisando todos (e bloqueia membro comum)', async () => {
     const w = world();
-    const ana = await w.login('a', 'ana@empresa.com', 'Ana');
+    const ana = await w.login('a', 'ana@empresa.com', 'Ana', undefined, true);
     const bia = await w.login('b', 'bia@empresa.com', 'Bia');
+
+    // Membro comum não pode criar canal público
+    await bia.send({ type: 'createChannel', name: 'clandestino' });
+    expect(bia.ofType('chatError').at(-1)?.code).toBe('forbidden');
 
     await ana.send({ type: 'createChannel', name: 'design' });
     expect(ana.ofType('channelOpened')[0]?.channel.id).toBe('design');
@@ -520,6 +520,10 @@ describe('chat', () => {
     );
 
     // Criar canal via WebSocket no srv-b não vaza para o servidor default.
+    // Bia é membro comum no srv-b e recebe forbidden; Ana é dona (admin) e cria normalmente.
+    await bia.send({ type: 'createChannel', name: 'proibido' });
+    expect(bia.ofType('chatError').at(-1)?.code).toBe('forbidden');
+
     await ana.send({ type: 'createChannel', name: 'comunicados' });
     expect(ana.ofType('channelOpened').at(-1)?.channel).toMatchObject({
       id: 'srv-b:comunicados',
@@ -536,6 +540,81 @@ describe('chat', () => {
       .at(-1)!
       .channels.map((c) => c.name);
     expect(defaultChannelNames).not.toContain('comunicados');
+  });
+
+  it('respeita cargos por servidor no WebSocket: admin do default que é membro no srv-b não cria/arquiva canal nem libera mesa alheia', async () => {
+    const servers = new MemoryServerRepository();
+    await servers.create(
+      {
+        id: 'srv-b',
+        name: 'Getter S.A.',
+        description: '',
+        accentColor: '#5b6cff',
+        visibility: 'invite',
+        ownerEmail: 'dona@empresa.com',
+        planTier: 'starter',
+        maxMembers: null,
+        maxPendingInvites: null,
+        createdAt: 1,
+      },
+      'dona@empresa.com',
+    );
+    await servers.addMember('srv-b', 'admin-default@empresa.com', 'member');
+
+    const w = world(new MediaService(null), { servers });
+    await w.accounts.create({
+      nickname: 'dona',
+      fullName: 'Dona Local',
+      email: 'dona@empresa.com',
+      role: 'Head',
+      tier: 'member',
+      passwordHash: 'x',
+      createdAt: 1,
+    });
+    await w.accounts.create({
+      nickname: 'admindef',
+      fullName: 'Admin Default',
+      email: 'admin-default@empresa.com',
+      role: 'Admin',
+      tier: 'admin',
+      passwordHash: 'x',
+      createdAt: 1,
+    });
+
+    const dona = await w.login(
+      'dona',
+      'dona@empresa.com',
+      'Dona Local',
+      'srv-b',
+      false,
+    );
+    // Loga com claims.admin = true (vindo do servidor default), mas no srv-b é apenas 'member'
+    const adminDefault = await w.login(
+      'admindef',
+      'admin-default@empresa.com',
+      'Admin Default',
+      'srv-b',
+      true,
+    );
+
+    // Dona (admin local em srv-b) cria canal e adota mesa-1
+    await dona.send({ type: 'createChannel', name: 'avisos' });
+    expect(dona.ofType('channelOpened').at(-1)?.channel.id).toBe(
+      'srv-b:avisos',
+    );
+    w.office.players.get('dona')!.x = 430;
+    w.office.players.get('dona')!.y = 160;
+    await dona.send({ type: 'deskAdopt', deskId: 'mesa-1' });
+
+    // admin-default (apenas member em srv-b) NÃO pode criar canal, arquivar canal nem remover mesa de dona
+    await adminDefault.send({ type: 'createChannel', name: 'clandestino' });
+    expect(adminDefault.ofType('chatError').at(-1)?.code).toBe('forbidden');
+
+    await adminDefault.send({ type: 'archiveChannel', id: 'srv-b:avisos' });
+    expect(adminDefault.ofType('chatError').at(-1)?.code).toBe('forbidden');
+
+    await adminDefault.send({ type: 'deskRelease', deskId: 'mesa-1' });
+    expect(adminDefault.ofType('deskError').at(-1)?.code).toBe('not_owner');
   });
 });
 

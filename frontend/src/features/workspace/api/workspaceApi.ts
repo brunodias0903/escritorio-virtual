@@ -240,10 +240,13 @@ export function createWorkspaceApi({ baseUrl }: { baseUrl: string }) {
         { method: 'POST', token, body },
       ),
 
-    releaseAccountDesk: (token: string, email: string) =>
+    releaseAccountDesk: (token: string, email: string, serverId?: string) =>
       request(
         baseUrl,
-        `/api/server/accounts/${encodeURIComponent(email)}/desk`,
+        withServer(
+          `/api/server/accounts/${encodeURIComponent(email)}/desk`,
+          serverId,
+        ),
         z.object({ desk: DeskInfoSchema }),
         { method: 'DELETE', token },
       ),

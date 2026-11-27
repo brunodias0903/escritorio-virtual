@@ -8,6 +8,7 @@ import {
   canManageServer,
   defaultAppearance,
   effectiveTiersOf,
+  type AccountTier,
   type Appearance,
   type DeskInfo,
   type Session,
@@ -46,6 +47,8 @@ type Props = {
   activeServerId?: string;
   onSelectServer?: (id: string) => void;
   session: Session;
+  /** Cargos efetivos do usuário no servidor ativo. */
+  userTiers?: readonly AccountTier[];
   status: Status;
   appearance: Appearance | undefined;
   /** Tela larga: sidebar encaixa à esquerda do mapa com redimensionamento. */
@@ -144,6 +147,7 @@ export function WorkspaceSidebar({
   activeServerId = 'default',
   onSelectServer,
   session,
+  userTiers: userTiersProp,
   status,
   appearance,
   wide,
@@ -173,10 +177,12 @@ export function WorkspaceSidebar({
   send,
 }: Props) {
   const { t } = useI18n();
-  const userTiers = effectiveTiersOf(
-    session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
-    session.user.secondaryTiers,
-  );
+  const userTiers =
+    userTiersProp ??
+    effectiveTiersOf(
+      session.user.tier ?? (session.user.admin ? 'admin' : 'member'),
+      session.user.secondaryTiers,
+    );
   const canConfigureServer =
     Boolean(onOpenServerSettings) && canManageServer(userTiers);
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);

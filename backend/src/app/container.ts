@@ -303,10 +303,11 @@ export const createContainer = async (
       ]);
     },
     onDeskChanged: broadcastDeskChange,
-    onAccountRolesChanged: async (email, update) => {
+    onAccountRolesChanged: async (email, update, serverId) => {
       await cluster.dispatch(instanceId, [
         {
           to: 'all',
+          ...(serverId ? { serverId } : {}),
           emails: [email],
           message: {
             type: 'accountUpdated',

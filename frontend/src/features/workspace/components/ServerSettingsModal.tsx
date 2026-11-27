@@ -21,6 +21,7 @@ import {
   canModerateAccounts,
   effectiveTiersOf,
   errorMessage,
+  type AccountTier,
   type Session,
 } from '@/shared/domain';
 import { useI18n } from '@/shared/i18n';
@@ -41,6 +42,8 @@ import { MembersTab } from './server-settings/MembersTab';
 
 type Props = {
   session: Session;
+  /** Cargos efetivos do usuário no servidor ativo. */
+  userTiers?: readonly AccountTier[];
   onClose: () => void;
   onNotify: (msg: string) => void;
 };
@@ -51,15 +54,22 @@ type Tab = 'members' | 'channels' | 'invites' | 'general';
  * Painel administrativo do servidor reconstruído com Tamagui (`Dialog`, `Tabs`,
  * `Accordion`, `Select`, `Switch`, `AlertDialog`) e ícones Lucide.
  */
-export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
+export function ServerSettingsModal({
+  session,
+  userTiers,
+  onClose,
+  onNotify,
+}: Props) {
   const { t } = useI18n();
   const settings = useServerStore((s) => s.settings);
   const activeServerId = useServerStore((s) => s.activeServerId);
 
-  const actorTiers = effectiveTiersOf(
-    session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
-    session.user.secondaryTiers,
-  );
+  const actorTiers =
+    userTiers ??
+    effectiveTiersOf(
+      session.user.tier ?? (session.user.admin ? 'admin' : 'member'),
+      session.user.secondaryTiers,
+    );
   const isMaster = canModerateAccounts(actorTiers);
   const canSeeMembers = canManageMembers(actorTiers);
 

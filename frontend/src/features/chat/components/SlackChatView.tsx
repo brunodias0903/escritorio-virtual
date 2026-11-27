@@ -98,7 +98,8 @@ export function SlackChatView({
   const listRef = useRef<HTMLDivElement>(null);
 
   const effectiveTiers = userTiers ?? [userTier];
-  const canReorder = Boolean(token) && canManageServer(effectiveTiers);
+  const canManageChannels = canManageServer(effectiveTiers);
+  const canReorder = Boolean(token) && canManageChannels;
 
   const publicChannels = channels.filter((c) => c.kind === 'public');
   const lastDmAt = (channelId: string): number => {
@@ -295,18 +296,20 @@ export function SlackChatView({
                       {publicChannels.length}
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    className={styles.iconAdd}
-                    aria-label="Criar novo canal"
-                    title="Criar novo canal"
-                    onClick={() => toggleCreate('channel')}
-                  >
-                    +
-                  </button>
+                  {canManageChannels ? (
+                    <button
+                      type="button"
+                      className={styles.iconAdd}
+                      aria-label="Criar novo canal"
+                      title="Criar novo canal"
+                      onClick={() => toggleCreate('channel')}
+                    >
+                      +
+                    </button>
+                  ) : null}
                 </div>
 
-                {mode === 'channel' ? (
+                {canManageChannels && mode === 'channel' ? (
                   <form className={styles.inlineForm} onSubmit={submitChannel}>
                     <input
                       type="text"

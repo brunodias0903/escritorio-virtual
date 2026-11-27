@@ -655,8 +655,16 @@ describe('WorkspaceService', () => {
       error: 'invite_exhausted',
     });
 
-    // Gera segundo convite e revoga antes do uso
-    const invite2 = await service.createServerInvite(admin, created.value.id, {
+    // Admin do servidor 'default' (não é admin em 'Equipe Mobile') não gera convite lá
+    expect(
+      await service.createServerInvite(admin, created.value.id, {
+        maxUses: null,
+        expiresInHours: null,
+      }),
+    ).toMatchObject({ ok: false, status: 403, error: 'forbidden' });
+
+    // Master gera segundo convite e revoga antes do uso
+    const invite2 = await service.createServerInvite(master, created.value.id, {
       maxUses: null,
       expiresInHours: null,
     });
@@ -664,7 +672,7 @@ describe('WorkspaceService', () => {
     if (!invite2.ok) return;
 
     const revoked = await service.revokeServerInvite(
-      admin,
+      master,
       created.value.id,
       invite2.value.code,
     );
@@ -737,7 +745,7 @@ describe('WorkspaceService', () => {
         error: 'server_member_limit_reached',
       });
     }
-    const invLimited = await service.createServerInvite(admin, 'nao-existe', {
+    const invLimited = await service.createServerInvite(master, 'nao-existe', {
       maxUses: 1,
       expiresInHours: 1,
     });
@@ -746,13 +754,15 @@ describe('WorkspaceService', () => {
       status: 404,
       error: 'server_not_found',
     });
-    expect(await service.listServerInvites(admin, 'nao-existe')).toMatchObject({
-      ok: false,
-      status: 404,
-      error: 'server_not_found',
-    });
+    expect(await service.listServerInvites(master, 'nao-existe')).toMatchObject(
+      {
+        ok: false,
+        status: 404,
+        error: 'server_not_found',
+      },
+    );
     expect(
-      await service.revokeServerInvite(admin, created.value.id, 'INEXISTENTE'),
+      await service.revokeServerInvite(master, created.value.id, 'INEXISTENTE'),
     ).toMatchObject({ ok: false, status: 404, error: 'invite_not_found' });
 
     // Convites por e-mail: limites, permissões e erros 404
@@ -766,10 +776,10 @@ describe('WorkspaceService', () => {
       await limitedService.removeInvitedEmail(dev, restricted.id, 'a@x.com'),
     ).toMatchObject({ ok: false, status: 403, error: 'forbidden' });
     expect(
-      await limitedService.listInvitedEmails(admin, 'nao-existe'),
+      await limitedService.listInvitedEmails(master, 'nao-existe'),
     ).toMatchObject({ ok: false, status: 404, error: 'server_not_found' });
     expect(
-      await limitedService.addInvitedEmail(admin, 'nao-existe', 'a@x.com'),
+      await limitedService.addInvitedEmail(master, 'nao-existe', 'a@x.com'),
     ).toMatchObject({ ok: false, status: 404, error: 'server_not_found' });
     expect(
       await limitedService.addInvitedEmail(admin, restricted.id, 'a@x.com'),
