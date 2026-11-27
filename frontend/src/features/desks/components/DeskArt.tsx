@@ -594,6 +594,7 @@ type Props = {
   /** Dono da mesa: o nome e o cargo aparecem acima dela quando `showLabel` está ligado. */
   owner?: { name: string; role: string } | null;
   onHoverChange?: (hovered: boolean) => void;
+  onTap?: () => void;
 };
 
 /**
@@ -608,6 +609,7 @@ export function DeskArt({
   freeHint = true,
   owner = null,
   onHoverChange,
+  onTap,
 }: Props) {
   const look = config ?? FREE_DESK_CONFIG;
   const setup = resolveDeskSetup(look);
@@ -624,6 +626,16 @@ export function DeskArt({
     <g
       onMouseEnter={onHoverChange ? () => onHoverChange(true) : undefined}
       onMouseLeave={onHoverChange ? () => onHoverChange(false) : undefined}
+      onPointerUp={
+        onTap
+          ? (event) => {
+              if (event.pointerType === 'touch') {
+                event.stopPropagation();
+                onTap();
+              }
+            }
+          : undefined
+      }
     >
       {/* Área interativa invisível cobrindo tampo e lugares da mesa para hover suave */}
       {onHoverChange ? (

@@ -293,16 +293,14 @@ export function OfficeMap({
       }
       setHoveredDeskId((current) => {
         if (current !== deskId) return current;
-        if (deskId !== activeDeskId) {
-          setClosingDeskId(deskId);
-          if (closeTimerRef.current !== null) {
-            window.clearTimeout(closeTimerRef.current);
-          }
-          closeTimerRef.current = window.setTimeout(() => {
-            closeTimerRef.current = null;
-            setClosingDeskId((c) => (c === deskId ? null : c));
-          }, CLOSE_ANIMATION_MS);
+        setClosingDeskId(deskId);
+        if (closeTimerRef.current !== null) {
+          window.clearTimeout(closeTimerRef.current);
         }
+        closeTimerRef.current = window.setTimeout(() => {
+          closeTimerRef.current = null;
+          setClosingDeskId((c) => (c === deskId ? null : c));
+        }, CLOSE_ANIMATION_MS);
         return null;
       });
     }, HOVER_LEAVE_GRACE_MS);
@@ -316,6 +314,14 @@ export function OfficeMap({
       const prev = mapHoverDeskRef.current ?? hoveredDeskId;
       mapHoverDeskRef.current = null;
       if (prev) leaveDesk(prev);
+    }
+  };
+
+  const handleMapTapDesk = (deskId: string) => {
+    if (hoveredDeskId === deskId) {
+      collapseDesk(deskId);
+    } else {
+      enterDesk(deskId);
     }
   };
 
@@ -333,9 +339,9 @@ export function OfficeMap({
     ? []
     : map.desks.filter(
         (desk) =>
-          desk.id === activeDeskId ||
           desk.id === hoveredDeskId ||
-          desk.id === closingDeskId,
+          desk.id === closingDeskId ||
+          pendingDeskAction?.deskId === desk.id,
       );
   const view = computeViewBox(map, viewport, zoom, camCenter);
 
@@ -381,7 +387,11 @@ export function OfficeMap({
   };
 
   const handleClick = (event: MouseEvent<SVGSVGElement>) => {
-    if (!movingDeskId || !onPlaceDesk) return;
+    if (!movingDeskId) {
+      if (hoveredDeskId) collapseDesk(hoveredDeskId);
+      return;
+    }
+    if (!onPlaceDesk) return;
     const target = tileFromPointer(event);
     if (!target || !isPlacementValid(target.col, target.row)) return;
     onPlaceDesk(target.col, target.row);
@@ -416,6 +426,7 @@ export function OfficeMap({
           desks={desks}
           myEmail={myEmail}
           onHoverDesk={movingDeskId ? undefined : handleMapHoverDesk}
+          onTapDesk={movingDeskId ? undefined : handleMapTapDesk}
         />
         {[...snapshot.players]
           .sort((a, b) => a.y - b.y)
@@ -537,8 +548,12 @@ export function OfficeMap({
           me.x === desk.x + desk.w / 2 &&
           me.y === desk.y + desk.h + TILE / 2,
         );
-        const isClosing = desk.id === closingDeskId && !isStanding;
-        const expanded = isStanding || desk.id === hoveredDeskId || isClosing;
+        const isClosing =
+          desk.id === closingDeskId && desk.id !== hoveredDeskId;
+        const expanded =
+          desk.id === hoveredDeskId ||
+          isClosing ||
+          pendingDeskAction?.deskId === desk.id;
         const screenX =
           ((desk.x + desk.w / 2 - view.x) / view.w) * viewport.width;
         const screenY = ((desk.y - view.y) / view.h) * viewport.height;

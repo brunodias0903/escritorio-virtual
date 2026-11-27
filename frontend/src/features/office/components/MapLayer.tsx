@@ -25,11 +25,19 @@ type Props = {
   myEmail?: string;
   /** Avisa qual mesa está com o mouse por cima (ou null ao sair). */
   onHoverDesk?: (deskId: string | null) => void;
+  /** Avisa qual mesa foi tocada em telas touch para alternar o balão. */
+  onTapDesk?: (deskId: string) => void;
 };
 
 const INK = '#1e191d';
 
-export function MapLayer({ mapId, desks, myEmail, onHoverDesk }: Props) {
+export function MapLayer({
+  mapId,
+  desks,
+  myEmail,
+  onHoverDesk,
+  onTapDesk,
+}: Props) {
   const map = resolveMap(mapId, Object.values(desks));
   const walls = wallTiles(map);
 
@@ -161,6 +169,7 @@ export function MapLayer({ mapId, desks, myEmail, onHoverDesk }: Props) {
               ? (hovered) => onHoverDesk(hovered ? desk.id : null)
               : undefined
           }
+          onTap={onTapDesk ? () => onTapDesk(desk.id) : undefined}
         />
       ))}
 

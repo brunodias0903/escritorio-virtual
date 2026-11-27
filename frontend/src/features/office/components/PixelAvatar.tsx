@@ -125,7 +125,10 @@ export function PixelAvatar({
   const labelY = -labelHeight + 3;
 
   return (
-    <g transform={`translate(${player.x + sitDx}, ${player.y})`}>
+    <g
+      transform={`translate(${player.x + sitDx}, ${player.y})`}
+      style={{ pointerEvents: 'none' }}
+    >
       <ellipse
         cx={0}
         cy={14 + (isSitting ? -4 : 0)}
