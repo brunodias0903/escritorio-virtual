@@ -12,43 +12,10 @@ import {
   type DeskMonitor,
 } from '@/shared/domain';
 
+import { DESK_ITEM_PX, deskItemSlot } from '../model/deskLayout';
+
 const INK = '#1e191d';
-
-/** Tamanho (em pixels do mapa) da área de cada enfeite sobre a mesa (matriz 10x10 em 1.1px = 11x11px). */
-const ITEM_PX = 1.1;
-const ITEM_SIZE = 10 * ITEM_PX;
-
-/**
- * Posições dos 4 enfeites dentro da área útil da superfície do tampo (`y + 2` até `y + h - 10`),
- * distribuídos nas alas laterais esquerda e direita (acima dos dois gaveteiros) para nunca
- * transbordar para fora da mesa nem colidir com monitores, teclado, mouse ou gabinete:
- * - Slot 0: Ala esquerda superior
- * - Slot 1: Ala direita superior
- * - Slot 2: Ala esquerda frontal
- * - Slot 3: Ala direita frontal
- */
-const slotOf = (
-  desk: DeskDef,
-  index: number,
-  setup: { machine: DeskMachine; monitor: DeskMonitor },
-) => {
-  const hasTower = setup.machine === 'desktop';
-  const wideMonitors = setup.monitor === 'triple' || setup.monitor === 'dual';
-  const leftBackX = desk.x + 2;
-  const leftFrontX = wideMonitors ? desk.x + 14 : desk.x + 15;
-  const rightFrontX = hasTower
-    ? desk.x + desk.w - 33
-    : desk.x + desk.w - 15 - ITEM_SIZE;
-  const rightBackX = desk.x + desk.w - ITEM_SIZE - 2;
-
-  const slots = [
-    { x: leftBackX, y: desk.y + 1 },
-    { x: rightBackX, y: desk.y + 1 },
-    { x: leftFrontX, y: desk.y + 11 },
-    { x: rightFrontX, y: desk.y + 11 },
-  ];
-  return slots[index] ?? slots[0]!;
-};
+const ITEM_PX = DESK_ITEM_PX;
 
 /** Paleta padronizada `.Art` para compilar as matrizes 10x10 dos 24 itens `tag: 'desk-decor'`. */
 const ITEM_PALETTE: Readonly<Record<string, string>> = {
@@ -922,7 +889,7 @@ export function DeskArt({
       />
 
       {look.items.map((item, index) => {
-        const slot = slotOf(desk, index, setup);
+        const slot = deskItemSlot(desk, index, setup);
         return <Item key={item} item={item} x={slot.x} y={slot.y} />;
       })}
 

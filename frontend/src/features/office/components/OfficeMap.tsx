@@ -67,39 +67,29 @@ function resolveSeatedPose(
   for (const s of map.solids) {
     if (s.kind !== 'table') continue;
     // Fileira de cima da mesa (olhando para baixo)
-    if (
-      player.y === s.y - TILE / 2 &&
-      player.x >= s.x &&
-      player.x <= s.x + s.w
-    ) {
+    if (player.y === s.y - TILE / 2 && player.x > s.x && player.x < s.x + s.w) {
       return { facing: 'down', offsetY: 6 };
     }
-    // Fileira de baixo da mesa (olhando para cima, com encosto de cadeira)
+    // Fileira de baixo da mesa (olhando para cima, com encosto combinando com a cor da poltrona)
     if (
       player.y === s.y + s.h + TILE / 2 &&
-      player.x >= s.x &&
-      player.x <= s.x + s.w
+      player.x > s.x &&
+      player.x < s.x + s.w
     ) {
+      const col = Math.floor((player.x - s.x) / TILE);
+      const chairColor = col % 2 === 0 ? '#397f94' : '#59804b';
       return {
         facing: 'up',
-        chairColor: '#397f94',
+        chairColor,
         offsetY: -5,
       };
     }
-    // Cabeceira esquerda
-    if (
-      player.x === s.x - TILE / 2 &&
-      player.y >= s.y &&
-      player.y <= s.y + s.h
-    ) {
+    // Cabeceira esquerda (somente na fileira central onde está a poltrona)
+    if (player.x === s.x - TILE / 2 && player.y === s.y + s.h / 2) {
       return { facing: 'right', offsetX: 6, offsetY: -2 };
     }
-    // Cabeceira direita
-    if (
-      player.x === s.x + s.w + TILE / 2 &&
-      player.y >= s.y &&
-      player.y <= s.y + s.h
-    ) {
+    // Cabeceira direita (somente na fileira central onde está a poltrona)
+    if (player.x === s.x + s.w + TILE / 2 && player.y === s.y + s.h / 2) {
       return { facing: 'left', offsetX: -6, offsetY: -2 };
     }
   }

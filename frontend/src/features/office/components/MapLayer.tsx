@@ -600,17 +600,21 @@ function SolidObject({ solid }: { solid: Solid }) {
   const { x, y, w, h } = solid;
 
   switch (solid.kind) {
-    case 'table':
-      // Mesa de Reunião Executiva com 10 Poltronas ao Redor (4 em cima, 4 embaixo, 1 na esquerda e 1 na direita)
+    case 'table': {
+      // Mesa de Reunião Executiva com poltronas alinhadas ao centro de cada quadradinho (topo, base e cabeceiras)
+      const chairCols = Array.from(
+        { length: Math.max(1, Math.round(w / TILE)) },
+        (_, idx) => idx,
+      );
       return (
         <g>
-          {/* 4 Poltronas Superiores (Encaixe sob a borda norte da mesa) */}
-          {[0.16, 0.38, 0.62, 0.84].map((f, idx) => {
-            const cx = x + w * f;
-            const cy = y - 11;
-            const seatColor = idx % 2 === 0 ? '#397f94' : '#59804b';
+          {/* Poltronas Superiores (alinhadas ao centro de cada tile ao norte da mesa) */}
+          {chairCols.map((col) => {
+            const cx = x + (col + 0.5) * TILE;
+            const cy = y - 12;
+            const seatColor = col % 2 === 0 ? '#397f94' : '#59804b';
             return (
-              <g key={`chair-top-${f}`}>
+              <g key={`chair-top-${col}`}>
                 <ellipse
                   cx={cx}
                   cy={cy + 9}
@@ -845,13 +849,13 @@ function SolidObject({ solid }: { solid: Solid }) {
             </g>
           ))}
 
-          {/* 4 Poltronas Inferiores (Vistas de costas na frente da mesa, com base estrela) */}
-          {[0.16, 0.38, 0.62, 0.84].map((f, idx) => {
-            const cx = x + w * f;
-            const cy = y + h - 1;
-            const seatColor = idx % 2 === 0 ? '#397f94' : '#59804b';
+          {/* Poltronas Inferiores (alinhadas ao centro de cada tile ao sul da mesa) */}
+          {chairCols.map((col) => {
+            const cx = x + (col + 0.5) * TILE;
+            const cy = y + h + 4;
+            const seatColor = col % 2 === 0 ? '#397f94' : '#59804b';
             return (
-              <g key={`chair-bottom-${f}`}>
+              <g key={`chair-bottom-${col}`}>
                 <ellipse
                   cx={cx}
                   cy={cy + 16}
@@ -891,6 +895,7 @@ function SolidObject({ solid }: { solid: Solid }) {
           })}
         </g>
       );
+    }
 
     case 'plant':
       // Planta Escultural Ficus / Estante com Vaso Cerâmico e Tripé
