@@ -129,6 +129,7 @@ export const tamaguiTokens = createTokens({
   space: {
     ...SPACING,
     0: 0,
+    3.5: 14,
   },
   size: {
     0: 0,
@@ -180,6 +181,14 @@ export type TamaguiSemanticTheme = {
   placeholderColor: string;
   shadowColor: string;
   outlineColor: string;
+  'background-hover': string;
+  'background-press': string;
+  'background-focus': string;
+  'border-color': string;
+  'border-color-hover': string;
+  'border-color-focus': string;
+  'color-press': string;
+  'outline-color': string;
   bgRail: string;
   bgApp: string;
   bgSurface: string;
@@ -251,6 +260,14 @@ export const resolvedTokensToTamaguiTheme = (
   placeholderColor: tokens.text.placeholder,
   shadowColor: 'rgba(4, 6, 20, 0.44)',
   outlineColor: tokens.accent.link,
+  'background-hover': tokens.bg.controlHover,
+  'background-press': tokens.bg.surfaceElevated,
+  'background-focus': tokens.bg.focus,
+  'border-color': tokens.border.subtle,
+  'border-color-hover': tokens.border.accent,
+  'border-color-focus': tokens.accent.main,
+  'color-press': tokens.text.secondary,
+  'outline-color': tokens.accent.link,
   bgRail: tokens.bg.rail,
   bgApp: tokens.bg.app,
   bgSurface: tokens.bg.surface,

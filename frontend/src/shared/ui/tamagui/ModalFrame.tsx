@@ -1,14 +1,6 @@
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import {
-  Button,
-  Dialog,
-  Separator,
-  Text,
-  XStack,
-  YStack,
-  useMedia,
-} from 'tamagui';
+import { Button, Dialog, Text, XStack, YStack, useMedia } from 'tamagui';
 
 type Props = {
   title: string;
@@ -20,10 +12,12 @@ type Props = {
   children: ReactNode;
   maxWidth?: number;
   maxHeight?: string;
+  /** Altura explícita opcional (ex.: modais com barra lateral e rolagem interna). */
+  height?: string;
   closeDisabled?: boolean;
   /** Remove o padding padrão do corpo (útil para layouts com barra lateral interna). */
   noPadding?: boolean;
-  /** Altura fixa/controlada para layouts com rolagem interna própria. */
+  /** Quando true, o corpo do modal rola verticalmente; quando false, delega rolagem aos filhos. */
   bodyScroll?: boolean;
   zIndex?: number;
 };
@@ -42,6 +36,7 @@ export function ModalFrame({
   children,
   maxWidth = 520,
   maxHeight = '88dvh',
+  height,
   closeDisabled = false,
   noPadding = false,
   bodyScroll = true,
@@ -107,6 +102,7 @@ export function ModalFrame({
             flexDirection="column"
             data-scroll-lock="true"
             style={{
+              height: height ?? undefined,
               boxShadow:
                 '0 24px 64px rgba(2, 4, 16, 0.68), inset 0 1px 0 rgba(255, 255, 255, 0.07)',
               animation: 'dsDialogIn 220ms cubic-bezier(0.16, 1, 0.3, 1)',
@@ -122,15 +118,17 @@ export function ModalFrame({
               alignItems="center"
               justifyContent="space-between"
               paddingHorizontal={isMobile ? '$4' : '$5'}
-              paddingVertical="$4"
+              paddingVertical="$3.5"
               gap="$3"
               flexShrink={0}
+              borderBottomWidth={1}
+              borderBottomColor="$borderSubtle"
             >
               <XStack alignItems="center" gap="$3" flex={1} minWidth={0}>
                 {icon ? (
                   <YStack
-                    width={38}
-                    height={38}
+                    width={36}
+                    height={36}
                     borderRadius="$lg"
                     backgroundColor="$bgControl"
                     borderWidth={1}
@@ -149,6 +147,7 @@ export function ModalFrame({
                       fontSize="$6"
                       fontWeight="700"
                       color="$textPrimary"
+                      lineHeight="22px"
                       numberOfLines={1}
                     >
                       {title}
@@ -160,7 +159,7 @@ export function ModalFrame({
                         fontFamily="$body"
                         fontSize="$3"
                         color="$textMuted"
-                        lineHeight={18}
+                        lineHeight="18px"
                       >
                         {subtitle}
                       </Text>
@@ -186,6 +185,7 @@ export function ModalFrame({
                     onPress={onClose}
                     alignItems="center"
                     justifyContent="center"
+                    cursor="pointer"
                   >
                     <X size={16} strokeWidth={2.2} aria-hidden={true} />
                   </Button>
@@ -193,33 +193,35 @@ export function ModalFrame({
               </XStack>
             </XStack>
 
-            <Separator borderColor="$borderSubtle" />
-
             <YStack
-              flex={1}
+              flexGrow={height ? 1 : 0}
+              flexShrink={1}
+              flexBasis={height ? 0 : 'auto'}
               minHeight={0}
               padding={noPadding ? 0 : isMobile ? '$4' : '$5'}
               gap={noPadding ? 0 : '$4'}
-              overflow={bodyScroll ? 'scroll' : 'hidden'}
+              style={{
+                overflowY: bodyScroll ? 'auto' : 'hidden',
+                overflowX: 'hidden',
+              }}
             >
               {children}
             </YStack>
 
             {footer ? (
-              <>
-                <Separator borderColor="$borderSubtle" />
-                <XStack
-                  alignItems="center"
-                  justifyContent="flex-end"
-                  paddingHorizontal={isMobile ? '$4' : '$5'}
-                  paddingVertical="$3.5"
-                  backgroundColor="$bgSurface"
-                  gap="$2.5"
-                  flexShrink={0}
-                >
-                  {footer}
-                </XStack>
-              </>
+              <XStack
+                alignItems="center"
+                justifyContent="flex-end"
+                paddingHorizontal={isMobile ? '$4' : '$5'}
+                paddingVertical="$3.5"
+                backgroundColor="$bgSurface"
+                borderTopWidth={1}
+                borderTopColor="$borderSubtle"
+                gap="$2.5"
+                flexShrink={0}
+              >
+                {footer}
+              </XStack>
             ) : null}
           </Dialog.Content>
         </YStack>

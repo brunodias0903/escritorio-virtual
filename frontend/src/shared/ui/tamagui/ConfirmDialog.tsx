@@ -1,6 +1,6 @@
 import { AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { AlertDialog, Separator, Text, XStack, YStack } from 'tamagui';
+import { AlertDialog, Text, XStack, YStack } from 'tamagui';
 
 import { ActionButton } from './ActionButton';
 
@@ -145,6 +145,7 @@ export function ConfirmDialog({
                       fontSize="$6"
                       fontWeight="700"
                       color="$textPrimary"
+                      lineHeight="22px"
                     >
                       {title}
                     </Text>
@@ -154,7 +155,7 @@ export function ConfirmDialog({
                       fontFamily="$body"
                       fontSize="$3"
                       color="$textSecondary"
-                      lineHeight={19}
+                      lineHeight="19px"
                     >
                       {description}
                     </Text>
@@ -165,12 +166,12 @@ export function ConfirmDialog({
               {children ? <YStack gap="$3">{children}</YStack> : null}
             </YStack>
 
-            <Separator borderColor="$borderSubtle" />
-
             <XStack
               paddingHorizontal="$5"
               paddingVertical="$3.5"
               backgroundColor="$bgSurface"
+              borderTopWidth={1}
+              borderTopColor="$borderSubtle"
               justifyContent="flex-end"
               gap="$2.5"
             >

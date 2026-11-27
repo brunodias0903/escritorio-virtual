@@ -91,7 +91,7 @@ export function WelcomeGuide() {
               fontSize="$2"
               color="$textSecondary"
               flex={1}
-              lineHeight={17}
+              lineHeight="17px"
             >
               Use{' '}
               <Text fontWeight="700" color="$textPrimary">
@@ -122,7 +122,7 @@ export function WelcomeGuide() {
               fontSize="$2"
               color="$textSecondary"
               flex={1}
-              lineHeight={17}
+              lineHeight="17px"
             >
               <Text fontWeight="700" color="$textPrimary">
                 Passe o mouse sobre sua mesa
@@ -148,7 +148,7 @@ export function WelcomeGuide() {
               fontSize="$2"
               color="$textSecondary"
               flex={1}
-              lineHeight={17}
+              lineHeight="17px"
             >
               <Text fontWeight="700" color="$textPrimary">
                 Segure o mouse (~2s)

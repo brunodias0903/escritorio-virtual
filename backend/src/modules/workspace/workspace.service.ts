@@ -3,6 +3,7 @@ import {
   ACCOUNT_TIERS,
   CHANNEL_NAME_PATTERN,
   canAttachFeedbackMr,
+  canCreateServer,
   canManageDesks,
   canManageMembers,
   canManageServer,
@@ -134,11 +135,27 @@ export class WorkspaceService {
     );
   }
 
-  private async tiersOf(claims: SessionClaims): Promise<AccountTier[]> {
+  private async tiersOf(
+    claims: SessionClaims,
+    serverId = 'default',
+  ): Promise<AccountTier[]> {
     const account = await this.deps.accounts.byEmail(claims.email);
+    const isMaster =
+      claims.email === this.deps.adminEmails?.[0] ||
+      (account ? this.resolveTier(account) === 'master' : false);
+    if (isMaster) return ['master'];
+
+    if (serverId !== 'default' && this.deps.servers?.getMemberRoles) {
+      const roles = await this.deps.servers.getMemberRoles(
+        serverId,
+        claims.email,
+      );
+      return roles
+        ? effectiveTiersOf(roles.tier, roles.secondaryTiers)
+        : ['member'];
+    }
     if (account) return this.effectiveTiersOfAccount(account);
-    if (claims.email === this.deps.adminEmails?.[0]) return ['master'];
-    return [claims.admin ? 'admin' : 'tester'];
+    return [claims.admin ? 'admin' : 'member'];
   }
 
   private async releaseUserDesk(email: string): Promise<DeskInfo | null> {
@@ -504,7 +521,7 @@ export class WorkspaceService {
     claims: SessionClaims,
     serverId = 'default',
   ): Promise<HttpResult<ManagedAccount[]>> {
-    const tiers = await this.tiersOf(claims);
+    const tiers = await this.tiersOf(claims, serverId);
     if (!canManageMembers(tiers)) return httpFail(403, 'forbidden');
 
     const [allAccounts, deskList] = await Promise.all([
@@ -512,23 +529,40 @@ export class WorkspaceService {
       this.deps.desks ? this.deps.desks.list(serverId) : Promise.resolve([]),
     ]);
     let accounts = allAccounts;
+    const memberRolesMap = new Map<
+      string,
+      { tier: AccountTier; secondaryTiers: AccountTier[] }
+    >();
     if (serverId !== 'default' && this.deps.servers) {
       const checks = await Promise.all(
         allAccounts.map(async (acc) => ({
           acc,
           member: await this.deps.servers!.isMember(serverId, acc.email),
+          roles: await this.deps.servers!.getMemberRoles?.(serverId, acc.email),
         })),
       );
       accounts = checks.filter((c) => c.member).map((c) => c.acc);
+      for (const c of checks) {
+        if (c.member && c.roles) memberRolesMap.set(c.acc.email, c.roles);
+      }
     }
     const desksByOwner = new Map<string, DeskInfo>();
     for (const desk of deskList) {
       if (desk.owner) desksByOwner.set(desk.owner.email, desk);
     }
     const onlineByEmail = this.onlineMap();
-    const mapped = accounts.map((acc) =>
-      this.toManagedAccount(acc, desksByOwner, onlineByEmail),
-    );
+    const mapped = accounts.map((acc) => {
+      const base = this.toManagedAccount(acc, desksByOwner, onlineByEmail);
+      if (serverId !== 'default' && base.tier !== 'master') {
+        const srvRoles = memberRolesMap.get(acc.email);
+        return {
+          ...base,
+          tier: srvRoles?.tier ?? 'member',
+          secondaryTiers: srvRoles?.secondaryTiers ?? [],
+        };
+      }
+      return base;
+    });
     mapped.sort(
       (a, b) =>
         Number(b.online) - Number(a.online) ||
@@ -541,8 +575,9 @@ export class WorkspaceService {
     claims: SessionClaims,
     targetEmailRaw: string,
     input: UpdateAccountRoles,
+    serverId = 'default',
   ): Promise<HttpResult<ManagedAccount>> {
-    const actorTiers = await this.tiersOf(claims);
+    const actorTiers = await this.tiersOf(claims, serverId);
     if (!canManageMembers(actorTiers)) return httpFail(403, 'forbidden');
 
     const actorIsMaster = actorTiers.includes('master');
@@ -554,7 +589,17 @@ export class WorkspaceService {
     const target = await this.deps.accounts.byEmail(targetEmail);
     if (!target) return httpFail(404, 'not_found');
 
-    const targetTiers = this.effectiveTiersOfAccount(target);
+    const existingMemberRoles =
+      serverId !== 'default'
+        ? await this.deps.servers?.getMemberRoles?.(serverId, targetEmail)
+        : undefined;
+    const targetTiers =
+      serverId !== 'default' && this.resolveTier(target) !== 'master'
+        ? effectiveTiersOf(
+            existingMemberRoles?.tier ?? 'member',
+            existingMemberRoles?.secondaryTiers,
+          )
+        : this.effectiveTiersOfAccount(target);
     if (targetTiers.includes('master')) {
       return httpFail(403, 'cannot_manage_higher_role');
     }
@@ -581,41 +626,76 @@ export class WorkspaceService {
     }
 
     const nextRole = input.role !== undefined ? input.role.trim() : undefined;
-    await this.deps.accounts.setRoles?.(targetEmail, {
-      tier: input.tier,
-      secondaryTiers: cleanSecondary,
-      ...(nextRole !== undefined ? { role: nextRole } : {}),
-    });
+    if (serverId !== 'default' && this.deps.servers?.setMemberRoles) {
+      await this.deps.servers.setMemberRoles(serverId, targetEmail, {
+        tier: input.tier,
+        secondaryTiers: cleanSecondary,
+      });
+      if (nextRole !== undefined) {
+        await this.deps.accounts.setRoles?.(targetEmail, {
+          tier: target.tier ?? 'member',
+          secondaryTiers: target.secondaryTiers ?? [],
+          role: nextRole,
+        });
+      }
+    } else {
+      await this.deps.accounts.setRoles?.(targetEmail, {
+        tier: input.tier,
+        secondaryTiers: cleanSecondary,
+        ...(nextRole !== undefined ? { role: nextRole } : {}),
+      });
+    }
 
     if (nextRole !== undefined && this.deps.desks) {
-      const syncedDesk = await this.deps.desks.syncOwner({
-        email: targetEmail,
-        name: target.fullName,
-        role: nextRole,
-      });
+      const syncedDesk = await this.deps.desks.syncOwner(
+        {
+          email: targetEmail,
+          name: target.fullName,
+          role: nextRole,
+        },
+        serverId,
+      );
       if (syncedDesk) await this.deps.onDeskChanged?.(syncedDesk);
     }
 
     const updated = await this.deps.accounts.byEmail(targetEmail);
     if (!updated) return httpFail(404, 'not_found');
 
-    const newEffective = this.effectiveTiersOfAccount(updated);
+    const resolvedPrimary =
+      serverId !== 'default' ? input.tier : this.resolveTier(updated);
+    const resolvedSecondary =
+      serverId !== 'default'
+        ? cleanSecondary
+        : this.resolveSecondaryTiers(updated, resolvedPrimary);
+    const newEffective = effectiveTiersOf(resolvedPrimary, resolvedSecondary);
     await this.deps.onAccountRolesChanged?.(targetEmail, {
-      tier: this.resolveTier(updated),
-      secondaryTiers: this.resolveSecondaryTiers(
-        updated,
-        this.resolveTier(updated),
-      ),
+      tier: resolvedPrimary,
+      secondaryTiers: resolvedSecondary,
       admin: canManageServer(newEffective),
       role: updated.role,
     });
 
-    const deskList = this.deps.desks ? await this.deps.desks.list() : [];
+    const deskList = this.deps.desks
+      ? await this.deps.desks.list(serverId)
+      : [];
     const desksByOwner = new Map<string, DeskInfo>();
     for (const desk of deskList) {
       if (desk.owner) desksByOwner.set(desk.owner.email, desk);
     }
-    return ok(this.toManagedAccount(updated, desksByOwner, this.onlineMap()));
+    const managed = this.toManagedAccount(
+      updated,
+      desksByOwner,
+      this.onlineMap(),
+    );
+    return ok(
+      serverId !== 'default' && managed.tier !== 'master'
+        ? {
+            ...managed,
+            tier: resolvedPrimary,
+            secondaryTiers: resolvedSecondary,
+          }
+        : managed,
+    );
   }
 
   async moderateAccount(
@@ -756,7 +836,7 @@ export class WorkspaceService {
   ): Promise<HttpResult<WorkspaceServer>> {
     if (!this.deps.servers) return httpFail(501, 'not_implemented');
     const actorTiers = await this.tiersOf(claims);
-    if (!canManageServer(actorTiers)) return httpFail(403, 'forbidden');
+    if (!canCreateServer(actorTiers)) return httpFail(403, 'forbidden');
 
     const server: WorkspaceServer = {
       id: `srv-${this.newId().slice(0, 8)}`,

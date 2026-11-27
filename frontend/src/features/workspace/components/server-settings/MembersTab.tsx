@@ -22,6 +22,7 @@ import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui';
 
 import { workspaceApi } from '@/app/api';
 import type { ManagedAccount } from '@/features/workspace/api/workspaceApi';
+import { useServerStore } from '@/features/workspace/model/serverStore';
 import {
   ACCOUNT_TIER_COLORS,
   ACCOUNT_TIER_LABELS,
@@ -184,14 +185,23 @@ export function MembersTab({
     );
   };
 
+  const activeServerId = useServerStore((s) => s.activeServerId);
+
   const handleSaveRoles = async (email: string) => {
     setBusyEmail(email);
     onError('');
-    const res = await workspaceApi.updateAccountRoles(session.token, email, {
-      tier: draftPrimaryTier,
-      secondaryTiers: draftSecondaryTiers.filter((s) => s !== draftPrimaryTier),
-      role: draftRoleTitle.trim(),
-    });
+    const res = await workspaceApi.updateAccountRoles(
+      session.token,
+      email,
+      {
+        tier: draftPrimaryTier,
+        secondaryTiers: draftSecondaryTiers.filter(
+          (s) => s !== draftPrimaryTier,
+        ),
+        role: draftRoleTitle.trim(),
+      },
+      activeServerId,
+    );
     setBusyEmail(null);
     if (!res.ok) {
       onError(errorMessage(res.error));
@@ -650,7 +660,11 @@ export function MembersTab({
                       </XStack>
                     </YStack>
 
-                    <Separator borderColor="$borderSubtle" />
+                    <Separator
+                      flex={0}
+                      width="100%"
+                      borderColor="$borderSubtle"
+                    />
 
                     <YStack gap="$2">
                       <Text
@@ -753,7 +767,11 @@ export function MembersTab({
 
                 {canEditRoles || canReleaseDesk || canModerateTarget ? (
                   <>
-                    <Separator borderColor="$borderSubtle" />
+                    <Separator
+                      flex={0}
+                      width="100%"
+                      borderColor="$borderSubtle"
+                    />
                     <XStack gap="$2" flexWrap="wrap" alignItems="center">
                       {canEditRoles ? (
                         <ActionButton

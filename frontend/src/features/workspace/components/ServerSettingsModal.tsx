@@ -254,6 +254,7 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
         <Settings size={18} color="var(--accent-link)" aria-hidden={true} />
       }
       maxWidth={920}
+      height="min(680px, 86dvh)"
       maxHeight="86dvh"
       noPadding
       bodyScroll={false}
@@ -268,7 +269,6 @@ export function ServerSettingsModal({ session, onClose, onNotify }: Props) {
         items={navItems}
         sidebarHeader={sidebarHeader}
         banner={errorBanner}
-        minHeight={520}
       >
         {tab === 'members' ? (
           <MembersTab

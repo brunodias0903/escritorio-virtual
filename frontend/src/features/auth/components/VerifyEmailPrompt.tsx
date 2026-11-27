@@ -88,7 +88,7 @@ export function VerifyEmailPrompt({
           fontFamily="$body"
           fontSize="$3"
           color="$textSecondary"
-          lineHeight={20}
+          lineHeight="20px"
         >
           Sua conta (
           <Text fontWeight="700" color="$textPrimary">

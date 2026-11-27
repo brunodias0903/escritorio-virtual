@@ -1,14 +1,5 @@
 import type { ReactNode } from 'react';
-import {
-  Button,
-  ScrollView,
-  Separator,
-  Tabs,
-  Text,
-  XStack,
-  YStack,
-  useMedia,
-} from 'tamagui';
+import { Tabs, Text, XStack, YStack, useMedia } from 'tamagui';
 
 export type SettingsNavItem<T extends string = string> = {
   id: T;
@@ -25,7 +16,6 @@ type Props<T extends string> = {
   sidebarFooter?: ReactNode;
   banner?: ReactNode;
   children: ReactNode;
-  minHeight?: number;
 };
 
 /**
@@ -40,7 +30,6 @@ export function SettingsShell<T extends string>({
   sidebarFooter,
   banner,
   children,
-  minHeight = 460,
 }: Props<T>) {
   const media = useMedia();
   const isMobile = Boolean((media as Record<string, boolean>).mobile);
@@ -52,7 +41,9 @@ export function SettingsShell<T extends string>({
       orientation={isMobile ? 'horizontal' : 'vertical'}
       flexDirection={isMobile ? 'column' : 'row'}
       flex={1}
-      minHeight={isMobile ? 360 : minHeight}
+      width="100%"
+      height="100%"
+      minHeight={0}
       overflow="hidden"
     >
       <YStack
@@ -66,37 +57,50 @@ export function SettingsShell<T extends string>({
         gap="$2.5"
       >
         {sidebarHeader && !isMobile ? (
-          <>
+          <YStack
+            paddingBottom="$2.5"
+            borderBottomWidth={1}
+            borderBottomColor="$borderSubtle"
+          >
             {sidebarHeader}
-            <Separator borderColor="$borderSubtle" />
-          </>
+          </YStack>
         ) : null}
 
         <Tabs.List
           flexDirection={isMobile ? 'row' : 'column'}
           gap="$1"
-          flex={isMobile ? 0 : 1}
+          flexGrow={isMobile ? 0 : 1}
+          flexShrink={1}
+          flexBasis="auto"
           backgroundColor="transparent"
-          overflow={isMobile ? 'scroll' : 'visible'}
+          style={{
+            overflowX: isMobile ? 'auto' : 'visible',
+            overflowY: isMobile ? 'hidden' : 'auto',
+          }}
         >
           {items.map((item) => {
             const active = item.id === activeTab;
             return (
-              <Tabs.Tab key={item.id} value={item.id} asChild flexShrink={0}>
-                <Button
-                  display="flex"
-                  flexDirection="row"
+              <Tabs.Tab
+                key={item.id}
+                value={item.id}
+                flexShrink={0}
+                width={isMobile ? 'auto' : '100%'}
+                paddingHorizontal="$3"
+                paddingVertical={isMobile ? '$2' : '$2.5'}
+                borderRadius="$lg"
+                backgroundColor={active ? '$accentChip' : 'transparent'}
+                borderWidth={1}
+                borderColor={active ? '$accentBorderSoft' : 'transparent'}
+                justifyContent="space-between"
+                alignItems="center"
+                cursor="pointer"
+              >
+                <XStack
                   alignItems="center"
                   justifyContent="space-between"
-                  gap="$2.5"
-                  paddingHorizontal="$3"
-                  paddingVertical={isMobile ? '$2' : '$2.5'}
-                  borderRadius="$lg"
-                  backgroundColor={active ? '$accentChip' : 'transparent'}
-                  borderWidth={1}
-                  borderColor={active ? '$accentBorderSoft' : 'transparent'}
-                  cursor="pointer"
-                  width={isMobile ? 'auto' : '100%'}
+                  width="100%"
+                  gap="$2"
                 >
                   <XStack alignItems="center" gap="$2.5" minWidth={0}>
                     <XStack
@@ -135,32 +139,38 @@ export function SettingsShell<T extends string>({
                       </Text>
                     </YStack>
                   ) : null}
-                </Button>
+                </XStack>
               </Tabs.Tab>
             );
           })}
         </Tabs.List>
 
         {sidebarFooter ? (
-          <>
-            {!isMobile ? <Separator borderColor="$borderSubtle" /> : null}
-            <YStack>{sidebarFooter}</YStack>
-          </>
+          <YStack
+            paddingTop={isMobile ? 0 : '$2.5'}
+            borderTopWidth={isMobile ? 0 : 1}
+            borderTopColor="$borderSubtle"
+          >
+            {sidebarFooter}
+          </YStack>
         ) : null}
       </YStack>
 
-      <ScrollView
+      <YStack
         flex={1}
         minHeight={0}
+        minWidth={0}
         backgroundColor="$bgSurfaceElevated"
-        contentContainerStyle={{
-          padding: isMobile ? 16 : 24,
-          gap: 16,
+        padding={isMobile ? '$4' : '$5'}
+        gap="$4"
+        style={{
+          overflowY: 'auto',
+          overflowX: 'hidden',
         }}
       >
-        {banner ? <YStack>{banner}</YStack> : null}
+        {banner ? <YStack flexShrink={0}>{banner}</YStack> : null}
         {children}
-      </ScrollView>
+      </YStack>
     </Tabs>
   );
 }

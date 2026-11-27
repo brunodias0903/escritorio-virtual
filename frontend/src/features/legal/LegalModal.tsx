@@ -8,7 +8,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { Button, Tabs, Text, XStack, YStack } from 'tamagui';
+import { Tabs, Text, XStack, YStack } from 'tamagui';
 
 import { authApi } from '@/app/api';
 import { endSession } from '@/app/session';
@@ -129,33 +129,29 @@ export function LegalModal({ token, initialTab = 'terms', onClose }: Props) {
           {tabs.map((item) => {
             const active = tab === item.id;
             return (
-              <Tabs.Tab key={item.id} value={item.id} asChild flex={1}>
-                <Button
-                  flex={1}
-                  paddingVertical="$2"
-                  paddingHorizontal="$3"
-                  borderRadius="$md"
-                  backgroundColor={active ? '$accentChip' : 'transparent'}
-                  borderWidth={1}
-                  borderColor={active ? '$accentBorderSoft' : 'transparent'}
-                  cursor="pointer"
-                >
-                  <XStack
-                    alignItems="center"
-                    justifyContent="center"
-                    gap="$1.5"
+              <Tabs.Tab
+                key={item.id}
+                value={item.id}
+                flex={1}
+                paddingVertical="$2"
+                paddingHorizontal="$3"
+                borderRadius="$md"
+                backgroundColor={active ? '$accentChip' : 'transparent'}
+                borderWidth={1}
+                borderColor={active ? '$accentBorderSoft' : 'transparent'}
+                cursor="pointer"
+              >
+                <XStack alignItems="center" justifyContent="center" gap="$1.5">
+                  {item.icon}
+                  <Text
+                    fontFamily="$body"
+                    fontSize="$3"
+                    fontWeight={active ? '700' : '500'}
+                    color={active ? '$textPrimary' : '$textSecondary'}
                   >
-                    {item.icon}
-                    <Text
-                      fontFamily="$body"
-                      fontSize="$3"
-                      fontWeight={active ? '700' : '500'}
-                      color={active ? '$textPrimary' : '$textSecondary'}
-                    >
-                      {item.label}
-                    </Text>
-                  </XStack>
-                </Button>
+                    {item.label}
+                  </Text>
+                </XStack>
               </Tabs.Tab>
             );
           })}

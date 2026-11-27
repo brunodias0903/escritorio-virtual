@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { SlackChatView } from '@/features/chat/components/SlackChatView';
 import type { OfficeSend } from '@/pages/office/routeMessage';
 import {
+  canCreateServer,
   canManageServer,
   defaultAppearance,
   effectiveTiersOf,
@@ -304,7 +305,7 @@ export function WorkspaceSidebar({
 
         <Tip
           label={
-            canConfigureServer
+            canCreateServer(userTiers)
               ? 'Criar servidor ou entrar com convite'
               : 'Entrar em servidor com convite'
           }

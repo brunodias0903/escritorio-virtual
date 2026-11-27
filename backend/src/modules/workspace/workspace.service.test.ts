@@ -534,25 +534,28 @@ describe('WorkspaceService', () => {
 
   it('cria servidores, gera convites, permite entrada por código e valida revogação/esgotamento', async () => {
     const { service } = await setup();
+    const master = makeClaims('master@setter.app', true);
     const admin = makeClaims('admin@setter.app', true);
     const dev = makeClaims('dev@setter.app');
     const tester = makeClaims('tester@setter.app');
 
-    // Dev sem permissão de servidor não pode criar servidor
-    const denied = await service.createServer(dev, {
-      name: 'Clandestino',
-      description: '',
-      accentColor: '#5b6cff',
-      visibility: 'invite',
-    });
-    expect(denied).toMatchObject({
-      ok: false,
-      status: 403,
-      error: 'forbidden',
-    });
+    // Dev e Admin não podem criar servidor (apenas Master)
+    for (const actor of [dev, admin]) {
+      const denied = await service.createServer(actor, {
+        name: 'Clandestino',
+        description: '',
+        accentColor: '#5b6cff',
+        visibility: 'invite',
+      });
+      expect(denied).toMatchObject({
+        ok: false,
+        status: 403,
+        error: 'forbidden',
+      });
+    }
 
-    // Admin cria novo servidor
-    const created = await service.createServer(admin, {
+    // Master cria novo servidor
+    const created = await service.createServer(master, {
       name: 'Equipe Mobile',
       description: 'Squad iOS & Android',
       accentColor: '#10b981',
@@ -561,12 +564,12 @@ describe('WorkspaceService', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    const adminServers = await service.listServers(admin);
-    expect(adminServers.some((s) => s.id === created.value.id)).toBe(true);
+    const masterServers = await service.listServers(master);
+    expect(masterServers.some((s) => s.id === created.value.id)).toBe(true);
 
     // Gera convite com limite de 1 uso
     const inviteRes = await service.createServerInvite(
-      admin,
+      master,
       created.value.id,
       {
         maxUses: 1,
@@ -577,7 +580,7 @@ describe('WorkspaceService', () => {
     if (!inviteRes.ok) return;
 
     const listedInvites = await service.listServerInvites(
-      admin,
+      master,
       created.value.id,
     );
     expect(listedInvites.ok).toBe(true);
@@ -595,7 +598,7 @@ describe('WorkspaceService', () => {
     const srvSettingsBefore = await service.getServerSettings(created.value.id);
     expect(srvSettingsBefore.name).toBe('Equipe Mobile');
     const updatedSrvSettings = await service.updateServerSettings(
-      admin,
+      master,
       {
         name: 'Design Atualizado',
         description: 'Nova desc',
@@ -605,19 +608,38 @@ describe('WorkspaceService', () => {
       created.value.id,
     );
     expect(updatedSrvSettings.ok).toBe(true);
-    const updatedServers = await service.listServers(admin);
+    const updatedServers = await service.listServers(master);
     expect(updatedServers.find((s) => s.id === created.value.id)?.name).toBe(
       'Design Atualizado',
     );
-    const srvAccounts = await service.listAccounts(admin, created.value.id);
+    const srvAccounts = await service.listAccounts(master, created.value.id);
     expect(srvAccounts.ok).toBe(true);
     if (srvAccounts.ok) {
-      expect(srvAccounts.value.some((a) => a.email === 'dev@setter.app')).toBe(
-        true,
+      const devEntry = srvAccounts.value.find(
+        (a) => a.email === 'dev@setter.app',
       );
+      expect(devEntry).toBeDefined();
+      expect(devEntry?.tier).toBe('member');
       expect(
         srvAccounts.value.some((a) => a.email === 'tester@setter.app'),
       ).toBe(false);
+    }
+    const srvRoleUpdate = await service.updateAccountRoles(
+      master,
+      'dev@setter.app',
+      { tier: 'tester', secondaryTiers: [] },
+      created.value.id,
+    );
+    expect(srvRoleUpdate).toMatchObject({
+      ok: true,
+      value: { tier: 'tester', secondaryTiers: [] },
+    });
+    const defaultAccountsAfter = await service.listAccounts(admin, 'default');
+    if (defaultAccountsAfter.ok) {
+      expect(
+        defaultAccountsAfter.value.find((a) => a.email === 'dev@setter.app')
+          ?.tier,
+      ).toBe('developer');
     }
     const srvChannels = await service.listPublicChannels(created.value.id);
     expect(srvChannels.some((c) => c.name === 'geral')).toBe(true);
@@ -659,7 +681,7 @@ describe('WorkspaceService', () => {
     });
 
     // Servidor padrão de testes ('default') é irrestrito
-    const defaultSrv = adminServers.find((s) => s.id === 'default');
+    const defaultSrv = masterServers.find((s) => s.id === 'default');
     expect(defaultSrv).toMatchObject({
       id: 'default',
       planTier: 'unlimited',

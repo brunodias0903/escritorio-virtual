@@ -1,4 +1,5 @@
 import type {
+  AccountTier,
   FeedbackComment,
   FeedbackItem,
   FeedbackStatus,
@@ -33,6 +34,15 @@ export interface ServerRepository {
   ): Promise<void>;
   isMember(serverId: string, email: string): Promise<boolean>;
   countMembers(serverId: string): Promise<number>;
+  getMemberRoles?(
+    serverId: string,
+    email: string,
+  ): Promise<{ tier: AccountTier; secondaryTiers: AccountTier[] } | undefined>;
+  setMemberRoles?(
+    serverId: string,
+    email: string,
+    roles: { tier: AccountTier; secondaryTiers: AccountTier[] },
+  ): Promise<void>;
 }
 
 export type InvitedEmailEntry = {

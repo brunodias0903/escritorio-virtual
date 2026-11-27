@@ -13,6 +13,9 @@ const hasAnyTier = (
   allowed: readonly AccountTier[],
 ): boolean => asTiers(input).some((t) => allowed.includes(t));
 
+export const canCreateServer = (tiers: TierInput): boolean =>
+  hasAnyTier(tiers, ['master']);
+
 export const canManageServer = (tiers: TierInput): boolean =>
   hasAnyTier(tiers, ['master', 'admin']);
 

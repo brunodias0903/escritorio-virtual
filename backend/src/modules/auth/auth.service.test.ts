@@ -312,7 +312,7 @@ describe('account e updateAccount', () => {
         nickname: 'AnaS',
         email: 'ana.souza@empresa.com',
         role: 'Desenvolvedora',
-        tier: 'tester',
+        tier: 'member',
         secondaryTiers: [],
         emailVerified: true,
         mfaEnabled: false,

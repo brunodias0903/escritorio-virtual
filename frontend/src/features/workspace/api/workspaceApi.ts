@@ -201,10 +201,14 @@ export function createWorkspaceApi({ baseUrl }: { baseUrl: string }) {
       token: string,
       email: string,
       body: UpdateAccountRoles,
+      serverId?: string,
     ) =>
       request(
         baseUrl,
-        `/api/server/accounts/${encodeURIComponent(email)}/roles`,
+        withServer(
+          `/api/server/accounts/${encodeURIComponent(email)}/roles`,
+          serverId,
+        ),
         z.object({ account: ManagedAccountSchema }),
         { method: 'PUT', token, body },
       ),

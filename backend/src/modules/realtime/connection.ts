@@ -168,17 +168,49 @@ export class Connection {
     const accounts = (await this.deps.accounts.all()).filter(
       (a) => !a.bannedAt,
     );
-    const people: Person[] = accounts.map((a) => {
+    let visibleAccounts = accounts;
+    const memberRolesMap = new Map<
+      string,
+      { tier: AccountTier; secondaryTiers: AccountTier[] }
+    >();
+    if (this.serverId !== 'default' && this.deps.servers) {
+      const checks = await Promise.all(
+        accounts.map(async (a) => ({
+          a,
+          member: await this.deps.servers!.isMember(this.serverId, a.email),
+          roles: await this.deps.servers!.getMemberRoles?.(
+            this.serverId,
+            a.email,
+          ),
+        })),
+      );
+      visibleAccounts = checks.filter((c) => c.member).map((c) => c.a);
+      for (const c of checks) {
+        if (c.member && c.roles) memberRolesMap.set(c.a.email, c.roles);
+      }
+    }
+    const people: Person[] = visibleAccounts.map((a) => {
       const player = online.get(a.email);
+      const isMaster = a.tier === 'master';
+      const srvRoles =
+        this.serverId !== 'default' && !isMaster
+          ? memberRolesMap.get(a.email)
+          : undefined;
+      const tier =
+        this.serverId !== 'default' && !isMaster
+          ? (srvRoles?.tier ?? 'member')
+          : a.tier;
+      const secondaryTiers =
+        this.serverId !== 'default' && !isMaster
+          ? (srvRoles?.secondaryTiers ?? [])
+          : a.secondaryTiers;
       return {
         email: a.email,
         name: a.fullName,
         nickname: a.nickname,
         role: a.role,
-        ...(a.tier ? { tier: a.tier } : {}),
-        ...(a.secondaryTiers?.length
-          ? { secondaryTiers: a.secondaryTiers }
-          : {}),
+        ...(tier ? { tier } : {}),
+        ...(secondaryTiers?.length ? { secondaryTiers } : {}),
         status: player?.status ?? 'offline',
         appearance: player?.appearance ?? null,
         map: player?.map ?? null,
@@ -212,7 +244,17 @@ export class Connection {
 
   private async effectiveTiers(claims: SessionClaims): Promise<AccountTier[]> {
     const account = await this.deps.accounts.byEmail(claims.email);
-    const primary = account?.tier ?? (claims.admin ? 'admin' : 'tester');
+    if (account?.tier === 'master') return ['master'];
+    if (this.serverId !== 'default' && this.deps.servers?.getMemberRoles) {
+      const roles = await this.deps.servers.getMemberRoles(
+        this.serverId,
+        claims.email,
+      );
+      return roles
+        ? effectiveTiersOf(roles.tier, roles.secondaryTiers)
+        : ['member'];
+    }
+    const primary = account?.tier ?? (claims.admin ? 'admin' : 'member');
     return effectiveTiersOf(primary, account?.secondaryTiers);
   }
 
@@ -521,7 +563,7 @@ export class Connection {
         const tiers = await this.effectiveTiers(claims);
         return send({
           type: 'channels',
-          channels: await chat.channelsFor(claims.email, tiers),
+          channels: await chat.channelsFor(claims.email, tiers, this.serverId),
         });
       }
 

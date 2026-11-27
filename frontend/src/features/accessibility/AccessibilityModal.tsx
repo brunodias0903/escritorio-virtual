@@ -190,7 +190,7 @@ export function AccessibilityModal({ initialNeeds, onSave, onClose }: Props) {
           </YStack>
         </YStack>
 
-        <Separator borderColor="$borderSubtle" />
+        <Separator flex={0} width="100%" borderColor="$borderSubtle" />
 
         <SurfaceCard gap="$2.5">
           <Text

@@ -404,11 +404,47 @@ export class PgServerRepository implements ServerRepository {
     role: ServerMemberRole,
     joinedAt: number,
   ): Promise<void> {
+    const defaultTier: AccountTier = role === 'owner' ? 'admin' : 'member';
     await this.db.query(
-      `INSERT INTO server_members (server_id, user_email, role, joined_at)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO server_members (server_id, user_email, role, tier, secondary_tiers, joined_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (server_id, user_email) DO NOTHING`,
-      [serverId, email.trim().toLowerCase(), role, joinedAt],
+      [serverId, email.trim().toLowerCase(), role, defaultTier, [], joinedAt],
+    );
+  }
+
+  async getMemberRoles(
+    serverId: string,
+    email: string,
+  ): Promise<{ tier: AccountTier; secondaryTiers: AccountTier[] } | undefined> {
+    const { rows } = await this.db.query(
+      `SELECT tier, secondary_tiers FROM server_members WHERE server_id = $1 AND user_email = $2 LIMIT 1`,
+      [serverId, email.trim().toLowerCase()],
+    );
+    const row = rows[0] as
+      | { tier?: AccountTier | null; secondary_tiers?: AccountTier[] | null }
+      | undefined;
+    if (!row) return undefined;
+    return {
+      tier: row.tier ?? 'member',
+      secondaryTiers: Array.isArray(row.secondary_tiers)
+        ? row.secondary_tiers
+        : [],
+    };
+  }
+
+  async setMemberRoles(
+    serverId: string,
+    email: string,
+    roles: { tier: AccountTier; secondaryTiers: AccountTier[] },
+  ): Promise<void> {
+    await this.db.query(
+      `INSERT INTO server_members (server_id, user_email, role, tier, secondary_tiers, joined_at)
+       VALUES ($1, $2, 'member', $3, $4, 0)
+       ON CONFLICT (server_id, user_email) DO UPDATE SET
+         tier = EXCLUDED.tier,
+         secondary_tiers = EXCLUDED.secondary_tiers`,
+      [serverId, email.trim().toLowerCase(), roles.tier, roles.secondaryTiers],
     );
   }
 

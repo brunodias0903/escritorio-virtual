@@ -65,7 +65,7 @@ import { useServerStore } from '@/features/workspace/model/serverStore';
 import {
   callKey,
   callZoneId,
-  canManageServer,
+  canCreateServer,
   deskKey,
   effectiveTiersOf,
   isNearCall,
@@ -1030,9 +1030,9 @@ export function OfficePage({ session }: { session: Session }) {
       {createServerOpen ? (
         <CreateServerModal
           token={session.token}
-          canCreate={canManageServer(
+          canCreate={canCreateServer(
             effectiveTiersOf(
-              session.user.tier ?? (session.user.admin ? 'admin' : 'tester'),
+              session.user.tier ?? (session.user.admin ? 'admin' : 'member'),
               session.user.secondaryTiers,
             ),
           )}

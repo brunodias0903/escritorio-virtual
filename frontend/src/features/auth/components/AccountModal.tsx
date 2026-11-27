@@ -414,6 +414,7 @@ export function AccountModal({
         subtitle="Gerencie seu perfil, segurança, aparência, acessibilidade e privacidade."
         icon={<User size={18} color="var(--accent-link)" aria-hidden={true} />}
         maxWidth={880}
+        height="min(660px, 86dvh)"
         maxHeight="86dvh"
         noPadding
         bodyScroll={false}
@@ -430,7 +431,6 @@ export function AccountModal({
           sidebarHeader={sidebarHeader}
           sidebarFooter={sidebarFooter}
           banner={banner}
-          minHeight={500}
         >
           {tab === 'profile' ? (
             <form onSubmit={(e) => void saveProfile(e)} noValidate>
@@ -688,7 +688,7 @@ export function AccountModal({
                   </ActionButton>
                 </XStack>
 
-                <Separator borderColor="$borderSubtle" />
+                <Separator flex={0} width="100%" borderColor="$borderSubtle" />
 
                 <SurfaceCard padding="$4" gap="$3">
                   <XStack
@@ -1031,7 +1031,7 @@ export function AccountModal({
                 </SurfaceCard>
               </YStack>
 
-              <Separator borderColor="$borderSubtle" />
+              <Separator flex={0} width="100%" borderColor="$borderSubtle" />
 
               <form onSubmit={(e) => void savePassword(e)}>
                 <YStack gap="$3">

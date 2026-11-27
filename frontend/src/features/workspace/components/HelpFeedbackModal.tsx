@@ -282,58 +282,52 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
           borderColor="$borderSubtle"
           gap="$1"
         >
-          <Tabs.Tab value="feedback" asChild flex={1}>
-            <Button
-              flex={1}
-              paddingVertical="$2"
-              borderRadius="$md"
-              backgroundColor={
-                tab === 'feedback' ? '$accentChip' : 'transparent'
-              }
-              borderWidth={1}
-              borderColor={
-                tab === 'feedback' ? '$accentBorderSoft' : 'transparent'
-              }
-              cursor="pointer"
-            >
-              <XStack alignItems="center" justifyContent="center" gap="$1.5">
-                <MessageSquare size={14} aria-hidden={true} />
-                <Text
-                  fontFamily="$body"
-                  fontSize="$3"
-                  fontWeight={tab === 'feedback' ? '700' : '500'}
-                  color={tab === 'feedback' ? '$textPrimary' : '$textSecondary'}
-                >
-                  {t('help.tab.feedback')} ({items.length})
-                </Text>
-              </XStack>
-            </Button>
+          <Tabs.Tab
+            value="feedback"
+            flex={1}
+            paddingVertical="$2"
+            borderRadius="$md"
+            backgroundColor={tab === 'feedback' ? '$accentChip' : 'transparent'}
+            borderWidth={1}
+            borderColor={
+              tab === 'feedback' ? '$accentBorderSoft' : 'transparent'
+            }
+            cursor="pointer"
+          >
+            <XStack alignItems="center" justifyContent="center" gap="$1.5">
+              <MessageSquare size={14} aria-hidden={true} />
+              <Text
+                fontFamily="$body"
+                fontSize="$3"
+                fontWeight={tab === 'feedback' ? '700' : '500'}
+                color={tab === 'feedback' ? '$textPrimary' : '$textSecondary'}
+              >
+                {t('help.tab.feedback')} ({items.length})
+              </Text>
+            </XStack>
           </Tabs.Tab>
 
-          <Tabs.Tab value="guide" asChild flex={1}>
-            <Button
-              flex={1}
-              paddingVertical="$2"
-              borderRadius="$md"
-              backgroundColor={tab === 'guide' ? '$accentChip' : 'transparent'}
-              borderWidth={1}
-              borderColor={
-                tab === 'guide' ? '$accentBorderSoft' : 'transparent'
-              }
-              cursor="pointer"
-            >
-              <XStack alignItems="center" justifyContent="center" gap="$1.5">
-                <BookOpen size={14} aria-hidden={true} />
-                <Text
-                  fontFamily="$body"
-                  fontSize="$3"
-                  fontWeight={tab === 'guide' ? '700' : '500'}
-                  color={tab === 'guide' ? '$textPrimary' : '$textSecondary'}
-                >
-                  {t('help.tab.guide')}
-                </Text>
-              </XStack>
-            </Button>
+          <Tabs.Tab
+            value="guide"
+            flex={1}
+            paddingVertical="$2"
+            borderRadius="$md"
+            backgroundColor={tab === 'guide' ? '$accentChip' : 'transparent'}
+            borderWidth={1}
+            borderColor={tab === 'guide' ? '$accentBorderSoft' : 'transparent'}
+            cursor="pointer"
+          >
+            <XStack alignItems="center" justifyContent="center" gap="$1.5">
+              <BookOpen size={14} aria-hidden={true} />
+              <Text
+                fontFamily="$body"
+                fontSize="$3"
+                fontWeight={tab === 'guide' ? '700' : '500'}
+                color={tab === 'guide' ? '$textPrimary' : '$textSecondary'}
+              >
+                {t('help.tab.guide')}
+              </Text>
+            </XStack>
           </Tabs.Tab>
         </Tabs.List>
 
@@ -395,7 +389,7 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
                   fontFamily="$body"
                   fontSize="$3"
                   color="$textSecondary"
-                  lineHeight={19}
+                  lineHeight="19px"
                 >
                   {card.desc}
                 </Text>
@@ -680,13 +674,17 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
                         paddingBottom="$4"
                       >
                         <YStack gap="$3">
-                          <Separator borderColor="$borderSubtle" />
+                          <Separator
+                            flex={0}
+                            width="100%"
+                            borderColor="$borderSubtle"
+                          />
 
                           <Text
                             fontFamily="$body"
                             fontSize="$3"
                             color="$textBody"
-                            lineHeight={20}
+                            lineHeight="20px"
                           >
                             {item.description}
                           </Text>
@@ -921,7 +919,11 @@ export function HelpFeedbackModal({ session, onClose, onNotify }: Props) {
                             </XStack>
                           ) : null}
 
-                          <Separator borderColor="$borderSubtle" />
+                          <Separator
+                            flex={0}
+                            width="100%"
+                            borderColor="$borderSubtle"
+                          />
 
                           <YStack gap="$2">
                             {item.comments.map((c) => (

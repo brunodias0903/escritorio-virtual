@@ -38,7 +38,7 @@ export function TextField({
           fontSize="$3"
           fontWeight="600"
           color="$textSecondary"
-          lineHeight={16}
+          lineHeight="16px"
         >
           {label}
         </Label>

@@ -324,6 +324,7 @@ export const ACCOUNT_TIERS = [
   'developer',
   'designer',
   'tester',
+  'member',
 ] as const;
 export type AccountTier = (typeof ACCOUNT_TIERS)[number];
 
@@ -333,6 +334,7 @@ export const ACCOUNT_TIER_LABELS: Record<AccountTier, string> = {
   developer: 'Desenvolvedor',
   designer: 'Designer',
   tester: 'Tester',
+  member: 'Membro',
 };
 
 /** Cores estilo Discord para identificar cada cargo nos painéis e lista de pessoas. */
@@ -342,6 +344,7 @@ export const ACCOUNT_TIER_COLORS: Record<AccountTier, string> = {
   developer: '#3b82f6',
   designer: '#a855f7',
   tester: '#10b981',
+  member: '#64748b',
 };
 
 /** Cargos atribuíveis pelo painel administrativo (Master é exclusivo da conta dona). */
@@ -350,6 +353,7 @@ export const ASSIGNABLE_TIERS = [
   'developer',
   'designer',
   'tester',
+  'member',
 ] as const satisfies readonly AccountTier[];
 
 /** Normaliza o conjunto efetivo de cargos (principal primeiro, sem repetição). */

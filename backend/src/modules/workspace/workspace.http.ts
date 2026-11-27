@@ -140,7 +140,12 @@ export const handleWorkspaceRoutes = async (
     if (!parsed.success) return error(400, 'invalid_request');
     const targetEmail = decodeURIComponent(accountRolesMatch[1]!);
     return respond(
-      await workspace.updateAccountRoles(claims, targetEmail, parsed.data),
+      await workspace.updateAccountRoles(
+        claims,
+        targetEmail,
+        parsed.data,
+        serverId,
+      ),
       (account) => json(200, { account }),
     );
   }

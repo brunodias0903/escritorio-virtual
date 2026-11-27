@@ -152,71 +152,59 @@ export function CreateServerModal({
               gap="$1"
               width="100%"
             >
-              <Tabs.Tab value="create" asChild flex={1}>
-                <Button
-                  flex={1}
-                  paddingVertical="$2"
-                  borderRadius="$md"
-                  backgroundColor={
-                    mode === 'create' ? '$accentChip' : 'transparent'
-                  }
-                  borderWidth={1}
-                  borderColor={
-                    mode === 'create' ? '$accentBorderSoft' : 'transparent'
-                  }
-                  cursor="pointer"
-                >
-                  <XStack
-                    alignItems="center"
-                    justifyContent="center"
-                    gap="$1.5"
+              <Tabs.Tab
+                value="create"
+                flex={1}
+                paddingVertical="$2"
+                borderRadius="$md"
+                backgroundColor={
+                  mode === 'create' ? '$accentChip' : 'transparent'
+                }
+                borderWidth={1}
+                borderColor={
+                  mode === 'create' ? '$accentBorderSoft' : 'transparent'
+                }
+                cursor="pointer"
+              >
+                <XStack alignItems="center" justifyContent="center" gap="$1.5">
+                  <Server size={14} aria-hidden={true} />
+                  <Text
+                    fontFamily="$body"
+                    fontSize="$3"
+                    fontWeight={mode === 'create' ? '700' : '500'}
+                    color={
+                      mode === 'create' ? '$textPrimary' : '$textSecondary'
+                    }
                   >
-                    <Server size={14} aria-hidden={true} />
-                    <Text
-                      fontFamily="$body"
-                      fontSize="$3"
-                      fontWeight={mode === 'create' ? '700' : '500'}
-                      color={
-                        mode === 'create' ? '$textPrimary' : '$textSecondary'
-                      }
-                    >
-                      Criar servidor
-                    </Text>
-                  </XStack>
-                </Button>
+                    Criar servidor
+                  </Text>
+                </XStack>
               </Tabs.Tab>
-              <Tabs.Tab value="join" asChild flex={1}>
-                <Button
-                  flex={1}
-                  paddingVertical="$2"
-                  borderRadius="$md"
-                  backgroundColor={
-                    mode === 'join' ? '$accentChip' : 'transparent'
-                  }
-                  borderWidth={1}
-                  borderColor={
-                    mode === 'join' ? '$accentBorderSoft' : 'transparent'
-                  }
-                  cursor="pointer"
-                >
-                  <XStack
-                    alignItems="center"
-                    justifyContent="center"
-                    gap="$1.5"
+              <Tabs.Tab
+                value="join"
+                flex={1}
+                paddingVertical="$2"
+                borderRadius="$md"
+                backgroundColor={
+                  mode === 'join' ? '$accentChip' : 'transparent'
+                }
+                borderWidth={1}
+                borderColor={
+                  mode === 'join' ? '$accentBorderSoft' : 'transparent'
+                }
+                cursor="pointer"
+              >
+                <XStack alignItems="center" justifyContent="center" gap="$1.5">
+                  <Link2 size={14} aria-hidden={true} />
+                  <Text
+                    fontFamily="$body"
+                    fontSize="$3"
+                    fontWeight={mode === 'join' ? '700' : '500'}
+                    color={mode === 'join' ? '$textPrimary' : '$textSecondary'}
                   >
-                    <Link2 size={14} aria-hidden={true} />
-                    <Text
-                      fontFamily="$body"
-                      fontSize="$3"
-                      fontWeight={mode === 'join' ? '700' : '500'}
-                      color={
-                        mode === 'join' ? '$textPrimary' : '$textSecondary'
-                      }
-                    >
-                      Entrar com convite
-                    </Text>
-                  </XStack>
-                </Button>
+                    Entrar com convite
+                  </Text>
+                </XStack>
               </Tabs.Tab>
             </Tabs.List>
           </Tabs>

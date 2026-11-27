@@ -517,5 +517,18 @@ describe('visibilidade, escrita por cargo e exceções individuais', () => {
         value: null,
       },
     );
+
+    // Servidor secundário sem canais cria #geral automaticamente e isola DMs
+    const extraChannels = await service.channelsFor(
+      ANA.email,
+      ['member'],
+      'srv-extra',
+    );
+    expect(extraChannels.some((c) => c.name === 'geral')).toBe(true);
+    const extraDm = await service.openDirect(ANA.email, BIA.email, 'srv-extra');
+    expect(extraDm.ok).toBe(true);
+    if (extraDm.ok) {
+      expect(extraDm.value.id).toContain('srv-extra');
+    }
   });
 });

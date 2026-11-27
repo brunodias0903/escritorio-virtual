@@ -12,6 +12,7 @@ import type {
 } from '../../modules/chat/chat.repository.js';
 import type { DeskRepository } from '../../modules/desks/desks.repository.js';
 import type { ProfileRepository } from '../../modules/office/profile.repository.js';
+import type { ServerRepository } from '../../modules/workspace/workspace.repository.js';
 import {
   CHAT_HISTORY_LIMIT,
   type ChatMessage,
@@ -27,6 +28,7 @@ import {
   MemoryProfileRepository,
   MemoryReadStateRepository,
   MemoryRevocations,
+  MemoryServerRepository,
 } from './memory/index.js';
 import {
   PgChannelRepository,
@@ -36,6 +38,7 @@ import {
   PgLocalAccountRepository,
   PgProfileRepository,
   PgReadStateRepository,
+  PgServerRepository,
 } from './postgres/index.js';
 
 const message = (
@@ -63,6 +66,7 @@ type Repos = {
   desks: DeskRepository;
   local: LocalAccountRepository;
   emailCodes: EmailCodeRepository;
+  servers: ServerRepository;
 };
 
 // A mesma bateria de testes roda na versão em memória e na do Postgres.
@@ -77,6 +81,7 @@ const suites: [string, () => Promise<Repos>][] = [
       desks: new MemoryDeskRepository(),
       local: new MemoryLocalAccountRepository(),
       emailCodes: new MemoryEmailCodeRepository(),
+      servers: new MemoryServerRepository(),
     }),
   ],
   [
@@ -96,6 +101,7 @@ const suites: [string, () => Promise<Repos>][] = [
         desks: new PgDeskRepository(db),
         local: new PgLocalAccountRepository(db),
         emailCodes: new PgEmailCodeRepository(db),
+        servers: new PgServerRepository(db),
       };
     },
   ],
@@ -666,6 +672,60 @@ describe.each(suites)('repositórios (%s)', (_name, setup) => {
       expect(await desks.release('lobby', 'mesa-1')).toBe(false);
       expect(await desks.all()).toEqual([]);
       expect(await desks.adopt(record('mesa-2', 'a@x.com'))).toBe(true);
+    });
+
+    it('servidores e cargos individuais por servidor', async () => {
+      if (!repos.servers) return;
+      await repos.servers.create(
+        {
+          id: 'srv-repo',
+          name: 'Repo Test',
+          description: '',
+          accentColor: '#5b6cff',
+          visibility: 'invite',
+          ownerEmail: 'owner@x.com',
+          planTier: 'starter',
+          maxMembers: null,
+          maxPendingInvites: null,
+          createdAt: 1,
+        },
+        'owner@x.com',
+      );
+      await repos.servers.addMember('srv-repo', 'u@x.com', 'member', 2);
+      expect(
+        await repos.servers.getMemberRoles?.('srv-repo', 'u@x.com'),
+      ).toEqual({ tier: 'member', secondaryTiers: [] });
+      await repos.servers.setMemberRoles?.('srv-repo', 'u@x.com', {
+        tier: 'tester',
+        secondaryTiers: ['developer'],
+      });
+      expect(
+        await repos.servers.getMemberRoles?.('srv-repo', 'u@x.com'),
+      ).toEqual({ tier: 'tester', secondaryTiers: ['developer'] });
+      expect(
+        await repos.servers.getMemberRoles?.('srv-repo', 'missing@x.com'),
+      ).toBeUndefined();
+      expect(
+        await repos.servers.update?.('srv-repo', {
+          name: 'Repo 2',
+          description: 'Desc',
+          accentColor: '#123456',
+        }),
+      ).toMatchObject({
+        id: 'srv-repo',
+        name: 'Repo 2',
+        description: 'Desc',
+        accentColor: '#123456',
+      });
+      expect(await repos.servers.update?.('srv-repo', {})).toMatchObject({
+        name: 'Repo 2',
+      });
+      expect(
+        await repos.servers.update?.('missing', { name: 'X' }),
+      ).toBeUndefined();
+      expect(await repos.servers.get('srv-repo')).toMatchObject({
+        name: 'Repo 2',
+      });
     });
   });
 });

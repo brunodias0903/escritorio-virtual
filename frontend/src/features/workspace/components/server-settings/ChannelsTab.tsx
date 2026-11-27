@@ -448,7 +448,7 @@ export function ChannelsTab({
               </YStack>
             </XStack>
 
-            <Separator borderColor="$borderSubtle" />
+            <Separator flex={0} width="100%" borderColor="$borderSubtle" />
 
             <YStack gap="$2">
               <XStack
@@ -777,7 +777,11 @@ export function ChannelsTab({
                   paddingBottom="$4"
                 >
                   <YStack gap="$3.5">
-                    <Separator borderColor="$borderSubtle" />
+                    <Separator
+                      flex={0}
+                      width="100%"
+                      borderColor="$borderSubtle"
+                    />
 
                     <TextField
                       id={`channel-topic-${ch.id}`}
@@ -1115,7 +1119,11 @@ export function ChannelsTab({
                       </YStack>
                     ) : null}
 
-                    <Separator borderColor="$borderSubtle" />
+                    <Separator
+                      flex={0}
+                      width="100%"
+                      borderColor="$borderSubtle"
+                    />
 
                     <XStack
                       alignItems="center"

@@ -105,7 +105,7 @@ export function SettingSwitchRow({
               fontFamily="$body"
               fontSize="$2"
               color="$textMuted"
-              lineHeight={16}
+              lineHeight="16px"
             >
               {description}
             </Text>

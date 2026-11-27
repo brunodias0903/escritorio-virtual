@@ -84,7 +84,7 @@ export function StatusBadge({
         fontSize="$2"
         fontWeight="600"
         color={palette.text}
-        lineHeight={14}
+        lineHeight="14px"
       >
         {children}
       </Text>

@@ -6,6 +6,7 @@ import type {
 } from '../../../modules/workspace/workspace.repository.js';
 import {
   DEFAULT_SERVER_SETTINGS,
+  type AccountTier,
   type FeedbackComment,
   type FeedbackItem,
   type FeedbackStatus,
@@ -111,6 +112,10 @@ export class MemoryServerRepository implements ServerRepository {
   ]);
 
   private readonly members = new Map<string, Map<string, ServerMemberRole>>();
+  private readonly memberRoles = new Map<
+    string,
+    Map<string, { tier: AccountTier; secondaryTiers: AccountTier[] }>
+  >();
 
   async listForUser(email: string): Promise<WorkspaceServer[]> {
     const normalized = email.trim().toLowerCase();
@@ -166,10 +171,50 @@ export class MemoryServerRepository implements ServerRepository {
     email: string,
     role: ServerMemberRole,
   ): Promise<void> {
+    const normalized = email.trim().toLowerCase();
     const map =
       this.members.get(serverId) ?? new Map<string, ServerMemberRole>();
-    map.set(email.trim().toLowerCase(), role);
+    map.set(normalized, role);
     this.members.set(serverId, map);
+
+    const roleMap =
+      this.memberRoles.get(serverId) ??
+      new Map<string, { tier: AccountTier; secondaryTiers: AccountTier[] }>();
+    if (!roleMap.has(normalized)) {
+      roleMap.set(normalized, {
+        tier: role === 'owner' ? 'admin' : 'member',
+        secondaryTiers: [],
+      });
+      this.memberRoles.set(serverId, roleMap);
+    }
+  }
+
+  async getMemberRoles(
+    serverId: string,
+    email: string,
+  ): Promise<{ tier: AccountTier; secondaryTiers: AccountTier[] } | undefined> {
+    const found = this.memberRoles
+      .get(serverId)
+      ?.get(email.trim().toLowerCase());
+    return found
+      ? { tier: found.tier, secondaryTiers: [...found.secondaryTiers] }
+      : undefined;
+  }
+
+  async setMemberRoles(
+    serverId: string,
+    email: string,
+    roles: { tier: AccountTier; secondaryTiers: AccountTier[] },
+  ): Promise<void> {
+    const normalized = email.trim().toLowerCase();
+    const roleMap =
+      this.memberRoles.get(serverId) ??
+      new Map<string, { tier: AccountTier; secondaryTiers: AccountTier[] }>();
+    roleMap.set(normalized, {
+      tier: roles.tier,
+      secondaryTiers: [...roles.secondaryTiers],
+    });
+    this.memberRoles.set(serverId, roleMap);
   }
 
   async isMember(serverId: string, email: string): Promise<boolean> {

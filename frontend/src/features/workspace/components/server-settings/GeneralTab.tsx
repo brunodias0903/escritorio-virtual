@@ -226,7 +226,7 @@ export function GeneralTab({
           onCheckedChange={setAllowPublicRegistration}
         />
 
-        <Separator borderColor="$borderSubtle" />
+        <Separator flex={0} width="100%" borderColor="$borderSubtle" />
 
         <XStack justifyContent="flex-end" gap="$2.5">
           <ActionButton type="button" variant="secondary" onPress={onClose}>

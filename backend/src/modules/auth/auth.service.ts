@@ -224,7 +224,7 @@ export class AuthService {
       role: input.role,
       passwordHash: await hashPassword(input.password),
       createdAt: this.now(),
-      tier: isMaster ? 'master' : isAdmin ? 'admin' : 'tester',
+      tier: isMaster ? 'master' : isAdmin ? 'admin' : 'member',
       emailVerified: Boolean(codes),
       emailMarketingOptIn: Boolean(input.emailMarketingOptIn),
       uiTheme: null,

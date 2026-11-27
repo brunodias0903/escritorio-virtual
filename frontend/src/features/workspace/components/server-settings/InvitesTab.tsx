@@ -250,7 +250,7 @@ export function InvitesTab({
 
         {invitedEmails.length > 0 ? (
           <>
-            <Separator borderColor="$borderSubtle" />
+            <Separator flex={0} width="100%" borderColor="$borderSubtle" />
             <YStack gap="$1.5">
               {invitedEmails.map((entry) => (
                 <XStack
