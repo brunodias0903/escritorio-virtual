@@ -264,9 +264,16 @@ export class OfficeService {
     );
   }
 
-  /** Todo mundo online, de qualquer sala e instância. */
-  everyone(): Player[] {
-    return [...this.remote.values(), ...this.players.values()];
+  /** Todo mundo online, de qualquer sala e instância (ou filtrado por servidor). */
+  everyone(serverId?: string): Player[] {
+    if (!serverId) {
+      return [...this.remote.values(), ...this.players.values()];
+    }
+    const locals = [...this.players.values()].filter(
+      (p) => this.serverIdOf(p.id) === serverId,
+    );
+    const remotes = serverId === 'default' ? [...this.remote.values()] : [];
+    return [...remotes, ...locals];
   }
 
   /** Quantas pessoas (de qualquer instância) estão agora numa zona. */

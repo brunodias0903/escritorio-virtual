@@ -8,8 +8,10 @@ import {
   defaultAppearance,
   effectiveTiersOf,
   isUnavailableStatus,
+  normalizeEmail,
   sortPeople,
   type AccountTier,
+  type ChannelInfo,
   type ClientMessage,
   type DeskInfo,
   type Person,
@@ -157,11 +159,81 @@ export class Connection {
     await cluster.playerLeft(id);
   }
 
+  /** Verifica se o e-mail pertence ao servidor atual e não está banido. */
+  private async isServerMember(email: string): Promise<boolean> {
+    const account = await this.deps.accounts.byEmail(email);
+    if (account?.bannedAt) return false;
+    if (this.serverId === 'default' || !this.deps.servers) return true;
+    return this.deps.servers.isMember(this.serverId, email);
+  }
+
+  /** Canais visíveis no servidor atual, ocultando DMs com quem não pertence ao servidor. */
+  private async visibleChannels(
+    claims: SessionClaims,
+    tiers: readonly AccountTier[],
+  ): Promise<ChannelInfo[]> {
+    const channels = await this.deps.chat.channelsFor(
+      claims.email,
+      tiers,
+      this.serverId,
+    );
+    const filtered = await Promise.all(
+      channels.map(async (channel) => {
+        if (channel.kind !== 'dm') return channel;
+        const other = channel.members.find((m) => m.email !== claims.email);
+        if (!other) return null;
+        return (await this.isServerMember(other.email)) ? channel : null;
+      }),
+    );
+    return filtered.filter((c): c is ChannelInfo => c !== null);
+  }
+
+  /** Pessoas elegíveis para conversa direta no servidor atual. */
+  private async directoryPeople(): Promise<{ email: string; name: string }[]> {
+    const accounts = await this.deps.accounts.all();
+    const banned = new Set(
+      accounts.filter((a) => a.bannedAt).map((a) => a.email),
+    );
+    const byEmail = new Map<string, string>();
+    const profiles = await this.deps.chat.directory(
+      this.serverId === 'default' ? 200 : 1000,
+    );
+    for (const profile of profiles) {
+      if (!banned.has(profile.email)) {
+        byEmail.set(profile.email, profile.name);
+      }
+    }
+    for (const account of accounts) {
+      if (account.bannedAt || byEmail.has(account.email)) continue;
+      if (this.serverId === 'default' || !this.deps.servers) {
+        byEmail.set(account.email, account.fullName);
+      } else if (
+        await this.deps.servers.isMember(this.serverId, account.email)
+      ) {
+        byEmail.set(account.email, account.fullName);
+      }
+    }
+    const entries = [...byEmail.entries()];
+    const allowed =
+      this.serverId !== 'default' && this.deps.servers
+        ? (
+            await Promise.all(
+              entries.map(async ([email, name]) =>
+                (await this.deps.servers!.isMember(this.serverId, email))
+                  ? { email, name }
+                  : null,
+              ),
+            )
+          ).filter((p): p is { email: string; name: string } => p !== null)
+        : entries.map(([email, name]) => ({ email, name }));
+    return allowed.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   /** Todas as contas, com o status de quem está online agora. */
   private async people(): Promise<Person[]> {
     const online = new Map(
       this.deps.office
-        .everyone()
+        .everyone(this.serverId)
         .filter((p) => p.email)
         .map((p) => [p.email!, p]),
     );
@@ -330,13 +402,18 @@ export class Connection {
     this.state = 'joined';
 
     const tiers = await this.effectiveTiers(claims);
+    const channels = await this.visibleChannels(claims, tiers);
+    const visibleChannelIds = new Set(channels.map((c) => c.id));
+    const history = (
+      await chat.history(claims.email, tiers, this.serverId)
+    ).filter((msg) => visibleChannelIds.has(msg.channel));
     this.deps.send({
       type: 'channels',
-      channels: await chat.channelsFor(claims.email, tiers, this.serverId),
+      channels,
     });
     this.deps.send({
       type: 'history',
-      messages: await chat.history(claims.email, tiers, this.serverId),
+      messages: history,
     });
     this.deps.send({
       type: 'desks',
@@ -435,7 +512,7 @@ export class Connection {
           const onlineEmails = [
             ...new Set(
               office
-                .everyone()
+                .everyone(this.serverId)
                 .map((p) => p.email)
                 .filter((e): e is string => Boolean(e)),
             ),
@@ -571,7 +648,7 @@ export class Connection {
         const tiers = await this.effectiveTiers(claims);
         return send({
           type: 'channels',
-          channels: await chat.channelsFor(claims.email, tiers, this.serverId),
+          channels: await this.visibleChannels(claims, tiers),
         });
       }
 
@@ -598,9 +675,25 @@ export class Connection {
       }
 
       case 'openDm': {
+        const targetEmail = normalizeEmail(message.email);
+        if (targetEmail !== claims.email) {
+          if (!(await this.isServerMember(targetEmail))) {
+            return send({ type: 'chatError', code: 'forbidden' });
+          }
+          if (!(await profiles.get(targetEmail))) {
+            const targetAccount = await this.deps.accounts.byEmail(targetEmail);
+            if (targetAccount && !targetAccount.bannedAt) {
+              await profiles.touch(
+                targetAccount.email,
+                targetAccount.fullName,
+                this.now(),
+              );
+            }
+          }
+        }
         const result = await chat.openDirect(
           claims.email,
-          message.email,
+          targetEmail,
           this.serverId,
         );
         if (!result.ok) return send({ type: 'chatError', code: result.error });
@@ -668,11 +761,10 @@ export class Connection {
         return send({ type: 'people', people: await this.people() });
 
       case 'directory': {
-        const people = (await chat.directory()).map(({ email, name }) => ({
-          email,
-          name,
-        }));
-        return send({ type: 'directory', people });
+        return send({
+          type: 'directory',
+          people: await this.directoryPeople(),
+        });
       }
 
       case 'media': {
@@ -714,7 +806,7 @@ export class Connection {
     const onlineEmails = [
       ...new Set(
         this.deps.office
-          .everyone()
+          .everyone(this.serverId)
           .map((p) => p.email)
           .filter((e): e is string => Boolean(e)),
       ),

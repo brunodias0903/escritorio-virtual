@@ -9,6 +9,7 @@ import {
   MemoryRateLimiter,
   MemoryReadStateRepository,
   MemoryRevocations,
+  MemoryServerRepository,
 } from '../../infra/persistence/memory/index.js';
 import { MemoryBus, MemoryPresence } from '../../infra/redis/index.js';
 import {
@@ -31,16 +32,23 @@ import { Connection, POSITION_SAVE_MS } from './connection.js';
 
 const SECRET = 'segredo-de-teste-com-mais-de-32-caracteres';
 
-const world = (media = new MediaService(null)) => {
+const world = (
+  media = new MediaService(null),
+  options?: { servers?: MemoryServerRepository },
+) => {
   let time = 1_000_000;
   const profiles = new MemoryProfileRepository();
   const office = new OfficeService({ now: () => time });
   const sockets = new Map<string, Client>();
 
   const deliver = (sender: string, out: Outgoing) => {
+    const targetServerId = out.serverId ?? office.serverIdOf(sender);
     for (const [id, client] of sockets) {
       if (out.to === 'self' && id !== sender) continue;
       if (out.to === 'others' && id === sender) continue;
+      if (out.to !== 'self' && office.serverIdOf(id) !== targetServerId) {
+        continue;
+      }
       if (out.map && office.players.get(id)?.map !== out.map) continue;
       if (out.emails) {
         const email = office.emailOf(id);
@@ -106,6 +114,7 @@ const world = (media = new MediaService(null)) => {
       media,
       profiles,
       accounts,
+      ...(options?.servers ? { servers: options.servers } : {}),
       now: () => time,
       send: (message) => client.inbox.push(message),
       close: (code, reason) => (client.closed = { code, reason }),
@@ -136,9 +145,18 @@ const world = (media = new MediaService(null)) => {
       time,
     );
 
-  const login = async (id: string, email: string, name: string) => {
+  const login = async (
+    id: string,
+    email: string,
+    name: string,
+    serverId?: string,
+  ) => {
     const client = connect(id);
-    await client.send({ type: 'join', token: sessionFor(email, name) });
+    await client.send({
+      type: 'join',
+      token: sessionFor(email, name),
+      ...(serverId ? { serverId } : {}),
+    });
     return client;
   };
 
@@ -420,6 +438,86 @@ describe('chat', () => {
     ]);
     await ana.send({ type: 'openDm', email: 'fantasma@x.com' });
     expect(ana.ofType('chatError').at(-1)?.code).toBe('not_found');
+  });
+
+  it('isola diretório e conversas diretas apenas aos membros do servidor atual', async () => {
+    const servers = new MemoryServerRepository();
+    await servers.create(
+      {
+        id: 'srv-b',
+        name: 'Servidor B',
+        description: '',
+        accentColor: '#5b6cff',
+        visibility: 'invite',
+        ownerEmail: 'ana@empresa.com',
+        planTier: 'starter',
+        maxMembers: null,
+        maxPendingInvites: null,
+        createdAt: 1,
+      },
+      'ana@empresa.com',
+    );
+    await servers.addMember('srv-b', 'bia@empresa.com', 'member');
+    await servers.addMember('srv-b', 'duda@empresa.com', 'member');
+
+    const w = world(new MediaService(null), { servers });
+    // Duda já tem conta e é membro do srv-b, mas ainda não conectou via socket.
+    await w.accounts.create({
+      nickname: 'duda',
+      fullName: 'Duda Membro',
+      email: 'duda@empresa.com',
+      role: 'QA',
+      passwordHash: 'x',
+      createdAt: 1,
+    });
+    // Caio está apenas no servidor padrão (não é membro de srv-b).
+    await w.login('c', 'caio@empresa.com', 'Caio Fora', 'default');
+    // Bia está online no srv-b e Ana também.
+    const bia = await w.login('b', 'bia@empresa.com', 'Bia Dentro', 'srv-b');
+    const ana = await w.login('a', 'ana@empresa.com', 'Ana Dona', 'srv-b');
+
+    // Diretório no srv-b lista somente membros do srv-b (não inclui Caio).
+    await ana.send({ type: 'directory' });
+    expect(ana.ofType('directory')[0]?.people).toEqual([
+      { email: 'ana@empresa.com', name: 'Ana Dona' },
+      { email: 'bia@empresa.com', name: 'Bia Dentro' },
+      { email: 'duda@empresa.com', name: 'Duda Membro' },
+    ]);
+
+    // Tentar abrir DM com usuário fora do srv-b retorna forbidden.
+    await ana.send({ type: 'openDm', email: 'caio@empresa.com' });
+    expect(ana.ofType('chatError').at(-1)?.code).toBe('forbidden');
+
+    // Abrir DM com membro do srv-b (mesmo offline/sem perfil prévio) funciona.
+    await ana.send({ type: 'openDm', email: 'duda@empresa.com' });
+    expect(ana.ofType('channelOpened').at(-1)?.channel).toMatchObject({
+      id: dmChannelId('ana@empresa.com', 'duda@empresa.com', 'srv-b'),
+      kind: 'dm',
+    });
+
+    // Abrir DM com Bia no srv-b não vaza para o servidor default nem lista DMs de fora.
+    await ana.send({ type: 'openDm', email: 'bia@empresa.com' });
+    expect(bia.ofType('channelsChanged')).toHaveLength(1);
+    await bia.send({ type: 'channels' });
+    const biaDms = bia
+      .ofType('channels')
+      .at(-1)!
+      .channels.filter((c) => c.kind === 'dm');
+    expect(biaDms.map((c) => c.id)).toEqual([
+      dmChannelId('ana@empresa.com', 'bia@empresa.com', 'srv-b'),
+    ]);
+
+    // Mesmo se existir uma DM prévia gravada no srv-b com quem não é membro, ela é ocultada.
+    await w.chat.openDirect('ana@empresa.com', 'caio@empresa.com', 'srv-b');
+    await ana.send({ type: 'channels' });
+    const anaDmIds = ana
+      .ofType('channels')
+      .at(-1)!
+      .channels.filter((c) => c.kind === 'dm')
+      .map((c) => c.id);
+    expect(anaDmIds).not.toContain(
+      dmChannelId('ana@empresa.com', 'caio@empresa.com', 'srv-b'),
+    );
   });
 });
 

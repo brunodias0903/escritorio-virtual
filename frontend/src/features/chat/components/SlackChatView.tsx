@@ -130,6 +130,14 @@ export function SlackChatView({
     if (node) node.scrollTop = node.scrollHeight;
   }, [activeId, lastMessageId, thread?.messages.length]);
 
+  const [prevChannelsLen, setPrevChannelsLen] = useState(channels.length);
+  if (channels.length !== prevChannelsLen) {
+    setPrevChannelsLen(channels.length);
+    if (channels.length === 0 && mode !== 'none') {
+      setMode('none');
+    }
+  }
+
   useEffect(() => {
     if (mode === 'none') return;
     const onKeyDown = (event: KeyboardEvent) => {
